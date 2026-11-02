@@ -302,7 +302,9 @@ test.describe("course page", () => {
     await expect(week1Down).toBeFocused();
 
     // Dragging Week 7 by its grip two rows up puts it after Week 3.
+    // The mouse goes by screen position, so the grip is scrolled into view first.
     const grip = row(page, "Week 7", "Folders").locator(".list-grip");
+    await grip.scrollIntoViewIfNeeded();
     const box = await grip.boundingBox();
     const height = (await row(page, "Week 6", "Folders").boundingBox())?.height ?? 0;
     if (box === null || height === 0) throw new Error("no grip to drag");

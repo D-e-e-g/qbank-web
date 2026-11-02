@@ -368,6 +368,12 @@ body,
   text-underline-offset: 2px;
 }
 
+/* A back link and the summary line under it read as one header: the link's 44px tap height is the
+   only space between them, not the screen's section gap as well. */
+.text-action + .note {
+  margin-top: calc(-1 * var(--gap-section));
+}
+
 .tabbar {
   position: absolute;
   left: 0;
