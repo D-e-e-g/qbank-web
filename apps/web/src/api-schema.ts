@@ -8240,7 +8240,7 @@ export interface components {
             folderIds?: string[];
             /** @description Legacy, for clients from before folders: folder names, each meaning the folder of that name already on this page, else the one on no page. The page holds them in week order. */
             weekLabels?: string[];
-            /** @description Its primer link, an http or https address of at most 2,000 characters. Null or empty takes it off; left out, PUT keeps the page's link. */
+            /** @description Its primer link, an http or https address of at most 2,000 characters. A value with no scheme:// is stored with one added: http:// for a tailnet or local host (a name ending in .ts.net, a single-label host, an IP address, localhost, or any address with a port) and https:// otherwise. Null or empty takes it off; left out, PUT keeps the page's link. */
             linkUrl?: string | null;
             /** @description Its badge. Null takes it off; left out, PUT keeps the page's badge and POST makes a page with none. */
             badge?: components["schemas"]["PageBadge"] | null;
