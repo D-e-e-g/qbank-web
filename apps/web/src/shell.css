@@ -86,7 +86,7 @@ body,
 }
 
 /* A screen that holds things has its + at the title's right edge, level with the title's first line.
-   A course or topic also has a quiet "…" just to the left of that +. */
+   A course, topic or page also has a quiet "…" just to the left of that +; a folder has the "…" alone. */
 .screen-intro-action {
   display: flex;
   align-items: flex-start;

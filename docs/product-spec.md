@@ -217,6 +217,7 @@ A study topic is a course with no semester, for questions that are not one of he
 - The course code goes back to the course. Under the title: "5 folders · 16 practice sets · 217 questions".
 - **Start exam** opens Exam setup with the page's folders ticked and the page named ("Exam 2 · 5 folders ticked for you"); she can still change them. Under it, what the exam would draw ("40 questions from the 217 in these 5 folders, or Wrong questions only."). When a folder on the page has exam twins, one line under that names them ("Exam twins: 14 in Week 5 · exams draw from these first", or "Exam twins: 41 in Week 4, Week 5 and Week 6 · exams draw from these first" when several do). It is absent when none do.
 - **+**, at the right of the title, adds into the page. Its menu, **Add to Exam 2**: **Import a question file here** opens Import with the course picked and this page's folders listed first (Unsorted stays picked until she picks a folder); **New folder on this page** asks for a name and makes the folder on the page in one step; **Add existing folders** opens the exam page editor.
+- **…** (More), just left of +, has **Edit page**, which opens the exam page editor in one step.
 - **Study material:** the page's folders, in her order, as rows that open the folder. **Edit** reorders them as on the course page and shows **Name and folders**, the exam page editor.
 - **Past exams:** every finished exam whose folders are all on this page, with its score, including ones taken before the page existed. The admin's read-only view says **Her past exams**. **Edit** puts **Delete** on each (see [Delete and Undo](#delete-and-undo)).
 - An empty page says so, with **Add folders**.
@@ -226,7 +227,7 @@ A study topic is a course with no semester, for questions that are not one of he
 ### Folder
 
 - Goes back to its exam page, or to the course. Under the title: "On Exam 2 · 3 sets · 36 of 45 fully right".
-- **Rename:** only the name changes; its sets, their progress, its exam page, and her past exams stay with it. A name another folder of the same list has is refused.
+- **Rename**, in the **…** (More) at the right of the title: only the name changes; its sets, their progress, its exam page, and her past exams stay with it. A name another folder of the same list has is refused.
 - **Page:** a sheet to put the folder on a page, on none, or on a new one ("New page", named "Page 2").
 - **Import here:** opens Import with this course and folder picked.
 - **Delete:** deletes the folder and every set in it, after a warning that names them (see [Delete and Undo](#delete-and-undo)).
@@ -331,7 +332,7 @@ He signs in the same way, with his own login, and lands on the Home of the user 
 - **Import:** the same Import screen as hers, with New course, New topic, the replace warning, and Cancel. Files go into that account's courses and topics.
 - **Restore:** the Restore button on a replaced set works for him too, with the same confirmation.
 - **Admin > Semesters and courses:** add a semester; add, rename, move between semesters, archive, and unarchive a course; archive a semester; and a **Study topics** card to rename, reorder, archive, unarchive, and add a topic. Her own Settings keeps only the semesters, since she adds and arranges from Home.
-- **Her folders, exam pages, and study pages, read-only:** he sees her course or topic page, its pages, and its folders as she does, with "Her past exams" and without +, Edit, Rename, Page, Import here, Select, Delete, or Start exam. She arranges her folders herself; the API lets him fix one when she asks. He sees her Recently deleted read-only, without Undo.
+- **Her folders, exam pages, and study pages, read-only:** he sees her course or topic page, its pages, and its folders as she does, with "Her past exams" and without +, More, Edit, Rename, Page, Import here, Select, Delete, or Start exam. She arranges her folders herself; the API lets him fix one when she asks. He sees her Recently deleted read-only, without Undo.
 - **Admin > User account:** the picker of the user account he is looking at. The heading on the screen is User account. When there is more than one user account, the picker chooses whose progress he sees read-only; the read-only banner then names her email. The temporary password and Repair act on the picked account too. Until he picks, it is the oldest user account.
 - **Admin > Her account:** reset her password by setting a temporary password he gives her; she chooses her own at her next sign-in. There is no reset email.
 - **Admin > Sign-up list:** add or remove the emails that may sign up, each with "Has an account" or "not signed up yet". Removing an email does not remove an account made with it.

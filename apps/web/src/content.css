@@ -547,7 +547,7 @@ label.list-row:active {
   color: var(--tint);
 }
 
-/* Pill buttons under a title: Edit page, Rename, and a folder's own actions. */
+/* Pill buttons under a folder's title: its page, Import here, and Delete. */
 .folder-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1632,7 +1632,7 @@ button.review-row:disabled {
   background: var(--surface-pressed);
 }
 
-/* A menu over the screen: Home's and a page's +, a card's "…", and More on a course or topic. The layer catches a tap outside. */
+/* A menu over the screen: Home's and a page's +, a card's "…", and More on a course, topic, page or folder. The layer catches a tap outside. */
 .menu-layer {
   position: fixed;
   inset: 0;

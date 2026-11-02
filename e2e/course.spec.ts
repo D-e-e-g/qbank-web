@@ -168,7 +168,12 @@ test.describe("course page", () => {
     const course = await sevenWeekCourse(page);
     await page.goto(`/course/${course.id}/folder/${course.folders["Week 3"] ?? ""}`);
 
-    await page.getByRole("button", { name: "Rename" }).click();
+    // Rename is in More at the title, not a pill under it.
+    await expect(page.getByRole("button", { name: "Rename", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "More for Week 3" }).click();
+    const folderMenu = page.getByRole("menu", { name: "Week 3" });
+    await expect(folderMenu.getByRole("menuitem")).toHaveText(["Rename"]);
+    await folderMenu.getByRole("menuitem", { name: "Rename" }).click();
     const rename = sheet(page, "Rename folder");
     await expect(rename.getByRole("textbox", { name: "Folder name" })).toHaveValue("Week 3");
     await expect(rename.getByRole("textbox", { name: "Folder name" })).toBeFocused();
@@ -516,6 +521,7 @@ test.describe("pages", () => {
     await expect(admin.getByRole("link", { name: "Start exam" })).toHaveCount(0);
     await expect(admin.getByRole("button", { name: "Edit the page" })).toHaveCount(0);
     await expect(admin.getByRole("button", { name: "Edit page", exact: true })).toHaveCount(0);
+    await expect(admin.getByRole("button", { name: "More for Exam 1" })).toHaveCount(0);
     await expect(admin.getByRole("button", { name: "Add to Exam 1" })).toHaveCount(0);
     await expect(admin.getByRole("heading", { name: "Her past exams" })).toBeVisible();
 
@@ -523,7 +529,7 @@ test.describe("pages", () => {
     await expect(admin.getByText("On Exam 1 · 2 sets · 3 of 5 answered")).toBeVisible();
     await expect(admin.getByText("Week 3 - Set 2: Antipsychotics")).toBeVisible();
     await expect(admin.getByRole("link", { name: /^Week 3 - Set/ })).toHaveCount(0);
-    for (const action of ["Rename", "Select sets", "Page: Exam 1"]) await expect(admin.getByRole("button", { name: action })).toHaveCount(0);
+    for (const action of ["More for Week 3", "Rename", "Select sets", "Page: Exam 1"]) await expect(admin.getByRole("button", { name: action })).toHaveCount(0);
     await expect(admin.getByRole("link", { name: "Import here" })).toHaveCount(0);
     await admin.context().close();
   });

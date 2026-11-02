@@ -104,14 +104,17 @@ test.describe("renaming from the screen", () => {
     expect(made.status()).toBe(201);
     const examPage = (await made.json()) as { id: string };
 
-    // The page's name is one step from the page: Edit page, not Study material's Edit.
+    // The page's name is in More, beside +, not a pill under the title or Study material's Edit.
     await page.goto(`/course/${course.courseId}/exam-page/${examPage.id}`);
     await expect(page.getByRole("heading", { level: 1, name: "Testing, Got & Tooling" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Edit page", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Edit page", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Name and folders" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Edit the page" })).toBeVisible();
     const beforePage = await held(page, course.courseId);
-    await page.getByRole("button", { name: "Edit page", exact: true }).click();
+    await page.getByRole("button", { name: "More for Testing, Got & Tooling" }).click();
+    const pageMenu = page.getByRole("menu", { name: "Testing, Got & Tooling" });
+    await expect(pageMenu.getByRole("menuitem")).toHaveText(["Edit page"]);
+    await pageMenu.getByRole("menuitem", { name: "Edit page" }).click();
     const editor = sheet(page, "Edit page");
     await expect(editor.getByText("Page name", { exact: true })).toBeVisible();
     await expect(editor.getByRole("textbox", { name: "Page name" })).toHaveValue("Testing, Got & Tooling");
@@ -212,8 +215,9 @@ test.describe("renaming from the screen", () => {
     const afterHidden = await held(page, topicId);
     expect(afterHidden).toEqual({ ...before, exams: [{ ...before.exams[0], name: "Testing, Git & Tooling" }] });
 
-    // Edit page opens that same editor in one step.
-    await page.getByRole("button", { name: "Edit page", exact: true }).click();
+    // More's Edit page opens that same editor in one step.
+    await page.getByRole("button", { name: "More for Testing, Git & Tooling" }).click();
+    await page.getByRole("menu", { name: "Testing, Git & Tooling" }).getByRole("menuitem", { name: "Edit page" }).click();
     const direct = sheet(page, "Edit page");
     await expect(direct.getByRole("textbox", { name: "Page name" })).toHaveValue("Testing, Git & Tooling");
     await expect(direct.getByRole("textbox", { name: "Primer link" })).toHaveValue("https://notes.example.com/git");

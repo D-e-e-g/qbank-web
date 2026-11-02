@@ -7,7 +7,7 @@ import { ExamPageEditor } from "../components/ExamPageEditor";
 import { NewFolderSheet } from "../components/FolderSheets";
 import { FolderRows } from "../components/FolderRows";
 import { Icon } from "../components/Icon";
-import { AddMenu, Menu, type MenuAnchor } from "../components/Menu";
+import { AddMenu, MoreMenu } from "../components/Menu";
 import { NavRow, RowBody } from "../components/NavRow";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { recentlyDeleted, useCourseVersion } from "../course/deletion";
@@ -58,11 +58,18 @@ export function CourseScreen({ courseId }: { courseId: string }) {
   const header =
     course && !readOnly ? (
       <div className="screen-actions">
-        <CourseMore
+        <MoreMenu
           name={courseName(course)}
-          onRename={() => {
-            setRenaming(true);
-          }}
+          items={[
+            {
+              key: "rename",
+              label: "Rename",
+              icon: "pencil",
+              onSelect: () => {
+                setRenaming(true);
+              },
+            },
+          ]}
         />
         <AddMenu
           label={`Add to ${courseName(course)}`}
@@ -255,38 +262,6 @@ export function CourseScreen({ courseId }: { courseId: string }) {
         />
       ) : null}
     </Screen>
-  );
-}
-
-/** The "…" beside + on a course or topic. Rename opens the same sheet Home's card menu uses. */
-function CourseMore({ name, onRename }: { name: string; onRename: () => void }) {
-  const [anchor, setAnchor] = useState<MenuAnchor | null>(null);
-  const close = useCallback(() => {
-    setAnchor(null);
-  }, []);
-  return (
-    <>
-      <button
-        type="button"
-        className="card-more"
-        aria-label={`More for ${name}`}
-        aria-haspopup="menu"
-        aria-expanded={anchor !== null}
-        onClick={(event) => {
-          setAnchor(anchor === null ? { element: event.currentTarget } : null);
-        }}
-      >
-        <Icon name="ellipsis" size={20} strokeWidth={2} />
-      </button>
-      {anchor === null ? null : (
-        <Menu
-          label={name}
-          anchor={anchor}
-          items={[{ key: "rename", label: "Rename", icon: "pencil", onSelect: onRename }]}
-          onClose={close}
-        />
-      )}
-    </>
   );
 }
 
