@@ -138,11 +138,11 @@ test.describe("study topics", () => {
     await editor.getByRole("group", { name: "Folders on this page" }).getByRole("button", { name: /^Unsorted/ }).click();
     await expect(editor.getByText("1 folder · 3 questions")).toBeVisible();
 
-    // The primer is a link: the server takes a web address and nothing else.
-    await editor.getByRole("textbox", { name: "Primer link" }).fill("notes.example.com/stage-1");
+    // The primer is a link: the server takes a web address and nothing else, and adds the https:// she left off.
+    await editor.getByRole("textbox", { name: "Primer link" }).fill("ftp://notes.example.com/stage-1");
     await editor.getByRole("button", { name: "Done" }).click();
-    await expect(editor.getByRole("alert")).toHaveText("A link has to be a web address, such as https://example.com/primer.");
-    await editor.getByRole("textbox", { name: "Primer link" }).fill("https://notes.example.com/stage-1");
+    await expect(editor.getByRole("alert")).toHaveText("A link has to start with https:// or http://.");
+    await editor.getByRole("textbox", { name: "Primer link" }).fill("notes.example.com/stage-1");
     await editor.getByRole("button", { name: "Done" }).click();
 
     // Done opens the page: its primer, Start exam, its folders, and no past exam yet.
