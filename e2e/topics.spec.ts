@@ -332,6 +332,7 @@ test.describe("study topics", () => {
     await admin.getByRole("list", { name: "Pages" }).getByRole("link", { name: /^Page 1/ }).click();
     await expect(admin.getByRole("link", { name: "Start exam" })).toHaveCount(0);
     await expect(admin.getByRole("button", { name: "Edit page", exact: true })).toHaveCount(0);
+    await expect(admin.getByRole("button", { name: "More for Page 1" })).toHaveCount(0);
     await expect(admin.getByRole("heading", { name: "Her past exams" })).toBeVisible();
     await admin.context().close();
   });

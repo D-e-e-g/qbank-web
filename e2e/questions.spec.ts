@@ -183,6 +183,7 @@ test.describe("admin import", () => {
     await expect(page.getByRole("list", { name: "Folders", exact: true }).getByRole("link")).toHaveText([/^Week 1/]);
     await page.getByRole("link", { name: /^Week 1 / }).click();
     await expect(page.getByText(title)).toBeVisible();
+    await expect(page.getByRole("button", { name: "More for Week 1" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Rename" })).toHaveCount(0);
   });
 });

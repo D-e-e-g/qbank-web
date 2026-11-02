@@ -8,7 +8,7 @@ import { ExamPageEditor } from "../components/ExamPageEditor";
 import { NewFolderSheet } from "../components/FolderSheets";
 import { FolderRows } from "../components/FolderRows";
 import { Icon } from "../components/Icon";
-import { AddMenu } from "../components/Menu";
+import { AddMenu, MoreMenu } from "../components/Menu";
 import { RowBody } from "../components/NavRow";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { pageFolders } from "../course/folders";
@@ -23,12 +23,12 @@ import { ShellLink } from "../shell/ShellLink";
 
 /**
  * One exam page: Start exam over its folders, its folders in her order, and the exams she took over
- * them. Edit page, under the title, opens its name, badge and folders directly. Study material's
- * Edit still reorders those folders, and Name and folders stays inside that mode. Its + adds into
- * it: a question file (Import with this page's folders first), a new folder on the page, or folders
- * the course already has. A topic's study page is the same screen, with its primer link when it has
- * one. Its editor ends with Delete: the page goes to Recently deleted, and its folders stay in the
- * course, with their sets, at the end of its Folders list.
+ * them. More, the "…" beside +, has Edit page, which opens its name, badge and folders directly.
+ * Study material's Edit still reorders those folders, and Name and folders stays inside that mode.
+ * Its + adds into it: a question file (Import with this page's folders first), a new folder on the
+ * page, or folders the course already has. A topic's study page is the same screen, with its primer
+ * link when it has one. Its editor ends with Delete: the page goes to Recently deleted, and its
+ * folders stay in the course, with their sets, at the end of its Folders list.
  */
 export function ExamPageScreen({ courseId, examPageId }: { courseId: string; examPageId: string }) {
   const session = useSession();
@@ -64,42 +64,57 @@ export function ExamPageScreen({ courseId, examPageId }: { courseId: string; exa
   const edit = ordering && canEdit;
   const order = useFolderOrder({ course, examPageId, folders, replace, reload });
 
-  const add =
+  const header =
     course && page && !readOnly ? (
-      <AddMenu
-        label={`Add to ${page.name}`}
-        items={[
-          {
-            key: "import",
-            label: "Import a question file here",
-            detail: "A JSON file from your agent",
-            icon: "file-input",
-            onSelect: () => {
-              navigate(importPath(course.id, { examPageId: page.id }));
+      <div className="screen-actions">
+        <MoreMenu
+          name={page.name}
+          items={[
+            {
+              key: "edit",
+              label: "Edit page",
+              icon: "pencil",
+              onSelect: () => {
+                setEditing(true);
+              },
             },
-          },
-          {
-            key: "folder",
-            label: "New folder on this page",
-            icon: "folder",
-            onSelect: () => {
-              setMaking(true);
+          ]}
+        />
+        <AddMenu
+          label={`Add to ${page.name}`}
+          items={[
+            {
+              key: "import",
+              label: "Import a question file here",
+              detail: "A JSON file from your agent",
+              icon: "file-input",
+              onSelect: () => {
+                navigate(importPath(course.id, { examPageId: page.id }));
+              },
             },
-          },
-          {
-            key: "existing",
-            label: "Add existing folders",
-            icon: "plus",
-            onSelect: () => {
-              setEditing(true);
+            {
+              key: "folder",
+              label: "New folder on this page",
+              icon: "folder",
+              onSelect: () => {
+                setMaking(true);
+              },
             },
-          },
-        ]}
-      />
+            {
+              key: "existing",
+              label: "Add existing folders",
+              icon: "plus",
+              onSelect: () => {
+                setEditing(true);
+              },
+            },
+          ]}
+        />
+      </div>
     ) : undefined;
 
   return (
-    <Screen title={page?.name ?? "Page"} action={add}>
+    <Screen title={page?.name ?? "Page"} action={header}>
       {session.user.role === "admin" ? <ReadOnlyBanner /> : null}
       <ShellLink to={`/course/${courseId}`} className="text-action" current={false}>
         {name ?? "Course"}
@@ -118,20 +133,6 @@ export function ExamPageScreen({ courseId, examPageId }: { courseId: string; exa
       ) : (
         <>
           <p className="note">{pageMeta(course, page)}</p>
-          {readOnly ? null : (
-            <div className="folder-actions">
-              <button
-                type="button"
-                className="folder-action"
-                onClick={() => {
-                  setEditing(true);
-                }}
-              >
-                <Icon name="pencil" size={16} strokeWidth={2} />
-                Edit page
-              </button>
-            </div>
-          )}
           {page.linkUrl === null ? null : <PrimerLink url={page.linkUrl} />}
           {readOnly ? null : <StartExam course={course} page={page} setup={setup} />}
           <section className="group">

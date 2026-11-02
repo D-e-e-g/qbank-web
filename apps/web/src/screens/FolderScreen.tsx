@@ -7,6 +7,7 @@ import { EmptyState } from "../components/EmptyState";
 import { DeleteSheet } from "../components/DeleteSheet";
 import { FolderPageSheet, MoveSetsSheet, RenameFolderSheet } from "../components/FolderSheets";
 import { Icon } from "../components/Icon";
+import { MoreMenu } from "../components/Menu";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { examPageOf, folderMeta } from "../course/folders";
 import { courseName } from "../course/pages";
@@ -20,9 +21,10 @@ import { when } from "../when";
 type Sheet = "rename" | "page" | "move" | "delete" | "delete-sets" | null;
 
 /**
- * One folder: Rename, its exam page, Import here, and Delete (with its sets, after a warning naming
- * them); then its sets, which open in practice, and its exam bank. Select puts a check circle on
- * each set, and a bar at the bottom moves the ones she ticks to another folder or deletes them.
+ * One folder: More, the "…" at the title, renames it. Under the title, its exam page, Import here,
+ * and Delete (with its sets, after a warning naming them); then its sets, which open in practice,
+ * and its exam bank. Select puts a check circle on each set, and a bar at the bottom moves the ones
+ * she ticks to another folder or deletes them.
  */
 export function FolderScreen({ courseId, folderId }: { courseId: string; folderId: string }) {
   const session = useSession();
@@ -75,8 +77,27 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
   const picked = sets.filter((set) => selected?.has(set.id) === true);
   const selecting = selected !== null && !readOnly;
 
+  const header =
+    folder && !readOnly ? (
+      <div className="screen-actions">
+        <MoreMenu
+          name={folder.name}
+          items={[
+            {
+              key: "rename",
+              label: "Rename",
+              icon: "pencil",
+              onSelect: () => {
+                setSheet("rename");
+              },
+            },
+          ]}
+        />
+      </div>
+    ) : undefined;
+
   return (
-    <Screen title={folder?.name ?? "Folder"}>
+    <Screen title={folder?.name ?? "Folder"} action={header}>
       {session.user.role === "admin" ? <ReadOnlyBanner /> : null}
       <ShellLink to={back.to} className="text-action" current={false}>
         {back.label}
@@ -99,16 +120,6 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
           </p>
           {readOnly ? null : (
             <div className="folder-actions">
-              <button
-                type="button"
-                className="folder-action"
-                onClick={() => {
-                  setSheet("rename");
-                }}
-              >
-                <Icon name="pencil" size={16} strokeWidth={2} />
-                Rename
-              </button>
               <button
                 type="button"
                 className="folder-action"

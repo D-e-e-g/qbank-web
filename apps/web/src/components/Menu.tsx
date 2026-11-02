@@ -194,3 +194,31 @@ export function AddMenu({ label, items }: { label: string; items: readonly MenuI
     </>
   );
 }
+
+/**
+ * The quiet "…" just left of + on a course, topic or page, or alone at a folder's title: what changes
+ * the screen itself (Rename, Edit page) rather than adding into it.
+ */
+export function MoreMenu({ name, items }: { name: string; items: readonly MenuItem[] }) {
+  const [anchor, setAnchor] = useState<MenuAnchor | null>(null);
+  const close = useCallback(() => {
+    setAnchor(null);
+  }, []);
+  return (
+    <>
+      <button
+        type="button"
+        className="card-more"
+        aria-label={`More for ${name}`}
+        aria-haspopup="menu"
+        aria-expanded={anchor !== null}
+        onClick={(event) => {
+          setAnchor(anchor === null ? { element: event.currentTarget } : null);
+        }}
+      >
+        <Icon name="ellipsis" size={20} strokeWidth={2} />
+      </button>
+      {anchor === null ? null : <Menu label={name} anchor={anchor} items={items} onClose={close} />}
+    </>
+  );
+}
