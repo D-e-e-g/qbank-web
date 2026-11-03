@@ -26,11 +26,17 @@ const COURSE = "8d3c56f1-5f43-4c62-9d0e-7a3b1f2e4c55";
 const unchanged = { before: 0, after: 0 };
 const progress = { answeredCount: unchanged, fullyRightCount: unchanged, reviewCount: unchanged, points: unchanged, maxPoints: unchanged, wrongCount: unchanged };
 
-function set(title: string, message: string): DeletionPreview {
-  const preview: SetDeletion = {
+/** The server's structured warning. Left out, the preview is what an older server sent: `message` alone. */
+interface SentWarning {
+  title: string;
+  body: string;
+}
+
+function set(title: string, message: string, warning?: SentWarning): DeletionPreview {
+  const preview = {
     setId: SET,
     title,
-    kind: "practice",
+    kind: "practice" as const,
     folderId: FOLDER,
     folderName: "Week 4",
     examPageId: null,
@@ -43,12 +49,13 @@ function set(title: string, message: string): DeletionPreview {
     refusal: null,
     confirm: "set-token",
     undoDays: 30,
-  };
+    ...(warning === undefined ? {} : { warning }),
+  } as SetDeletion;
   return { kind: "set", preview };
 }
 
-function folder(name: string, setCount: number, message: string): DeletionPreview {
-  const preview: FolderDeletion = {
+function folder(name: string, setCount: number, message: string, warning?: SentWarning): DeletionPreview {
+  const preview = {
     folderId: FOLDER,
     name,
     examPageId: null,
@@ -64,12 +71,13 @@ function folder(name: string, setCount: number, message: string): DeletionPrevie
     refusal: null,
     confirm: "folder-token",
     undoDays: 30,
-  };
+    ...(warning === undefined ? {} : { warning }),
+  } as FolderDeletion;
   return { kind: "folder", preview };
 }
 
-function exam(message: string): DeletionPreview {
-  const preview: ExamDeletion = {
+function exam(message: string, warning?: SentWarning): DeletionPreview {
+  const preview = {
     examId: EXAM,
     courseId: COURSE,
     startedAt: "2026-10-12T14:00:00Z",
@@ -83,13 +91,14 @@ function exam(message: string): DeletionPreview {
     refusal: null,
     confirm: "exam-token",
     undoDays: 30,
-  };
+    ...(warning === undefined ? {} : { warning }),
+  } as ExamDeletion;
   return { kind: "exam", preview };
 }
 
 /** An exam page with Week 3 and Week 4 on it: the page alone goes, and its folders stay. */
-function examPage(name: string, message: string): DeletionPreview {
-  const preview: ExamPageDeletion = {
+function examPage(name: string, message: string, warning?: SentWarning): DeletionPreview {
+  const preview = {
     examPageId: PAGE,
     courseId: COURSE,
     name,
@@ -108,12 +117,13 @@ function examPage(name: string, message: string): DeletionPreview {
     refusal: null,
     confirm: "page-token",
     undoDays: 30,
-  };
+    ...(warning === undefined ? {} : { warning }),
+  } as ExamPageDeletion;
   return { kind: "examPage", preview };
 }
 
-function course(kind: "course" | "topic", message: string): DeletionPreview {
-  const preview: CourseDeletion = {
+function course(kind: "course" | "topic", message: string, warning?: SentWarning): DeletionPreview {
+  const preview = {
     courseId: COURSE,
     kind,
     code: kind === "topic" ? "" : "NURS 220",
@@ -131,7 +141,8 @@ function course(kind: "course" | "topic", message: string): DeletionPreview {
     refusal: null,
     confirm: "course-token",
     undoDays: 30,
-  };
+    ...(warning === undefined ? {} : { warning }),
+  } as CourseDeletion;
   return { kind: "course", preview };
 }
 
@@ -156,7 +167,8 @@ afterEach(() => {
 });
 
 describe("warningParts", () => {
-  it("makes the server's question the title and keeps the rest word for word", () => {
+  // These previews omit `warning`: that is the older server, and message is split.
+  it("splits message when warning is absent, and keeps the rest word for word", () => {
     const warning = folder("Week 4", 2, "Delete Week 4? Its 2 sets go with it: Anxiety A and Anxiety B, 5 questions in all. You can undo this for 30 days.");
     expect(warningParts(warning)).toEqual({
       title: "Delete Week 4?",
@@ -193,6 +205,37 @@ describe("warningParts", () => {
       title: "Delete Exam 2?",
       message: "Its 2 folders stay, with their sets and your progress, under Folders: Week 3 and Week 4. Your 1 past exam over it stays. You can undo this for 30 days.",
     });
+  });
+
+  it("reads warning.title and warning.body, and does not split message or use the set or course name", () => {
+    expect(
+      warningParts(
+        set("Why? Because", "Delete Why? Because? Its 3 questions go with it. You can undo this for 30 days.", {
+          title: "Delete Why? Because?",
+          body: "The server wrote this, not a split of the sentence.",
+        }),
+      ),
+    ).toEqual({ title: "Delete Why? Because?", message: "The server wrote this, not a split of the sentence." });
+    expect(
+      warningParts(folder("Week 4", 2, "Delete Week 4? Its 2 sets go with it.", { title: "Delete Week 4?", body: "Both sets go." })),
+    ).toEqual({ title: "Delete Week 4?", message: "Both sets go." });
+    expect(
+      warningParts(exam("Delete this exam? Your progress stays as it is.", { title: "Delete this exam?", body: "Nothing else changes." })),
+    ).toEqual({ title: "Delete this exam?", message: "Nothing else changes." });
+    expect(
+      warningParts(examPage("Exam 2", "Delete Exam 2? Its folders stay.", { title: "Delete Exam 2?", body: "Its folders stay in the course." })),
+    ).toEqual({ title: "Delete Exam 2?", message: "Its folders stay in the course." });
+    expect(
+      warningParts(
+        course("course", "Delete NURS 220 and its 146 questions? You can bring it back for 30 days.", {
+          title: "Delete NURS 220 and its 146 questions?",
+          body: "You can bring the course back for 30 days.",
+        }),
+      ),
+    ).toEqual({ title: "Delete NURS 220 and its 146 questions?", message: "You can bring the course back for 30 days." });
+    expect(
+      warningParts(course("topic", "Delete Spanish? Sí and its 146 questions? You can bring it back for 30 days.", { title: "Delete this topic?", body: "It can come back." })),
+    ).toEqual({ title: "Delete this topic?", message: "It can come back." });
   });
 });
 

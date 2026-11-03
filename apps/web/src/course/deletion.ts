@@ -78,16 +78,25 @@ export function doomedName(deletion: DeletionPreview): string {
 }
 
 /**
- * The server's warning, split for a sheet: its first sentence, the question ("Delete Week 4?"),
- * is the title, and the rest is the message, word for word. A name may itself hold a "?", so the
- * question is looked for after the name.
+ * The sheet's title and the rest of the warning. The server sends them as `warning.title` and
+ * `warning.body` beside `message`. A set's or course's own `title` names that set or course and
+ * is not this question. When `warning` is absent, as an older server sent only `message`, the
+ * question is the first "?" after the doomed name and the rest is the message, word for word.
  */
 export function warningParts(deletion: DeletionPreview): { title: string; message: string } {
+  const sent = deletion.preview.warning;
+  if (isDeleteWarning(sent)) return { title: sent.title, message: sent.body };
   const text = deletion.preview.message.trim();
   const from = text.indexOf(doomedName(deletion));
   const end = text.indexOf("?", from === -1 ? 0 : from + doomedName(deletion).length);
   if (end === -1) return { title: "Delete?", message: text };
   return { title: text.slice(0, end + 1), message: text.slice(end + 1).trim() };
+}
+
+/** `warning` as the server sends it. Anything else, including a missing field, is the old prose. */
+function isDeleteWarning(value: unknown): value is { title: string; body: string } {
+  if (typeof value !== "object" || value === null || !("title" in value) || !("body" in value)) return false;
+  return typeof value.title === "string" && typeof value.body === "string";
 }
 
 /**
