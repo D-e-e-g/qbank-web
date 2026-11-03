@@ -72,6 +72,7 @@ const setPreview: DeletionPreview = {
       wrongCount: { before: 0, after: 0 },
     },
     message: "Delete Perfusion?",
+    warning: { title: "Delete Perfusion?", body: "" },
     refusal: null,
     confirm: "set-token",
     undoDays: 30,

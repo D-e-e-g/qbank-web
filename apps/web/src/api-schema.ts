@@ -9280,6 +9280,7 @@ export interface components {
             progress: components["schemas"]["StandingChange"];
             /** @description The warning, as a sentence or two to show her: what goes, her answers, and Undo. */
             message: string;
+            warning: components["schemas"]["DeleteWarning"];
             refusal: string | null;
             confirm: string;
             undoDays: number;
@@ -9299,6 +9300,13 @@ export interface components {
             before: number;
             /** @description Once it is deleted. */
             after: number;
+        };
+        /** @description `message` split into its question and the rest, so a client does not parse `message`. `message` stays as it is. */
+        DeleteWarning: {
+            /** @description The question the sheet titles with, such as "Delete Week 1?" or "Delete NURS 220 and its 146 questions?". */
+            title: string;
+            /** @description The rest of the warning: what goes with it, her answers, and Undo, in the same words as `message`. */
+            body: string;
         };
         DeletionError: {
             error: string;
@@ -9328,6 +9336,7 @@ export interface components {
             progress: components["schemas"]["StandingChange"];
             /** @description The warning, as a few sentences to show her: its sets by name, her answers, its page, and Undo. */
             message: string;
+            warning: components["schemas"]["DeleteWarning"];
             refusal: string | null;
             confirm: string;
             undoDays: number;
@@ -9367,6 +9376,7 @@ export interface components {
             progress: components["schemas"]["StandingChange"];
             /** @description The warning, as a few sentences to show her: its folders by name, that they stay, her past exams, and Undo. */
             message: string;
+            warning: components["schemas"]["DeleteWarning"];
             /** @description Set while one of its folders has the name of a folder in the course's Folders list, where it would show: rename one of them first. */
             refusal: string | null;
             confirm: string;
@@ -9398,6 +9408,7 @@ export interface components {
             progress: components["schemas"]["StandingChange"];
             /** @description The warning, as a few sentences to show her: her answers, Review and Wrong questions, and Undo. */
             message: string;
+            warning: components["schemas"]["DeleteWarning"];
             /** @description Set while the exam is still going: it is refused with 409 `exam_in_progress` until she finishes or leaves it. */
             refusal: string | null;
             confirm: string;
@@ -9438,6 +9449,7 @@ export interface components {
             pastExamCount: number;
             /** @description The question to ask her once, such as "Delete NURS 220 and its 146 questions? You can bring it back for 30 days." */
             message: string;
+            warning: components["schemas"]["DeleteWarning"];
             refusal: string | null;
             confirm: string;
             undoDays: number;
