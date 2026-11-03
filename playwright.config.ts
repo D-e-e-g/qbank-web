@@ -8,6 +8,7 @@ const ci = process.env.CI !== undefined;
 // One worker: sign-in tests share the sample student password.
 export default defineConfig({
   testDir: "e2e",
+  globalSetup: "./e2e/warm-browsers.ts",
   forbidOnly: ci,
   workers: 1,
   reporter: ci ? [["list"], ["html", { open: "never" }]] : "list",
