@@ -55,6 +55,21 @@ export type ExamItemResult = ExamResult["items"][number];
 export type ExamView = Schemas["Exam"];
 /** Whether this account may make questions now (Make questions and exam twins), and why not. */
 export type QuestionMakerStatus = Schemas["QuestionMakerStatus"];
+/** A set being made from her material: its step, where it goes, and how it ended. */
+export type QuestionJob = Schemas["QuestionJob"];
+export type QuestionJobStep = QuestionJob["steps"][number];
+export type QuestionLevel = QuestionMakerStatus["defaultLevel"];
+/** What she sends to start a set: her material, the course and folder, and for notes the level and count. */
+export type NewQuestionJob = Schemas["NewQuestionJob"];
+/** The five samples she checks before the rest is written. */
+export type QuestionSamples = Schemas["QuestionSamples"];
+/** A question not in QBank yet, as a sample or a copy draws it. */
+export type DraftQuestion = Schemas["DraftQuestion"];
+/** The questions copied from her photos, for her check. */
+export type QuestionCopies = Schemas["QuestionCopies"];
+export type QuestionCopy = QuestionCopies["questions"][number];
+/** The filed set, its exam twins, and the blind check. */
+export type QuestionResult = Schemas["QuestionResult"];
 /** Exam twins of the folders and pool she picked on Exam setup, written in the background. */
 export type TwinJob = Schemas["QuestionTwinJob"];
 export type TwinJobStep = TwinJob["steps"][number];

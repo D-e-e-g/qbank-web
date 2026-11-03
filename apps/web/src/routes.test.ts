@@ -18,6 +18,15 @@ describe("Connect an agent", () => {
   });
 });
 
+describe("Make questions", () => {
+  it("keeps Import selected, and is not its own item in the navigation", () => {
+    expect(inSection("/import/make", "/import")).toBe(true);
+    expect(inSection("/import/make/6a1f0b8e-2c4d-4e6f-8a0b-1c2d3e4f5a6b", "/import")).toBe(true);
+    expect(inSection("/import/make", "/")).toBe(false);
+    expect(navigationFor("student").map((route) => route.path)).not.toContain("/import/make");
+  });
+});
+
 describe("Home's Recently deleted", () => {
   it("opens from Home at its own address, keeps Home selected, and is not in the navigation", () => {
     expect(matchRoute("/deleted")).toMatchObject({ label: "Recently deleted", width: "reading" });

@@ -14,6 +14,13 @@ export function navigate(to: string): void {
   document.querySelector("main")?.scrollTo(0, 0);
 }
 
+/** Replaces the current address, so Back skips the screen that handed off (a set just started). */
+export function redirect(to: string): void {
+  window.history.replaceState(null, "", normalizePath(to));
+  window.dispatchEvent(new PopStateEvent("popstate"));
+  document.querySelector("main")?.scrollTo(0, 0);
+}
+
 export function usePathname(): string {
   return useSyncExternalStore(subscribePath, pathnameSnapshot, serverPath);
 }
@@ -61,6 +68,41 @@ export interface ImportPreset {
   courseId: string;
   folderId: string | null;
   examPageId: string | null;
+}
+
+/** Make questions, on the Import section. `keep` starts over with the material from this session. */
+export function makePath(place: { courseId?: string; keep?: boolean } = {}): string {
+  const query = new URLSearchParams();
+  if (place.courseId !== undefined) query.set("course", place.courseId);
+  query.set(place.keep ? "keep" : "new", "1");
+  return `/import/make?${query.toString()}`;
+}
+
+/** A set being made. */
+export function makeJobPath(jobId: string): string {
+  return `/import/make/${jobId}`;
+}
+
+export interface MakeMatch {
+  jobId: string | null;
+}
+
+const MAKE_JOB_PATH = new RegExp(`^\\/import\\/make\\/(${UUID})$`, "i");
+
+/** Your material, or one set being made. Anything else under Import is not this screen. */
+export function matchMake(pathname: string): MakeMatch | null {
+  const path = normalizePath(pathname);
+  const job = MAKE_JOB_PATH.exec(path);
+  if (job?.[1] !== undefined) return { jobId: job[1] };
+  if (path.toLowerCase() === "/import/make") return { jobId: null };
+  return null;
+}
+
+/** The course Make questions was opened from, and whether this visit keeps the material already entered. */
+export function readMakeQuery(search: string): { courseId: string | null; keep: boolean } {
+  const query = new URLSearchParams(search);
+  const courseId = query.get("course")?.trim() ?? "";
+  return { courseId: courseId === "" ? null : courseId, keep: query.get("keep") === "1" };
 }
 
 /** Import with the course picked, from its +, an exam page's +, or a folder's Import here. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { importPath, matchDetail, readImportPreset } from "./router";
+import { importPath, makeJobPath, makePath, matchDetail, matchMake, readImportPreset, readMakeQuery } from "./router";
 
 const COURSE = "8d3c56f1-5f43-4c62-9d0e-7a3b1f2e4c55";
 const JOB = "6a1f0b8e-2c4d-4e6f-8a0b-1c2d3e4f5a6b";
@@ -24,6 +24,25 @@ describe("matchDetail", () => {
   it("is not a screen for a twin job without a job id", () => {
     expect(matchDetail(`/course/${COURSE}/twins`)).toBeNull();
     expect(matchDetail(`/course/${COURSE}/twins/42`)).toBeNull();
+  });
+});
+
+describe("Make questions", () => {
+  it("opens under Import, with the course picked, and one set at its own address", () => {
+    expect(makePath()).toBe("/import/make?new=1");
+    expect(makePath({ courseId: COURSE })).toBe(`/import/make?course=${COURSE}&new=1`);
+    expect(makePath({ courseId: COURSE, keep: true })).toBe(`/import/make?course=${COURSE}&keep=1`);
+    expect(matchMake("/import/make")).toEqual({ jobId: null });
+    expect(matchMake("/import/make/")).toEqual({ jobId: null });
+    expect(matchMake(makeJobPath(JOB))).toEqual({ jobId: JOB });
+    expect(matchMake("/import")).toBeNull();
+    expect(matchMake(`/import/make/${COURSE}/extra`)).toBeNull();
+  });
+
+  it("reads the course and whether her material stays", () => {
+    expect(readMakeQuery("?new=1")).toEqual({ courseId: null, keep: false });
+    expect(readMakeQuery(`?course=${COURSE}&keep=1`)).toEqual({ courseId: COURSE, keep: true });
+    expect(readMakeQuery("?course=")).toEqual({ courseId: null, keep: false });
   });
 });
 
