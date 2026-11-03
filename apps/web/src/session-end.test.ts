@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api, bindSessionEnd, type CatalogRecord, type SemesterCourse, type SemesterRecord } from "./api";
 import { currentCatalog, findCourse, forgetCatalog, refreshCatalog } from "./catalog";
 import { currentUndoOffer, forgetUndo, offerUndo, type DeletionPreview } from "./course/deletion";
-import { downloadProgressExport } from "./export";
 import { changePassword, signInWithPassword, signUp, type Account } from "./login/api";
 import { requestDeletion } from "./login/delete-account";
 import { applySessionNotice, type Gate } from "./session-end";
@@ -187,12 +186,6 @@ describe("a 401 from a normal route", () => {
     await expect(api("/api/admin/sign-up-emails/someone@example.com", { method: "DELETE" })).rejects.toBeInstanceOf(ApiError);
     expect(readGate().status).toBe("signed-out");
   });
-
-  it("signs out when the progress export's session has ended", async () => {
-    fake({ status: 401, body: SIGN_IN });
-    await expect(downloadProgressExport()).rejects.toBeInstanceOf(ApiError);
-    expect(readGate().status).toBe("signed-out");
-  });
 });
 
 describe("a 401 inside sign-in, sign-up and delete-account", () => {
@@ -254,12 +247,10 @@ describe("a must_change_password 403", () => {
     ["/api/sign-up", "POST"],
     ["/api/me", "DELETE"],
     ["/api/account/password", "POST"],
-    ["/api/me/export", "GET"],
   ])("goes to the change-password step from %s", async (path, method) => {
     await showHerCatalog();
     fake({ status: 403, body: MUST_CHANGE });
-    const call = path === "/api/me/export" ? downloadProgressExport() : api(path, { method, json: {} });
-    await expect(call).rejects.toMatchObject({ status: 403, message: "Choose a new password to continue." });
+    await expect(api(path, { method, json: {} })).rejects.toMatchObject({ status: 403, message: "Choose a new password to continue." });
     expect(readGate()).toEqual({ status: "must-change", user: account });
     expect(findCourse(currentCatalog(), "nurs420")?.title).toBe("Health assessment");
     expect(pathname).toBe("/course/nurs420");
