@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { CourseDetail } from "../api";
+import { api, type CourseDetail, type QuestionMakerStatus } from "../api";
 import { refreshCatalog } from "../catalog";
 import { RenameCourseSheet } from "../components/CourseSheets";
 import { EmptyState } from "../components/EmptyState";
@@ -7,7 +7,7 @@ import { ExamPageEditor } from "../components/ExamPageEditor";
 import { NewFolderSheet } from "../components/FolderSheets";
 import { FolderRows } from "../components/FolderRows";
 import { Icon } from "../components/Icon";
-import { AddMenu, MoreMenu } from "../components/Menu";
+import { AddMenu, MoreMenu, type MenuItem } from "../components/Menu";
 import { NavRow, RowBody } from "../components/NavRow";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { recentlyDeleted, useCourseVersion } from "../course/deletion";
@@ -16,7 +16,7 @@ import { badgeLabel, courseName, nextPageName, pageBadge, pageProgress, pageRowM
 import { useCourse, useCourseNaming, useRememberPlace } from "../course/useCourse";
 import { useFolderOrder } from "../course/useFolderOrder";
 import { useSession } from "../login/session-context";
-import { deletedPath, examPagePath, importPath, navigate } from "../router";
+import { deletedPath, examPagePath, importPath, makePath, navigate } from "../router";
 import { Screen } from "../shell/Screen";
 import { ShellLink } from "../shell/ShellLink";
 
@@ -24,9 +24,55 @@ import { ShellLink } from "../shell/ShellLink";
  * A course, as in the iPhone's Files app: the study tiles, then two lists. Pages, one row each with
  * its badge, and the folders on no page, one row each, in her order. Each opens its own screen.
  * More, the "…" beside +, renames it: a course's code and name, or a topic's name. Its folders,
- * sets and progress stay. Its + adds into it: a question file (Import with the course picked), a
- * folder, or a page. A study topic is the same screen, called by its name.
+ * sets and progress stay. Its + adds into it: a question file (Import with the course picked),
+ * Make questions when this account may start a set, a folder, or a page. A study topic is the same
+ * screen, called by its name.
  */
+/** Import, then Make questions when the server allows it, then a folder and a page. */
+function addItems(courseId: string, canMakeQuestions: boolean, setMaking: (kind: "page" | "folder") => void): MenuItem[] {
+  const items: MenuItem[] = [
+    {
+      key: "import",
+      label: "Import a question file",
+      detail: "A JSON file from your agent",
+      icon: "file-input",
+      onSelect: () => {
+        navigate(importPath(courseId));
+      },
+    },
+  ];
+  if (canMakeQuestions) {
+    items.push({
+      key: "make",
+      label: "Make questions",
+      detail: "From your notes or photos",
+      icon: "sparkles",
+      onSelect: () => {
+        navigate(makePath({ courseId }));
+      },
+    });
+  }
+  items.push(
+    {
+      key: "folder",
+      label: "New folder",
+      icon: "folder",
+      onSelect: () => {
+        setMaking("folder");
+      },
+    },
+    {
+      key: "page",
+      label: "New page",
+      icon: "layers",
+      onSelect: () => {
+        setMaking("page");
+      },
+    },
+  );
+  return items;
+}
+
 export function CourseScreen({ courseId }: { courseId: string }) {
   const session = useSession();
   const readOnly = session.user.role !== "student";
@@ -34,6 +80,7 @@ export function CourseScreen({ courseId }: { courseId: string }) {
   const [ordering, setOrdering] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [making, setMaking] = useState<"page" | "folder" | null>(null);
+  const [canMakeQuestions, setCanMakeQuestions] = useState(false);
   const deleted = useRecentlyDeleted(courseId);
   const { name, words } = useCourseNaming(courseId, course);
   useRememberPlace(courseId);
@@ -41,6 +88,22 @@ export function CourseScreen({ courseId }: { courseId: string }) {
   useEffect(() => {
     if (course) document.title = `${courseName(course)} · Qbank`;
   }, [course]);
+
+  // The + offers Make questions only when the server says this account may start a set now.
+  useEffect(() => {
+    if (readOnly) return;
+    let cancel = false;
+    void api<QuestionMakerStatus>("/api/question-maker")
+      .then((status) => {
+        if (!cancel) setCanMakeQuestions(status.available);
+      })
+      .catch(() => {
+        if (!cancel) setCanMakeQuestions(false);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [readOnly, courseId]);
 
   const closeSheet = useCallback(() => {
     setMaking(null);
@@ -71,36 +134,7 @@ export function CourseScreen({ courseId }: { courseId: string }) {
             },
           ]}
         />
-        <AddMenu
-          label={`Add to ${courseName(course)}`}
-          items={[
-            {
-              key: "import",
-              label: "Import a question file",
-              detail: "A JSON file from your agent",
-              icon: "file-input",
-              onSelect: () => {
-                navigate(importPath(course.id));
-              },
-            },
-            {
-              key: "folder",
-              label: "New folder",
-              icon: "folder",
-              onSelect: () => {
-                setMaking("folder");
-              },
-            },
-            {
-              key: "page",
-              label: "New page",
-              icon: "layers",
-              onSelect: () => {
-                setMaking("page");
-              },
-            },
-          ]}
-        />
+        <AddMenu label={`Add to ${courseName(course)}`} items={addItems(course.id, canMakeQuestions, setMaking)} />
       </div>
     ) : undefined;
 

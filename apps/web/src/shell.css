@@ -362,6 +362,13 @@ body,
   text-decoration: none;
 }
 
+button.text-action {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
 .text-action:hover {
   color: var(--tint-pressed);
   text-decoration: underline;

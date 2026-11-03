@@ -8,7 +8,9 @@ import { ExamSetupScreen } from "../exam/ExamSetupScreen";
 import { TwinJobScreen } from "../exam/TwinJobScreen";
 import { PracticeScreen } from "../practice/PracticeScreen";
 import { practiceSource } from "../practice/source";
-import { matchDetail, matchExam, matchPractice, navigate, normalizePath, usePathname, useSearch } from "../router";
+import { JobScreen } from "../make/JobScreen";
+import { MakeScreen } from "../make/MakeScreen";
+import { matchDetail, matchExam, matchMake, matchPractice, navigate, normalizePath, usePathname, useSearch } from "../router";
 import { matchRoute, navigationFor } from "../routes";
 import { UndoToast } from "../components/UndoToast";
 import { CourseScreen } from "../screens/CourseScreen";
@@ -33,11 +35,12 @@ export function AppShell({ role }: { role: Role }) {
   const practice = useMemo(() => matchPractice(pathname), [pathname]);
   const source = useMemo(() => (practice ? practiceSource(practice, search) : null), [practice, search]);
   const exam = useMemo(() => matchExam(pathname), [pathname]);
+  const make = useMemo(() => matchMake(pathname), [pathname]);
   const preset = useMemo(() => readExamPreset(search), [search]);
   // The runner fills the screen: no tab bar, and the screen does not scroll behind it.
   const runner = practice !== null || exam !== null;
   const ScreenBody = route?.Screen ?? NotFoundScreen;
-  const width = detail?.width ?? route?.width;
+  const width = make ? "reading" : (detail?.width ?? route?.width);
 
   useEffect(() => {
     void refreshCatalog();
@@ -62,9 +65,9 @@ export function AppShell({ role }: { role: Role }) {
   }, [role]);
 
   useEffect(() => {
-    if (runner) return;
+    if (runner || make) return;
     document.title = `${detail?.label ?? route?.label ?? "Not found"} · Qbank`;
-  }, [detail, route, runner]);
+  }, [detail, route, runner, make]);
 
   return (
     <div className={wide ? "shell shell-wide" : "shell shell-phone"}>
@@ -78,7 +81,11 @@ export function AppShell({ role }: { role: Role }) {
           ) : (
             <div className={width === "reading" ? "screen-body screen-body-narrow" : "screen-body"}>
               {/* Keyed, so another course, exam page, or folder starts fresh: out of Edit and Select. */}
-              {detail?.kind === "course" ? (
+              {make?.jobId ? (
+                <JobScreen key={make.jobId} jobId={make.jobId} />
+              ) : make ? (
+                <MakeScreen key={search} />
+              ) : detail?.kind === "course" ? (
                 <CourseScreen key={detail.courseId} courseId={detail.courseId} />
               ) : detail?.kind === "exam-page" ? (
                 <ExamPageScreen key={detail.examPageId} courseId={detail.courseId} examPageId={detail.examPageId} />
