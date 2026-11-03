@@ -1,11 +1,15 @@
-import { ApiError } from "./api";
+import { ApiError, reportSessionFailure } from "./api";
 
 const FALLBACK_NAME = "qbank-progress.json";
 
 /** Fetches her progress export and hands it to the browser as a file download. */
 export async function downloadProgressExport(): Promise<string> {
   const response = await fetch("/api/me/export");
-  if (!response.ok) throw new ApiError(response.status, errorBody(await response.text()));
+  if (!response.ok) {
+    const body = errorBody(await response.text());
+    reportSessionFailure("/api/me/export", "GET", response.status, body);
+    throw new ApiError(response.status, body);
+  }
   const name = fileName(response.headers.get("content-disposition"));
   const url = URL.createObjectURL(await response.blob());
   const link = document.createElement("a");

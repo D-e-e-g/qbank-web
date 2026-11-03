@@ -80,7 +80,8 @@ export type RecentlyDeletedCourses = Schemas["RecentlyDeletedCourses"];
 export type DeletedCourse = Schemas["DeletedCourse"];
 
 export async function api<T>(path: string, init: { method?: string; json?: unknown } = {}): Promise<T> {
-  const request: RequestInit = { method: init.method ?? "GET" };
+  const method = init.method ?? "GET";
+  const request: RequestInit = { method };
   if (init.json !== undefined) {
     request.headers = { "content-type": "application/json" };
     request.body = JSON.stringify(init.json);
@@ -88,8 +89,40 @@ export async function api<T>(path: string, init: { method?: string; json?: unkno
   const response = await fetch(path, request);
   const text = await response.text();
   const body: unknown = text === "" ? null : (JSON.parse(text) as unknown);
-  if (!response.ok) throw new ApiError(response.status, body);
+  if (!response.ok) {
+    // One place for a dead session, for every screen that calls api().
+    reportSessionFailure(path, method, response.status, body);
+    throw new ApiError(response.status, body);
+  }
   return body as T;
+}
+
+/** What a failed request means for the signed-in app, when it means anything. */
+export type SessionNotice = { kind: "signed-out" } | { kind: "must-change" };
+
+let onSessionEnd: ((notice: SessionNotice) => void) | null = null;
+
+/** The app registers once. A 401 or a temporary-password 403 then moves the gate, instead of each screen. */
+export function bindSessionEnd(onEnd: (notice: SessionNotice) => void): () => void {
+  onSessionEnd = onEnd;
+  return () => {
+    if (onSessionEnd === onEnd) onSessionEnd = null;
+  };
+}
+
+/**
+ * A 401 outside sign-in, sign-up and delete-account ends the session on this device.
+ * Choosing a new password also answers 401 when the current password is wrong, and that one stays.
+ * A 403 `must_change_password` from any route goes to the change-password step.
+ * The login client calls this same function, so those flows are decided here too.
+ */
+export function reportSessionFailure(path: string, method: string, status: number, body: unknown): void {
+  if (onSessionEnd === null) return;
+  if (status === 403 && errorCode(body) === "must_change_password") {
+    onSessionEnd({ kind: "must-change" });
+    return;
+  }
+  if (status === 401 && sessionEnded(path, method, body)) onSessionEnd({ kind: "signed-out" });
 }
 
 export function isConflict(body: unknown): body is ImportConflict {
@@ -100,4 +133,35 @@ function messageFrom(body: unknown): string {
   if (typeof body === "object" && body !== null && "message" in body && typeof body.message === "string") return body.message;
   if (typeof body === "object" && body !== null && "error" in body && typeof body.error === "string") return body.error;
   return "Something went wrong.";
+}
+
+function errorCode(body: unknown): string | null {
+  return typeof body === "object" && body !== null && "error" in body && typeof body.error === "string" ? body.error : null;
+}
+
+/** The path without a query or hash, so a filtered read is the same route. */
+function requestPath(path: string): string {
+  const query = path.indexOf("?");
+  const hash = path.indexOf("#");
+  let end = path.length;
+  if (query !== -1) end = Math.min(end, query);
+  if (hash !== -1) end = Math.min(end, hash);
+  return path.slice(0, end);
+}
+
+/**
+ * Sign-in, sign-up and delete-account answer 401 for a wrong password as well as a dead session,
+ * and each flow already says which. Delete-account's own 401 unauthenticated signs out from its sheet.
+ */
+function keepsItsOwn401(path: string, method: string): boolean {
+  const pathname = requestPath(path);
+  if (pathname === "/api/sign-in/password" || pathname === "/api/sign-up") return true;
+  return pathname === "/api/me" && method.toUpperCase() === "DELETE";
+}
+
+function sessionEnded(path: string, method: string, body: unknown): boolean {
+  if (keepsItsOwn401(path, method)) return false;
+  // The same 401 is a wrong current password here, which keeps her on the screen.
+  if (requestPath(path) === "/api/account/password" && errorCode(body) !== "unauthenticated") return false;
+  return true;
 }

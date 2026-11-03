@@ -1,3 +1,4 @@
+import { reportSessionFailure } from "../api";
 import type { components } from "../api-schema";
 
 export type Account = components["schemas"]["Account"];
@@ -66,7 +67,11 @@ async function send(path: string, init?: RequestInit): Promise<unknown> {
       body = null;
     }
   }
-  if (!response.ok) throw new ApiError(failureOf(body, response.status, response.headers.get("retry-after")));
+  if (!response.ok) {
+    // The same decision api() makes: a dead session leaves, a wrong password on these flows does not.
+    reportSessionFailure(path, init?.method ?? "GET", response.status, body);
+    throw new ApiError(failureOf(body, response.status, response.headers.get("retry-after")));
+  }
   return body;
 }
 
