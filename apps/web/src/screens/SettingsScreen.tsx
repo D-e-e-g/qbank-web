@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { api, ApiError } from "../api";
 import { SemestersEditor } from "../components/CatalogEditor";
-import { Icon } from "../components/Icon";
 import { SegmentedControl } from "../components/SegmentedControl";
-import { downloadProgressExport } from "../export";
 import { AccountSection } from "../login/AccountPanels";
 import type { Account } from "../login/api";
 import { useSession } from "../login/session-context";
@@ -42,7 +40,6 @@ export function SettingsScreen() {
           Match device follows this device's light or dark setting. Color goes with your account to every device.
         </p>
       </section>
-      {student ? <ExportSection /> : null}
     </Screen>
   );
 }
@@ -85,52 +82,5 @@ function ColorField() {
         </p>
       ) : null}
     </div>
-  );
-}
-
-function ExportSection() {
-  const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<string | undefined>();
-  const [error, setError] = useState<string | undefined>();
-
-  return (
-    <section className="group">
-      <div className="review-list">
-        <button
-          type="button"
-          className="review-row"
-          disabled={busy}
-          onClick={() => {
-            setBusy(true);
-            setError(undefined);
-            setDone(undefined);
-            void downloadProgressExport()
-              .then((name) => {
-                setDone(`Downloaded ${name}`);
-              })
-              .catch((caught: unknown) => {
-                setError(caught instanceof ApiError ? caught.message : "Your progress could not be exported. Try again.");
-              })
-              .finally(() => {
-                setBusy(false);
-              });
-          }}
-        >
-          <span className="row-icon">
-            <Icon name="download" size={20} />
-          </span>
-          <span className="review-copy">
-            <span className="review-topic">Export my progress</span>
-            {busy || done !== undefined ? <span className="review-meta">{busy ? "Preparing the file…" : done}</span> : null}
-          </span>
-        </button>
-      </div>
-      {error !== undefined ? (
-        <p className="form-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      <p className="group-footer">Downloads your answers and progress as a JSON file.</p>
-    </section>
   );
 }
