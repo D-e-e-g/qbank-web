@@ -1,21 +1,12 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import { forgetCatalog } from "./catalog";
-import { forgetUndo } from "./course/deletion";
-import { ApiError, readSession, type Account } from "./login/api";
+import { bindSessionEnd } from "./api";
+import { ApiError, readSession } from "./login/api";
 import { ChoosePassword, LoginScreen } from "./login/LoginScreen";
 import { AuthFrame } from "./login/ui";
 import { SessionProvider } from "./login/session";
-import { navigate } from "./router";
+import { applySessionNotice, forgetThisDevice, type Gate } from "./session-end";
 import { AppShell } from "./shell/AppShell";
-import { forgetStudents } from "./students";
 import { forgetPalette, paletteOf, showPalette } from "./theme";
-
-type Gate =
-  | { status: "loading" }
-  | { status: "unavailable" }
-  | { status: "signed-out" }
-  | { status: "must-change"; user: Account }
-  | { status: "signed-in"; user: Account };
 
 export function App() {
   const [gate, setGate] = useState<Gate>({ status: "loading" });
@@ -32,6 +23,11 @@ export function App() {
     if (palette === null) forgetPalette();
     else showPalette(palette);
   }, [palette]);
+
+  // A session that ends mid-use, or a temporary password on any route, leaves the screen that was up.
+  useEffect(() => bindSessionEnd((notice) => {
+    applySessionNotice(notice, setGate);
+  }), []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -103,10 +99,7 @@ export function App() {
         },
         // Nothing of this account stays on the screen for the next one on this device.
         signOut: () => {
-          forgetStudents();
-          forgetCatalog();
-          forgetUndo();
-          navigate("/");
+          forgetThisDevice();
           setGate({ status: "signed-out" });
         },
       }}
