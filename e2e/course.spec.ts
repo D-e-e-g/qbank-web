@@ -381,7 +381,7 @@ test.describe("pages", () => {
     await expect(page).toHaveURL(new RegExp(`/course/${course.id}/exam-page/[0-9a-f-]{36}$`));
     await expect(page.getByText("3 folders · 4 practice sets · 9 questions")).toBeVisible();
     await expect(page.getByRole("list", { name: "Study material on Exam 1" }).getByRole("link")).toHaveText([/^Week 1/, /^Week 2/, /^Week 3/]);
-    await expect(page.getByText("All 9 questions in these 3 folders, or Wrong questions only.")).toBeVisible();
+    await expect(page.getByText("All 9 questions in these 3 folders, or wrong questions only.")).toBeVisible();
     await expect(page.getByText(/Exam twins:/)).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Past exams" })).toBeVisible();
     await expect(page.getByRole("button", { name: /^Week 1, Week 2, Week 3 · today/ })).toBeVisible();

@@ -54,14 +54,14 @@ export function pageMeta(course: CourseDetail, page: CourseExam): string {
 
 /**
  * The line under Start exam when a folder on the page has exam twins, or "" when none do.
- * "Exam twins: 14 in Week 5 · exams draw from these first". Several folders are named in her order:
+ * "Exam twins: 14 in Week 5. Exams draw from these first." Several folders are named in her order:
  * "41 in Week 4, Week 5 and Week 6".
  */
 export function examTwinsLine(folders: readonly CourseFolder[]): string {
   const banks = folders.filter((folder) => folder.examBankCount > 0);
   if (banks.length === 0) return "";
   const count = banks.reduce((sum, folder) => sum + folder.examBankCount, 0);
-  return `Exam twins: ${String(count)} in ${joined(banks.map((folder) => folder.name))} · exams draw from these first`;
+  return `Exam twins: ${String(count)} in ${joined(banks.map((folder) => folder.name))}. Exams draw from these first.`;
 }
 
 /** Her finished exams that belong to a page: the server names the page that holds all their folders. */

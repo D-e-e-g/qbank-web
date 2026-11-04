@@ -154,7 +154,7 @@ test.describe("study topics", () => {
     await expect(primer).toHaveAttribute("href", "https://notes.example.com/stage-1");
     await expect(primer).toHaveAttribute("target", "_blank");
     await expect(page.getByRole("list", { name: "Study material on Page 1" }).getByRole("link")).toHaveText([/^Unsorted/]);
-    await expect(page.getByText("All 3 questions in this folder, or Wrong questions only.")).toBeVisible();
+    await expect(page.getByText("All 3 questions in this folder, or wrong questions only.")).toBeVisible();
     await expect(page.getByText("Exams you finish over Page 1 show up here with their scores.")).toBeVisible();
 
     // Its editor keeps the link; the topic lists the page.
