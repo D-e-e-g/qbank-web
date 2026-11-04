@@ -30,7 +30,7 @@ test("signing out leaves none of her courses on screen for the next account", as
   await page.goto("/");
   await expect(page.getByText(code).first()).toBeVisible();
   await page.getByRole("link", { name: "Settings" }).click();
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Qbank" })).toBeVisible();
 
   // The next account's own courses are slow to arrive; hers never show meanwhile.
@@ -51,6 +51,45 @@ test("signing out leaves none of her courses on screen for the next account", as
   await expect(page.getByText(code)).toHaveCount(0);
 });
 
+test("Sign out everywhere asks once, then signs out this browser and every other one of the account", async ({ browser, page }) => {
+  const account = await newAccount(browser, "everywhere");
+  // The same user account in another browser, and the admin in a third.
+  const other = await browser.newContext();
+  const otherPage = await other.newPage();
+  await signIn(otherPage, account.email, account.password);
+  const admin = await browser.newContext();
+  expect((await admin.request.post("/api/sign-in/password", { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })).status()).toBe(200);
+
+  await signIn(page, account.email, account.password);
+  await page.getByRole("link", { name: "Settings" }).click();
+  const sheet = page.getByRole("dialog", { name: "Sign out of QBank on every device, including this one?" });
+
+  // Cancel changes nothing.
+  await page.getByRole("button", { name: "Sign out everywhere" }).click();
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole("button", { name: "Cancel" }).click();
+  await expect(sheet).toBeHidden();
+  expect((await page.request.get("/api/session")).status()).toBe(200);
+  expect((await otherPage.request.get("/api/session")).status()).toBe(200);
+
+  await page.getByRole("button", { name: "Sign out everywhere" }).click();
+  await sheet.getByRole("button", { name: "Sign out everywhere" }).click();
+  await expect(page.getByRole("heading", { name: "Qbank" })).toBeVisible();
+  await expect(page.getByLabel("Email")).toBeVisible();
+  expect((await page.request.get("/api/session")).status()).toBe(401);
+
+  // The other browser is on the sign-in screen the next time it opens QBank; the admin stays signed in.
+  await otherPage.goto("/");
+  await expect(otherPage.getByRole("heading", { name: "Qbank" })).toBeVisible();
+  await expect(otherPage.getByLabel("Email")).toBeVisible();
+  expect((await admin.request.get("/api/session")).status()).toBe(200);
+
+  // Signing in again works as before.
+  await signInHere(page, account.email, account.password);
+  await other.close();
+  await admin.close();
+});
+
 test.describe("signed-in account", () => {
   test.beforeEach(({ browserName }) => {
     test.skip(browserName !== "chromium", "account changes run once, on desktop Chrome");
@@ -65,7 +104,7 @@ test.describe("signed-in account", () => {
     await signIn(pageB);
 
     await pageA.getByRole("link", { name: "Settings" }).click();
-    await pageA.getByRole("button", { name: "Sign out" }).click();
+    await pageA.getByRole("button", { name: "Sign out", exact: true }).click();
     await expect(pageA.getByRole("heading", { name: "Qbank" })).toBeVisible();
 
     await pageB.goto("/");
@@ -120,7 +159,7 @@ test.describe("signed-in account", () => {
     await expect(page.getByText(`Temporary password set for ${STUDENT_EMAIL}. She'll choose her own the next time she signs in.`)).toBeVisible();
 
     await page.getByRole("link", { name: "Settings" }).click();
-    await page.getByRole("button", { name: "Sign out" }).click();
+    await page.getByRole("button", { name: "Sign out", exact: true }).click();
     await page.getByLabel("Email").fill(STUDENT_EMAIL);
     await page.getByLabel("Password").fill("temp-pass-1");
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -148,7 +187,7 @@ test.describe("sign-up", () => {
     await expect(list.getByRole("listitem").filter({ hasText: email })).toContainText("not signed up yet");
 
     await page.getByRole("link", { name: "Settings" }).click();
-    await page.getByRole("button", { name: "Sign out" }).click();
+    await page.getByRole("button", { name: "Sign out", exact: true }).click();
     await page.getByRole("button", { name: "Sign up", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Sign up" })).toBeVisible();
 
@@ -174,7 +213,7 @@ test.describe("sign-up", () => {
 
     await page.getByRole("link", { name: "Settings" }).click();
     await expect(page.getByText(`Signed in as ${email}.`)).toBeVisible();
-    await page.getByRole("button", { name: "Sign out" }).click();
+    await page.getByRole("button", { name: "Sign out", exact: true }).click();
 
     await signIn(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.getByRole("link", { name: "Admin" }).click();

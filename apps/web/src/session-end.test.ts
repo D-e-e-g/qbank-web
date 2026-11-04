@@ -4,6 +4,7 @@ import { currentCatalog, findCourse, forgetCatalog, refreshCatalog } from "./cat
 import { currentUndoOffer, forgetUndo, offerUndo, type DeletionPreview } from "./course/deletion";
 import { changePassword, signInWithPassword, signUp, type Account } from "./login/api";
 import { requestDeletion } from "./login/delete-account";
+import { requestSignOutEverywhere } from "./login/sign-out-everywhere";
 import { applySessionNotice, type Gate } from "./session-end";
 
 const account: Account = {
@@ -237,6 +238,26 @@ describe("choosing a new password", () => {
     fake({ status: 401, body: SIGN_IN });
     await expect(api("/api/account/password", { method: "POST", json: { currentPassword: "x", newPassword: "new-password-1" } })).rejects.toBeInstanceOf(ApiError);
     expect(readGate().status).toBe("signed-out");
+  });
+});
+
+describe("signing out everywhere", () => {
+  it("signs out to the sign-in screen and drops this account on this device when this session had already ended", async () => {
+    await showHerCatalog();
+    fake({ status: 401, body: SIGN_IN });
+    await expect(requestSignOutEverywhere()).resolves.toEqual({ kind: "signed-out" });
+    expect(readGate()).toEqual({ status: "signed-out" });
+    expect(pathname).toBe("/");
+    expect(findCourse(currentCatalog(), "nurs420")).toBeUndefined();
+  });
+
+  it("keeps her signed in, on the same screen, when the server ends nothing", async () => {
+    await showHerCatalog();
+    fake({ status: 502, body: { error: "auth_failed", message: "Signing out everywhere did not work. Try again." } });
+    await expect(requestSignOutEverywhere()).resolves.toEqual({ kind: "refused", message: "Signing out everywhere did not work. Try again." });
+    expect(readGate()).toEqual(signedIn);
+    expect(pathname).toBe("/course/nurs420");
+    expect(findCourse(currentCatalog(), "nurs420")?.title).toBe("Health assessment");
   });
 });
 

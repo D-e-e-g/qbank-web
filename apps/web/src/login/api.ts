@@ -112,6 +112,11 @@ export async function signOut(): Promise<void> {
   await send("/api/sign-out", { method: "POST", body: "{}" });
 }
 
+/** Ends every session of the signed-in account, on every device, this one included. */
+export async function signOutEverywhere(): Promise<void> {
+  await send("/api/sign-out/everywhere", { method: "POST" });
+}
+
 export async function changePassword(currentPassword: string, newPassword: string): Promise<Account> {
   const body = await send("/api/account/password", {
     method: "POST",

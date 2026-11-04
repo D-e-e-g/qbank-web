@@ -155,7 +155,7 @@ test("deletes her user account for good and signs her out everywhere, and anothe
 test("the admin's Settings has no Delete account", async ({ page }) => {
   await signIn(page, ADMIN_EMAIL, ADMIN_PASSWORD);
   await openSettings(page);
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete account" })).toHaveCount(0);
 });
 
