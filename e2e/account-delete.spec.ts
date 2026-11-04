@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, newAccount, signIn, signInHere, type FakeAccount } from "./sign-in";
 
 // Delete account in Settings: a warning that says everything goes for good, her current password,

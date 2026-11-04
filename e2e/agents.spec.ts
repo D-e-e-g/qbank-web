@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { signIn } from "./sign-in";
 
 // The agent's side is plain HTTP with no session, as an agent on her computer would send it. QBank lets

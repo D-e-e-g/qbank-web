@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, signIn } from "./sign-in";
 
 // The light tint (--accent-600) of each color scheme.

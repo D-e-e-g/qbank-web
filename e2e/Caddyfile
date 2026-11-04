@@ -6,9 +6,21 @@
 }
 
 :8080 {
+	# Each test browser is a device of its own, with its own address
+	# (e2e/fixtures.ts), as each device reaches the server's Caddy from its
+	# own. The API reads the last X-Forwarded-For entry as the address Caddy
+	# was called from. A request without X-E2E-Address keeps its own.
+	map {http.request.header.X-E2E-Address} {e2e_address} {
+		~(.+) "${1}"
+		default {http.request.remote.host}
+	}
+
 	@api path /api /api/* /health /openapi.json
 	handle @api {
-		reverse_proxy api:8080
+		reverse_proxy api:8080 {
+			header_up X-Forwarded-For {e2e_address}
+			header_up -X-E2E-Address
+		}
 	}
 	handle {
 		reverse_proxy web:8080

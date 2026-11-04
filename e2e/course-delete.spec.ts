@@ -1,4 +1,5 @@
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import type { Browser, Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, signIn } from "./sign-in";
 
 // Deleting a course or study topic from its card on Home: one question naming it and its

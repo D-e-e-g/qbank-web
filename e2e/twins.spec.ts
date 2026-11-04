@@ -1,4 +1,5 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { signIn } from "./sign-in";
 
 // Exam twins from Exam setup. The test API has no Claude key, so Make questions is off there, as it

@@ -1,4 +1,5 @@
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import type { Browser, Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, signIn } from "./sign-in";
 
 // Deleting a page, in a course or a topic, from its editor: the server's warning says its

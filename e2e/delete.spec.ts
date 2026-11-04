@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { signIn } from "./sign-in";
 
 // Delete and Undo: a set, a folder with its sets, and a past exam. Each delete warns in the

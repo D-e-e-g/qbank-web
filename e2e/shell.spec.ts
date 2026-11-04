@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { signIn } from "./sign-in";
 
 // The qbank-server commit the API's contract is pinned from. Its image is the API under test.

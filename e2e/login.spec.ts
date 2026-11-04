@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, newAccount, signIn, signInHere, STUDENT_EMAIL, STUDENT_PASSWORD } from "./sign-in";
 
 test("the sign-in screen asks for a password only and does not send email", async ({ page }) => {
@@ -116,15 +116,20 @@ test.describe("signed-in account", () => {
   test("locks an address after five wrong passwords", async ({ page }) => {
     const email = `nobody-${String(Date.now())}@example.com`;
     await page.goto("/");
-    for (let attempt = 0; attempt < 4; attempt += 1) {
+    for (let attempt = 1; attempt <= 4; attempt += 1) {
+      // The server also refuses a fourth sign-in from one address within 10 seconds of the last,
+      // before it checks the password. The fourth waits that out, so every try counts toward the lock.
+      if (attempt === 4) await page.waitForTimeout(10_500);
       await page.getByLabel("Email").fill(email);
       await page.getByLabel("Password").fill("wrong-password");
+      const answered = page.waitForResponse("**/api/sign-in/password");
       await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      expect((await answered).status()).toBe(401);
       await expect(page.getByRole("alert")).toHaveText("That email or password is not right.");
     }
     await page.getByLabel("Password").fill("wrong-password");
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
-    await expect(page.getByRole("alert")).toContainText("Too many tries");
+    await expect(page.getByRole("alert")).toHaveText("Too many tries. Try again in 15 minutes.");
   });
 
   test("a password sign-in lands on Home with nothing to dismiss, and Settings has no passkeys", async ({ page }) => {
