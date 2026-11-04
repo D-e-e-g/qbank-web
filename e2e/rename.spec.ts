@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { signIn } from "./sign-in";
 
 /** A set of single-answer questions; option 0 is right. */

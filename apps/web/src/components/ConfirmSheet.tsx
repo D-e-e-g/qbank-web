@@ -13,7 +13,8 @@ export function ConfirmSheet({
   onCancel,
 }: {
   title: string;
-  message: string;
+  /** Left out when the title asks everything there is to ask. */
+  message?: string;
   confirmLabel: string;
   confirmVariant?: "primary" | "destructive";
   secondaryLabel?: string;
@@ -59,7 +60,7 @@ export function ConfirmSheet({
         <h2 id={titleId} className="sheet-title">
           {title}
         </h2>
-        <p className="sheet-message">{message}</p>
+        {message !== undefined ? <p className="sheet-message">{message}</p> : null}
         <div className="sheet-actions">
           <Button variant={confirmVariant} fullWidth onClick={onConfirm}>
             {confirmLabel}

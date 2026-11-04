@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { AGENTS_PATH } from "../agents/agents";
+import { ConfirmSheet } from "../components/ConfirmSheet";
 import { Icon } from "../components/Icon";
 import { ShellLink } from "../shell/ShellLink";
 import { ApiError, changePassword, setTemporaryPassword, signOut, type Account } from "./api";
 import { DeleteAccountSheet } from "./DeleteAccountSheet";
 import { isDeleteOffered } from "./delete-account";
+import { requestSignOutEverywhere, SIGN_OUT_EVERYWHERE, SIGN_OUT_EVERYWHERE_QUESTION } from "./sign-out-everywhere";
 import { Button, TextField } from "./ui";
 
 export function AccountSection({ user, onUser, onSignedOut }: { user: Account; onUser: (user: Account) => void; onSignedOut: () => void }) {
@@ -90,6 +92,7 @@ export function AccountSection({ user, onUser, onSignedOut }: { user: Account; o
         >
           Sign out
         </Button>
+        <SignOutEverywhere onSignedOut={onSignedOut} />
         {isDeleteOffered(user) ? (
           <Button
             variant="destructive"
@@ -122,6 +125,61 @@ export function AccountSection({ user, onUser, onSignedOut }: { user: Account; o
         />
       ) : null}
     </section>
+  );
+}
+
+/**
+ * Ends every session of the account, on every device, this one included, after asking once. Once
+ * they have ended, sign-in shows, as after Sign out. A refusal ends nothing and keeps her signed in,
+ * in the server's words.
+ */
+function SignOutEverywhere({ onSignedOut }: { onSignedOut: () => void }) {
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | undefined>();
+
+  return (
+    <>
+      <Button
+        variant="quiet"
+        size="md"
+        icon="log-out"
+        disabled={busy}
+        onClick={() => {
+          setAsking(true);
+        }}
+      >
+        {SIGN_OUT_EVERYWHERE}
+      </Button>
+      {error !== undefined ? (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {asking ? (
+        <ConfirmSheet
+          title={SIGN_OUT_EVERYWHERE_QUESTION}
+          confirmLabel={SIGN_OUT_EVERYWHERE}
+          confirmVariant="destructive"
+          onConfirm={() => {
+            setAsking(false);
+            setBusy(true);
+            setError(undefined);
+            void requestSignOutEverywhere().then((outcome) => {
+              if (outcome.kind === "signed-out") {
+                onSignedOut();
+                return;
+              }
+              setBusy(false);
+              setError(outcome.message);
+            });
+          }}
+          onCancel={() => {
+            setAsking(false);
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 

@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { signIn } from "./sign-in";
 
 const KINDS = ["single", "priority", "sata", "highlight", "order", "match", "matrix", "cloze"] as const;

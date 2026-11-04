@@ -1,4 +1,5 @@
-import { expect, test, type Locator, type Page, type Request } from "@playwright/test";
+import type { Locator, Page, Request } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { signIn } from "./sign-in";
 
 const RIGHT = "The useful action";

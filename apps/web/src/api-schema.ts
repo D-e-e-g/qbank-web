@@ -2488,7 +2488,7 @@ export interface paths {
         put?: never;
         /**
          * Sign in with email and password
-         * @description Creates a session that lasts until sign-out. 5 wrong passwords lock the address for 15 minutes.
+         * @description Creates a session that lasts until sign-out. 5 wrong passwords for one email from one address lock that email's password sign-in from that address for 15 minutes; other addresses sign in as before. Trying again and again within a few seconds from one address also answers 429, for those seconds.
          */
         post: {
             parameters: {
@@ -2521,7 +2521,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description Too many wrong passwords. */
+                /** @description Too many wrong passwords from this address, or too many tries within a few seconds. */
                 429: {
                     headers: {
                         [name: string]: unknown;
@@ -2567,7 +2567,7 @@ export interface paths {
         put?: never;
         /**
          * Make a user account
-         * @description Only for an email the owner put on the sign-up list that has no account yet. Signs the new account in. Any other email gets the same refusal, so the list is not revealed. 5 refused tries lock that email's sign-up for 15 minutes. The admin account is never made here.
+         * @description Only for an email the owner put on the sign-up list that has no account yet. Signs the new account in. Any other email gets the same refusal, so the list is not revealed. 5 refused tries for one email from one address lock that email's sign-up from that address for 15 minutes. The admin account is never made here.
          */
         post: {
             parameters: {
@@ -2609,7 +2609,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description Too many refused tries. */
+                /** @description Too many refused tries from this address. */
                 429: {
                     headers: {
                         [name: string]: unknown;
@@ -2781,7 +2781,7 @@ export interface paths {
         put?: never;
         /**
          * Sign out on this device
-         * @description Ends this session. A session on another device stays signed in.
+         * @description Ends this session. A session on another device stays signed in; `POST /api/sign-out/everywhere` ends them all.
          */
         post: {
             parameters: {
@@ -2799,6 +2799,83 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["SignedOut"];
+                    };
+                };
+                /** @description Sign-in is not configured. */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sign-out/everywhere": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign out everywhere
+         * @description Ends every session of the signed-in account at once, on every device, this one included: every browser's session cookie and every token from sign-in stop working, and the answer clears this device's cookie. Sign in again to continue. The web and iPhone apps call it from Settings.
+         *
+         *     Agent keys are not sessions, so they keep working; `POST /api/agent-keys/{id}/revoke` stops one.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Every session of the account has ended, this one included. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SignedOutEverywhere"];
+                    };
+                };
+                /** @description Sign in (`unauthenticated`). No session ended. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The request carries an agent key (`agent_key_not_allowed`). No session ended. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The sessions could not be ended (`auth_failed`). Try again. */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
                     };
                 };
                 /** @description Sign-in is not configured. */
@@ -2886,7 +2963,7 @@ export interface paths {
         put?: never;
         /**
          * Choose a new password
-         * @description Replaces the current password, including a temporary one. Other sessions on this account end.
+         * @description Replaces the current password, including a temporary one. Every other session of the account ends, on every device. This device stays signed in: the answer carries a fresh `token` and session cookie, which replace the ones it sent.
          */
         post: {
             parameters: {
@@ -2926,6 +3003,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Too many tries from this address within a few seconds (`too_many_attempts`). */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Locked"];
                     };
                 };
                 /** @description The password changed, but the session could not be refreshed. */
@@ -3047,7 +3133,7 @@ export interface paths {
          * Delete this user account
          * @description Deletes the signed-in user account and everything it has, for good: its semesters, courses and study topics with their folders, pages, sets, questions and terms, its answers, progress, Review and past exams, its Make questions and exam twin jobs, its passkeys, and its agent keys and pairings. Nothing goes to Recently deleted and there is no Undo.
          *
-         *     The account is always the one signed in: nothing in the request names another, and no other account's content or answers change. Send its current password, checked as sign-in checks it; a wrong one counts toward the same lock as sign-in, and deletes nothing.
+         *     The account is always the one signed in: nothing in the request names another, and no other account's content or answers change. Send its current password, checked as sign-in checks it; a wrong one counts toward the same lock as sign-in from this address, and deletes nothing.
          *
          *     Once deleted, every session of the account ends, on every device, and every agent key it approved stops working (401 `invalid_agent_key`). The answer also clears this device's session cookie.
          *
@@ -3111,7 +3197,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description Too many wrong passwords (`too_many_attempts`). Nothing was deleted. */
+                /** @description Too many wrong passwords from this address (`too_many_attempts`). Nothing was deleted. */
                 429: {
                     headers: {
                         [name: string]: unknown;
@@ -8564,6 +8650,10 @@ export interface components {
         SignedOut: {
             /** @enum {string} */
             status: "signed_out";
+        };
+        SignedOutEverywhere: {
+            /** @enum {string} */
+            status: "signed_out_everywhere";
         };
         Session: {
             user: components["schemas"]["Account"];

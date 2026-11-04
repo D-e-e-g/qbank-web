@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, signIn } from "./sign-in";
 
 // The light tint (--accent-600) of each color scheme.
@@ -35,7 +36,7 @@ test.describe("color scheme", () => {
       await expectPalette(page, "slate", SLATE_TINT);
 
       // Signed out, the sign-in screen is Dusk and this device keeps nothing of his scheme.
-      await page.getByRole("button", { name: "Sign out" }).click();
+      await page.getByRole("button", { name: "Sign out", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Qbank" })).toBeVisible();
       await expectPalette(page, "dusk", DUSK_TINT);
       expect(await page.evaluate(() => localStorage.getItem("qbank-palette"))).toBeNull();

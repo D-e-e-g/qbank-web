@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import type { APIRequestContext, Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, newAccount, signIn, signInHere, type FakeAccount } from "./sign-in";
 
 // Delete account in Settings: a warning that says everything goes for good, her current password,
@@ -155,7 +156,7 @@ test("deletes her user account for good and signs her out everywhere, and anothe
 test("the admin's Settings has no Delete account", async ({ page }) => {
   await signIn(page, ADMIN_EMAIL, ADMIN_PASSWORD);
   await openSettings(page);
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete account" })).toHaveCount(0);
 });
 

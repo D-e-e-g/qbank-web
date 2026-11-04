@@ -1,4 +1,5 @@
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import type { Browser, Page } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, signIn } from "./sign-in";
 
 /** A set of single-answer questions; option 0 is right. */
@@ -174,7 +175,9 @@ test.describe("study topics", () => {
     await expect(main(page).getByText(name, { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Start exam" }).click();
     await expect(page).toHaveURL(new RegExp(`/course/${topicId}/exam/[0-9a-f-]{36}$`));
-    for (const step of ["Submit and continue", "Submit and continue", "Finish exam"]) {
+    for (const [index, step] of ["Submit and continue", "Submit and continue", "Finish exam"].entries()) {
+      // Answer only once the next question is up, not the one just submitted.
+      await expect(page.getByText(`${String(index + 1)} of 3`, { exact: true })).toBeVisible();
       await page.getByRole("radio", { name: "The useful action", exact: true }).click();
       await page.getByRole("button", { name: step }).first().click();
     }
