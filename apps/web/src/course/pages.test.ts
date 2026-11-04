@@ -72,9 +72,9 @@ describe("the exam twins line", () => {
     const week4 = { ...folder("w4", "Week 4", [], "p1"), examBankCount: 12 };
     const week5 = { ...folder("w5", "Week 5", [], "p1"), examBankCount: 14 };
     const week6 = { ...folder("w6", "Week 6", [set(27)], "p1"), examBankCount: 15 };
-    expect(examTwinsLine([week5])).toBe("Exam twins: 14 in Week 5 · exams draw from these first");
+    expect(examTwinsLine([week5])).toBe("Exam twins: 14 in Week 5. Exams draw from these first.");
     expect(examTwinsLine([week4, folder("plain", "Week 3", [], "p1"), week5, week6])).toBe(
-      "Exam twins: 41 in Week 4, Week 5 and Week 6 · exams draw from these first",
+      "Exam twins: 41 in Week 4, Week 5 and Week 6. Exams draw from these first.",
     );
     expect(examTwinsLine([folder("plain", "Week 3", [], "p1")])).toBe("");
   });

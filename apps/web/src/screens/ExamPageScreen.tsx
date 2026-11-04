@@ -276,8 +276,8 @@ function StartExam({ course, page, setup }: { course: CourseDetail; page: Course
       </ShellLink>
       <p className="folder-note">
         {preview.questionCount < total
-          ? `${String(preview.questionCount)} questions from the ${String(total)} in ${where}, or Wrong questions only.`
-          : `All ${String(total)} ${total === 1 ? "question" : "questions"} in ${where}, or Wrong questions only.`}
+          ? `${String(preview.questionCount)} questions from the ${String(total)} in ${where}, or wrong questions only.`
+          : `All ${String(total)} ${total === 1 ? "question" : "questions"} in ${where}, or wrong questions only.`}
       </p>
       {twins === "" ? null : (
         <p className="folder-bank">
