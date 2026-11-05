@@ -12,6 +12,8 @@ export interface PracticeAttemptRecord {
   guessed: boolean;
   /** The shuffle she saw, saved with the attempt. */
   layout: Layout;
+  /** From the Review runner, so the answer does not read as beginning its set again. */
+  fromReview: boolean;
 }
 
 /** The server's score for an answer and the feedback banner's lines for it. */
@@ -30,6 +32,7 @@ export async function recordPracticeAnswer(attempt: PracticeAttemptRecord, onWai
       response: attempt.response,
       guessed: attempt.guessed,
       shuffle: attempt.layout,
+      ...(attempt.fromReview ? { fromReview: true } : {}),
     },
     onWaiting === undefined ? {} : { onRetry: onWaiting },
   );

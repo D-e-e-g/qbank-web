@@ -1992,6 +1992,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/practice-sets/{id}/start-over": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a practice set again at question 1
+         * @description Ends the sitting she would continue, so the set opens at question 1 and its row stops saying Continue. Every answer stays saved and still counts: no answer, score, or Review row changes. Her next answer to the set's first question opens a new sitting. An answer still on its way joins that sitting if it is open by then; otherwise it counts as every answer does and opens none. Asking with no sitting to end changes nothing. Only the user account can do this.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Whether there was a sitting to end. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StartOverResult"];
+                    };
+                };
+                /** @description The request was refused. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContentError"];
+                    };
+                };
+                /** @description Sign in is required. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContentError"];
+                    };
+                };
+                /** @description The admin cannot start a set over, or a new password is required first. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContentError"];
+                    };
+                };
+                /** @description The request was refused. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContentError"];
+                    };
+                };
+                /** @description The request was refused. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContentError"];
+                    };
+                };
+                /** @description The database is not configured. */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContentError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/imports/check": {
         parameters: {
             query?: never;
@@ -3958,7 +4053,7 @@ export interface paths {
         put?: never;
         /**
          * Record an answer
-         * @description Only the user account can record an answer. The server scores it and saves her progress in the same transaction. Repeating the same clientAttemptId returns the saved attempt and does not count it again. The admin is refused even when the question exists. An exam answer names its exam as studySessionId: it is taken only while that exam is running, for a question it drew, once per question. An exam-bank question is answered only on an exam (400 exam_only without one) and never enters Review.
+         * @description Only the user account can record an answer. The server scores it and saves her progress in the same transaction. Repeating the same clientAttemptId returns the saved attempt and does not count it again. The admin is refused even when the question exists. An exam answer names its exam as studySessionId: it is taken only while that exam is running, for a question it drew, once per question. An exam-bank question is answered only on an exam (400 exam_only without one) and never enters Review. Any other answer sent with no studySessionId joins its set's sitting (GET /api/practice-sets/{id}) by itself: the one open when it arrives, whenever she gave it, or a new one. It is saved and counted whether or not it joins one.
          */
         post: {
             parameters: {
@@ -4445,7 +4540,7 @@ export interface paths {
         };
         /**
          * Export her progress
-         * @description Her whole history as one JSON file: every answer she gave, her latest answer to each question, her Review lists, course completion and scores, and every study session, exams included (`studySessions` whose `mode` is `exam`, for GET /api/exams/{id}). It grows with every answer; GET /api/me/standing says where she stands in far less. A course or topic she deleted is left out of `courses` and `questions` until she brings it back; her sessions and answers in it stay. Only a user account can export, and only its own data: the admin cannot. An agent key with `read` exports its own account's.
+         * @description Her whole history as one JSON file: every answer she gave, her latest answer to each question, her Review lists, course completion and scores, and every study session, exams included (`studySessions` whose `mode` is `exam`, for GET /api/exams/{id}; `practice` is a set's sitting, and its answers name it as their studySessionId). It grows with every answer; GET /api/me/standing says where she stands in far less. A course or topic she deleted is left out of `courses` and `questions` until she brings it back; her sessions and answers in it stay. Only a user account can export, and only its own data: the admin cannot. An agent key with `read` exports its own account's.
          */
         get: {
             parameters: {
@@ -8261,9 +8356,15 @@ export interface components {
             answeredCount: number;
             fullyRightCount: number;
             lastAnsweredAt: string | null;
+            /** @description The sitting she would continue, so the row says Continue. Null when opening the set starts it at question 1: a new set, a finished one, or one she chose Start over on, whose answeredCount above still counts every answer she has given. */
+            sitting: components["schemas"]["SetSittingSummary"] | null;
             questionIds: string[];
             /** @description The agent key that imported this version of the set, such as the user's own AI agent (see the Agents tag): show it as "Imported by your agent". Null when it was imported in the app or QBank made it. It stays after the key is revoked. */
             importedByAgent: components["schemas"]["ImportingAgent"] | null;
+        };
+        SetSittingSummary: {
+            /** @description Questions of the set answered in this sitting: the row's "7 of 12 answered · Continue". */
+            answeredCount: number;
         };
         ImportingAgent: {
             /**
@@ -8399,6 +8500,8 @@ export interface components {
              */
             kind: "practice" | "exam";
             questions: components["schemas"]["PracticeQuestion"][];
+            /** @description Where she left this set: open it at the first question not in `answeredQuestionIds`, with the answers counted in the result. Null opens it at question 1; so it is for a Review list, an exam set, and an agent key. */
+            sitting: components["schemas"]["SetSitting"] | null;
         };
         PracticeQuestion: {
             /** Format: uuid */
@@ -8523,6 +8626,90 @@ export interface components {
              * @enum {string}
              */
             at: "stem" | "rationale";
+        };
+        SetSitting: {
+            /**
+             * Format: uuid
+             * @description Null until her next answer saves it: a set she was midway through before sittings, which continues from the answers it has.
+             */
+            id: string | null;
+            /** @description Null as `id` is. */
+            startedAt: string | null;
+            /** @description The questions in `questions` answered in this sitting, in the set's order. */
+            answeredQuestionIds: string[];
+            /** @description Her latest answer to each of them, to count in the result at the end. */
+            answers: components["schemas"]["SittingAnswer"][];
+        };
+        SittingAnswer: {
+            /** Format: uuid */
+            clientAttemptId: string;
+            /**
+             * Format: uuid
+             * @description The question in `questions` it answers, even when she answered an earlier version of the set.
+             */
+            questionId: string;
+            /** @enum {string} */
+            status: "correct" | "partial" | "incorrect";
+            points: number;
+            maxPoints: number;
+            guessed: boolean;
+            answeredAt: string;
+            inReview: boolean;
+            /** @description The mark's word: Correct, Partly correct, or Not correct. */
+            label: string;
+            /** @description "N of M points" for a multi-part format. Null for single answer and priority. */
+            pointsText: string | null;
+            /** @description How the format is scored, for select all that apply, highlight, and ordering. Null for the others. */
+            ruleText: string | null;
+            /** @description Her answer as she sent it. */
+            response: components["schemas"]["Answer"] | null;
+            /** @description The order she saw, as her device sent it with the answer. */
+            shuffle?: unknown;
+        };
+        /** @description An answer, in the format of its question. Every index refers to the stored body, never to the order she saw. */
+        Answer: {
+            /** @enum {string} */
+            type: "single";
+            /** @description The option she picked. */
+            choice: number;
+        } | {
+            /** @enum {string} */
+            type: "priority";
+            /** @description The option she picked. */
+            choice: number;
+        } | {
+            /** @enum {string} */
+            type: "sata";
+            /** @description The options she ticked. */
+            picks: number[];
+        } | {
+            /** @enum {string} */
+            type: "highlight";
+            /** @description The segments she tapped. */
+            picks: number[];
+        } | {
+            /** @enum {string} */
+            type: "order";
+            /** @description positions[i] is the item she put in place i, top first. Place i is right when it holds item i. */
+            positions: number[];
+        } | {
+            /** @enum {string} */
+            type: "match";
+            /** @description choices[i] is the right-hand text she paired with pair i. */
+            choices: (string | null)[];
+        } | {
+            /** @enum {string} */
+            type: "matrix";
+            /** @description choices[i] is the column she picked for row i. */
+            choices: (string | null)[];
+        } | {
+            /** @enum {string} */
+            type: "cloze";
+            /** @description choices[i] is the entry she picked for blank i. */
+            choices: (number | null)[];
+        };
+        StartOverResult: {
+            ended: boolean;
         };
         ImportReport: {
             ok: boolean;
@@ -8764,6 +8951,8 @@ export interface components {
             shuffle?: unknown;
             /** Format: uuid */
             studySessionId?: string;
+            /** @description True from a Review runner: the answer counts in a sitting of its set that is open, and never opens one, so reviewing a question does not read as beginning its set again. Practice runners leave it out. */
+            fromReview?: boolean;
         };
         ReviewList: {
             /** @enum {string} */
@@ -8945,6 +9134,8 @@ export interface components {
             examPool: "all" | "wrong";
             /** @description For an exam: the folders (weeks, before folders) that had no exam bank, so it drew their practice questions. Null when the course had no exam bank. */
             examPracticeWeeks: string[] | null;
+            /** @description For a practice set's sitting: the question lineages (questionProgress.questionLineageId) it began with, answered before it opened; empty when it began at question 1. Null on anything else. */
+            seededQuestionIds: string[] | null;
             /** @description The time limit, for an exam. */
             timeLimitSeconds: number | null;
             startedAt: string;
@@ -8954,7 +9145,7 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             /**
-             * @description How an exam ended: she finished it, left it, or ran out of time.
+             * @description How an exam ended: she finished it, left it, or ran out of time. A practice set's sitting is `finished` once every question has an answer in it, or `left` by Start over.
              * @enum {string|null}
              */
             endReason: "finished" | "left" | "timeout" | null;
@@ -9287,48 +9478,6 @@ export interface components {
                 /** @description The order she saw, as her device sent it with the answer; null when she did not answer. */
                 shuffle?: unknown;
             }[];
-        };
-        /** @description An answer, in the format of its question. Every index refers to the stored body, never to the order she saw. */
-        Answer: {
-            /** @enum {string} */
-            type: "single";
-            /** @description The option she picked. */
-            choice: number;
-        } | {
-            /** @enum {string} */
-            type: "priority";
-            /** @description The option she picked. */
-            choice: number;
-        } | {
-            /** @enum {string} */
-            type: "sata";
-            /** @description The options she ticked. */
-            picks: number[];
-        } | {
-            /** @enum {string} */
-            type: "highlight";
-            /** @description The segments she tapped. */
-            picks: number[];
-        } | {
-            /** @enum {string} */
-            type: "order";
-            /** @description positions[i] is the item she put in place i, top first. Place i is right when it holds item i. */
-            positions: number[];
-        } | {
-            /** @enum {string} */
-            type: "match";
-            /** @description choices[i] is the right-hand text she paired with pair i. */
-            choices: (string | null)[];
-        } | {
-            /** @enum {string} */
-            type: "matrix";
-            /** @description choices[i] is the column she picked for row i. */
-            choices: (string | null)[];
-        } | {
-            /** @enum {string} */
-            type: "cloze";
-            /** @description choices[i] is the entry she picked for blank i. */
-            choices: (number | null)[];
         };
         StartExam: {
             /** @description The folders to draw from (CourseDetail.folders). */

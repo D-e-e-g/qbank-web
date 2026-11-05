@@ -408,6 +408,15 @@ label.list-row:active {
   overflow-wrap: anywhere;
 }
 
+.list-meta-sep {
+  color: var(--text-3);
+}
+
+.list-continue {
+  color: var(--tint);
+  font-weight: var(--weight-semibold);
+}
+
 .list-chevron {
   display: flex;
   flex-shrink: 0;

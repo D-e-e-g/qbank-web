@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError, api } from "../api";
 import { Button } from "../components/Button";
+import { ConfirmSheet } from "../components/ConfirmSheet";
 import { Icon, type IconName } from "../components/Icon";
 import { navigate } from "../router";
 import type { Role } from "../session";
@@ -10,13 +11,14 @@ import { FORMAT_LABELS, readPracticeSet, toResponse } from "./model";
 import type { PracticeSource } from "./source";
 import { recordPracticeAnswer, type Feedback } from "./recordPracticeAnswer";
 import { RunnerShell } from "./RunnerShell";
-import { advance, beginSession, reveal, strike, updateAttempt, type Session } from "./session";
+import { advance, answeredCount, beginSession, nextIndex, pickedUpLine, reveal, startOver, startOverMessage, strike, updateAttempt, type Session } from "./session";
 
 export function PracticeScreen({ courseId, source, role, wide }: { courseId: string; source: PracticeSource; role: Role; wide: boolean }) {
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [waiting, setWaiting] = useState(false);
+  const [askingStartOver, setAskingStartOver] = useState(false);
 
   useEffect(() => {
     let cancel = false;
@@ -92,8 +94,7 @@ export function PracticeScreen({ courseId, source, role, wide }: { courseId: str
   const response = toResponse(attempt.draft);
   const points = attempt.score?.pointsText ?? null;
   const rule = attempt.score?.ruleText ?? null;
-  const done = session.index + (revealed ? 1 : 0);
-  const last = session.index === session.questions.length - 1;
+  const last = nextIndex(session) === -1;
 
   const check = () => {
     if (checking || attempt.score || !response) return;
@@ -106,6 +107,7 @@ export function PracticeScreen({ courseId, source, role, wide }: { courseId: str
         response,
         guessed: attempt.guessed,
         layout: attempt.layout,
+        fromReview: session.kind === "review",
       },
       () => {
         setWaiting(true);
@@ -124,12 +126,28 @@ export function PracticeScreen({ courseId, source, role, wide }: { courseId: str
     );
   };
 
+  const confirmStartOver = () => {
+    setAskingStartOver(false);
+    setError(null);
+    setChecking(true);
+    void api(`${source.loadPath}/start-over`, { method: "POST" }).then(
+      () => {
+        setChecking(false);
+        setSession(startOver);
+      },
+      (caught: unknown) => {
+        setChecking(false);
+        setError(caught instanceof ApiError ? caught.message : "Could not start over. Check your connection and try again.");
+      },
+    );
+  };
+
   return (
     <RunnerShell
       wide={wide}
       title={session.title}
       count={`${String(session.index + 1)} of ${String(session.questions.length)}`}
-      progress={done / session.questions.length}
+      progress={answeredCount(session) / session.questions.length}
       onClose={close}
       footer={
         revealed ? (
@@ -148,6 +166,21 @@ export function PracticeScreen({ courseId, source, role, wide }: { courseId: str
         )
       }
     >
+      {session.pickedUp ? (
+        <div className="runner-pickup">
+          <span>{pickedUpLine(session.pickedUp)}</span>
+          <button
+            type="button"
+            className="runner-pickup-action"
+            disabled={checking}
+            onClick={() => {
+              setAskingStartOver(true);
+            }}
+          >
+            Start over
+          </button>
+        </div>
+      ) : null}
       {error ? <p className="form-error">{error}</p> : null}
       {waiting ? (
         <p className="status-banner" role="status">
@@ -232,6 +265,18 @@ export function PracticeScreen({ courseId, source, role, wide }: { courseId: str
           ) : null}
         </div>
       ) : null}
+      {askingStartOver ? (
+        <ConfirmSheet
+          title={`Start over ${session.title}?`}
+          message={startOverMessage(answeredCount(session))}
+          confirmLabel="Start over"
+          confirmVariant="destructive"
+          onConfirm={confirmStartOver}
+          onCancel={() => {
+            setAskingStartOver(false);
+          }}
+        />
+      ) : null}
     </RunnerShell>
   );
 }
@@ -267,7 +312,8 @@ function Results({ session, wide, closeLabel, onClose }: { session: Session; wid
               {fullyRight} of {session.questions.length} fully right
             </h1>
             <p className="result-sub">
-              {points} of {maxPoints} points · {durationText(elapsed)}
+              {/* The clock of one opening says nothing about a sitting that took several. */}
+              {points} of {maxPoints} points{session.pickedUp ? "" : ` · ${durationText(elapsed)}`}
             </p>
           </div>
           <ul className="result-stats" aria-label="Score summary">

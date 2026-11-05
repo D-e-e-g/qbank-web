@@ -34,6 +34,7 @@ function set(questionCount: number, answeredCount = 0): SetSummary {
     lastAnsweredAt: null,
     questionIds: [],
     importedByAgent: null,
+    sitting: null,
   };
 }
 
