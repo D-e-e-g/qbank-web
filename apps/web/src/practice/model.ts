@@ -13,6 +13,8 @@ export type QuestionTable = Schemas["QuestionTable"];
 export type QuestionImage = Schemas["QuestionImage"];
 /** An answer in its question's format. Every index refers to the stored body, never to the order she saw. */
 export type Answer = Schemas["Answer"];
+/** A practice set's sitting, kept on the server: the questions she has answered this time through, and her answers. */
+export type Sitting = Schemas["SetSitting"];
 
 /** A question's format with the body fields of that format. */
 export type Question =
@@ -66,6 +68,8 @@ export interface LoadedSet {
   title: string;
   weekLabel: string;
   questions: LoadedQuestion[];
+  /** How far she got this time through, on any device. Null opens the set at question 1. */
+  sitting: Sitting | null;
 }
 
 export interface OptionLayout {
@@ -121,7 +125,12 @@ export function readPracticeSet(body: unknown): LoadedSet | null {
     questions.push(question);
   }
   questions.sort((left, right) => left.position - right.position);
-  return { id: body.id, courseId: body.courseId, title: body.title, weekLabel: body.weekLabel, questions };
+  return { id: body.id, courseId: body.courseId, title: body.title, weekLabel: body.weekLabel, questions, sitting: readSitting(body.sitting) };
+}
+
+function readSitting(value: unknown): Sitting | null {
+  if (!isRecord(value) || !Array.isArray(value.answeredQuestionIds) || !Array.isArray(value.answers)) return null;
+  return value as unknown as Sitting;
 }
 
 /** Options, order items, match choices, and drop-down choices are shuffled once per opening. */

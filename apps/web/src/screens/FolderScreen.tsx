@@ -212,7 +212,7 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
                       </div>
                     ) : (
                       <ShellLink to={`/course/${courseId}/practice/${set.id}?folder=${folder.id}`} className="list-row" current={false}>
-                        <SetCopy set={set} />
+                        <SetCopy set={set} opens />
                         <span className="list-chevron">
                           <Icon name="chevron-right" size={18} strokeWidth={2} />
                         </span>
@@ -324,18 +324,29 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
   );
 }
 
-function SetCopy({ set }: { set: SetSummary }) {
+/** A set's title and status. On a row that opens the set (`opens`), one she left midway offers Continue. */
+function SetCopy({ set, opens = false }: { set: SetSummary; opens?: boolean }) {
   const admin = useSession().user.role === "admin";
   return (
     <span className="list-copy">
       <span className="list-title list-title-strong">{set.title}</span>
-      <span className="list-meta">{statusLine(set)}</span>
+      <span className="list-meta">
+        {statusLine(set)}
+        {opens && set.sitting ? (
+          <>
+            {" "}
+            <span className="list-meta-sep">·</span> <span className="list-continue">Continue</span>
+          </>
+        ) : null}
+      </span>
       {set.importedByAgent === null ? null : <span className="list-meta">{admin ? "Imported by an agent" : "Imported by your agent"}</span>}
     </span>
   );
 }
 
 function statusLine(set: SetSummary): string {
+  // Her answers this time through. Without a sitting, the counts below are every answer she has given.
+  if (set.sitting) return `${String(set.sitting.answeredCount)} of ${String(set.questionCount)} answered`;
   if (set.answeredCount === 0) {
     const word = set.status === "imported" ? "Imported" : set.status === "replaced" ? "Replaced" : "Restored";
     return `${word} ${when(set.activeSince)} · ${String(set.questionCount)} questions`;

@@ -11,6 +11,8 @@ export interface AttemptSubmission {
   shuffle?: unknown;
   /** The running exam this answer belongs to. */
   studySessionId?: string;
+  /** Sent by the Review runner only. The server files every other answer in its set's sitting by itself. */
+  fromReview?: boolean;
 }
 
 /** What the server scored and saved, with the feedback banner's text for it. */

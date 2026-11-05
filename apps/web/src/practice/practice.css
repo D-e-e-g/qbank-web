@@ -112,6 +112,42 @@
   padding: 0 var(--gutter-tablet);
 }
 
+/* Under the title of a set she came back to. The button is a 44px target that does not make the line taller. */
+.runner-pickup {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--tint-soft);
+  color: var(--tint);
+  font: var(--weight-medium) var(--size-footnote) / var(--lh-footnote) var(--font-ui);
+}
+
+.runner-pickup-action {
+  flex-shrink: 0;
+  min-height: 44px;
+  margin: -13px 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.runner-pickup-action:hover:not(:disabled) {
+  color: var(--tint-pressed);
+}
+
+.runner-pickup-action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .runner-meta {
   display: flex;
   flex-wrap: wrap;
