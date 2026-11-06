@@ -139,6 +139,7 @@ body,
 .add-button:hover,
 .add-button[aria-expanded="true"] {
   background: var(--tint-soft-border);
+  color: var(--tint);
 }
 
 .add-button:active {

@@ -30,7 +30,7 @@ const NEW_TOPIC = "new-topic";
 
 /**
  * Import. The + of a course or an exam page opens it with `?course=` picked (an exam page adds `?page=`,
- * which lists that page's folders first), and "Import here" on a folder adds `?folder=`, picked. The set
+ * which lists that page's folders first), and a folder's + or "Import here" adds `?folder=`, picked. The set
  * goes to Unsorted unless she picks a folder.
  */
 export function ImportScreen() {
