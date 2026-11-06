@@ -5,8 +5,8 @@ import { Button } from "../components/Button";
 import { ConfirmSheet } from "../components/ConfirmSheet";
 import { CountdownTimer } from "../components/CountdownTimer";
 import { Icon } from "../components/Icon";
+import { useFrozen } from "../frozen";
 import { navigate } from "../router";
-import type { Role } from "../session";
 import { AnswerArea } from "../practice/Answers";
 import { StemExhibits } from "../practice/Exhibits";
 import {
@@ -31,7 +31,7 @@ export interface LoadedExam {
   questions: LoadedQuestion[];
 }
 
-export function ExamScreen({ courseId, examId, role, wide }: { courseId: string; examId: string; role: Role; wide: boolean }) {
+export function ExamScreen({ courseId, examId, wide }: { courseId: string; examId: string; wide: boolean }) {
   const [exam, setExam] = useState<LoadedExam | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,15 +78,7 @@ export function ExamScreen({ courseId, examId, role, wide }: { courseId: string;
     );
   }
 
-  if (exam.view.result !== null) return <ExamResultView exam={exam} role={role} wide={wide} />;
-
-  if (role !== "student") {
-    return (
-      <RunnerShell wide={wide} title={`Exam · ${foldersText(exam.view.weeks)}`} count="" onClose={close}>
-        <p className="note">Her exam is still running. Its result shows here once it ends. Only she can answer questions.</p>
-      </RunnerShell>
-    );
-  }
+  if (exam.view.result !== null) return <ExamResultView exam={exam} wide={wide} />;
 
   return <ExamRunner exam={exam} wide={wide} onEnded={ended} />;
 }
@@ -114,6 +106,7 @@ function nextStop(items: readonly ItemState[], from: number): { index: number; w
 }
 
 function ExamRunner({ exam, wide, onEnded }: { exam: LoadedExam; wide: boolean; onEnded: (view: ExamView) => void }) {
+  const { frozen, guard } = useFrozen();
   const view = exam.view;
   const [items, setItems] = useState<ItemState[]>(() => {
     const answered = new Set(view.answeredQuestionIds);
@@ -152,7 +145,8 @@ function ExamRunner({ exam, wide, onEnded }: { exam: LoadedExam; wide: boolean; 
 
   const end = useCallback(
     (reason: ExamEndReason) => {
-      if (endingRef.current) return;
+      // Only the user's own app ends an exam, on time too. The frozen view shows the clock at 0:00.
+      if (endingRef.current || frozen) return;
       endingRef.current = true;
       inFlight.current?.abort();
       setConfirming(false);
@@ -166,7 +160,7 @@ function ExamRunner({ exam, wide, onEnded }: { exam: LoadedExam; wide: boolean; 
           setError(caught instanceof ApiError ? caught.message : "Could not end the exam. Check the connection and try again.");
         });
     },
-    [onEnded, view.id],
+    [frozen, onEnded, view.id],
   );
 
   useEffect(() => {
@@ -290,9 +284,9 @@ function ExamRunner({ exam, wide, onEnded }: { exam: LoadedExam; wide: boolean; 
           variant="plain"
           className="runner-end"
           disabled={ending}
-          onClick={() => {
+          onClick={guard(() => {
             setConfirming(true);
-          }}
+          })}
         >
           End exam
         </Button>
@@ -303,7 +297,7 @@ function ExamRunner({ exam, wide, onEnded }: { exam: LoadedExam; wide: boolean; 
           <Button variant="quiet" className="btn-lg exam-skip" disabled={busy} onClick={skip}>
             Skip for now
           </Button>
-          <Button className="btn-lg" disabled={response === null || busy} onClick={submit}>
+          <Button className="btn-lg" disabled={response === null || busy} onClick={() => { guard(submit)(); }}>
             {lastPending ? "Finish exam" : "Submit and continue"}
           </Button>
         </div>
@@ -323,7 +317,7 @@ function ExamRunner({ exam, wide, onEnded }: { exam: LoadedExam; wide: boolean; 
             {skippedLeft} skipped {skippedLeft === 1 ? "question" : "questions"} left.
             {wrappedTo === index ? " This is the first one." : ""}
           </span>
-          <Button variant="plain" className="exam-finish" disabled={busy} onClick={() => { end("finished"); }}>
+          <Button variant="plain" className="exam-finish" disabled={busy} onClick={() => { guard(end)("finished"); }}>
             Finish exam
           </Button>
         </div>

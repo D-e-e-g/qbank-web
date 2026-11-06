@@ -15,9 +15,8 @@ import { Button } from "../components/Button";
 import { ConfirmSheet } from "../components/ConfirmSheet";
 import { EmptyState } from "../components/EmptyState";
 import { Icon } from "../components/Icon";
-import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { Switch } from "../components/Switch";
-import { useSession } from "../login/session-context";
+import { useFrozen } from "../frozen";
 import { navigate } from "../router";
 import { Screen } from "../shell/Screen";
 import { ShellLink } from "../shell/ShellLink";
@@ -35,8 +34,7 @@ const SLOW_PLAN_MS = 300;
 
 /** Exam setup. Opened from an exam page's Start exam, it arrives with that page's folders ticked (`preset`). */
 export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset: ExamPreset | null }) {
-  const session = useSession();
-  const admin = session.user.role === "admin";
+  const { guard } = useFrozen();
   const course = useCatalogCourse(courseId);
   // Her exam pages and folder order, to group the folders as she sees them.
   const { course: detail, error: detailError } = useCourse(courseId);
@@ -91,7 +89,6 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
   }, [path, version]);
 
   useEffect(() => {
-    if (admin) return;
     let cancel = false;
     void api<QuestionMakerStatus>("/api/question-maker")
       .then((status) => {
@@ -108,7 +105,7 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
     return () => {
       cancel = true;
     };
-  }, [admin, courseId]);
+  }, [courseId]);
 
   const folders = setup?.folders ?? [];
   // Grouped by exam page once the course is read, so a folder never shows under the wrong heading.
@@ -124,7 +121,7 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
   const rules = setup?.rules ?? null;
   const noneWrong = folders.every((folder) => folder.wrongCount === 0);
   // The folders the exam page ticked that this course can still draw from.
-  const presetCount = admin || preset === null ? 0 : folders.filter((folder) => preset.folderIds.includes(folder.id) && folder.questionCount > 0).length;
+  const presetCount = preset === null ? 0 : folders.filter((folder) => preset.folderIds.includes(folder.id) && folder.questionCount > 0).length;
   const label = (id: string, name: string) => (detail ? folderLabel(detail, id, name) : name);
 
   const start = () => {
@@ -163,14 +160,13 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
 
   return (
     <Screen title="Exam">
-      {admin ? <ReadOnlyBanner /> : null}
       <ShellLink to={`/course/${courseId}`} className="text-action" current={false}>
         {words.Container}
       </ShellLink>
       <p className="note">{course ? courseLine(course) : "A timed exam over the folders you pick"}</p>
       {error ? <p className="form-error">{error}</p> : null}
       {setup === null && error === null ? <p className="note">Loading the exam setup.</p> : null}
-      {setup?.inProgress ? <RunningExam exam={setup.inProgress} admin={admin} loadedAt={loaded?.at ?? 0} /> : null}
+      {setup?.inProgress ? <RunningExam exam={setup.inProgress} loadedAt={loaded?.at ?? 0} /> : null}
       {setup !== null && folders.length === 0 ? (
         <div className="empty-card">
           <EmptyState icon="timer" message={`This ${words.container} has no questions yet. An exam draws from the folders your sets are in.`} />
@@ -209,37 +205,28 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
                   const meta = folderLine(folder, wrongOnly);
                   return (
                     <li key={folder.id}>
-                      {admin ? (
-                        <div className="review-row tick-row">
-                          <span className="review-copy">
-                            <span className="review-topic">{folder.name}</span>
-                            <span className="review-meta">{meta}</span>
-                          </span>
-                        </div>
-                      ) : (
-                        <label className={open ? "review-row tick-row" : "review-row tick-row tick-row-off"}>
-                          <input
-                            type="checkbox"
-                            className="tick-check"
-                            checked={checked}
-                            disabled={!open}
-                            onChange={(event) => {
-                              const on = event.target.checked;
-                              setTicked((current) => {
-                                const next = new Set(current);
-                                if (on) next.add(folder.id);
-                                else next.delete(folder.id);
-                                return next;
-                              });
-                            }}
-                          />
-                          <span className="review-copy">
-                            <span className="review-topic">{folder.name}</span>
-                            <span className="review-meta">{meta}</span>
-                          </span>
-                          {checked && drawn !== undefined ? <span className="tick-drawn">{drawn} in exam</span> : null}
-                        </label>
-                      )}
+                      <label className={open ? "review-row tick-row" : "review-row tick-row tick-row-off"}>
+                        <input
+                          type="checkbox"
+                          className="tick-check"
+                          checked={checked}
+                          disabled={!open}
+                          onChange={(event) => {
+                            const on = event.target.checked;
+                            setTicked((current) => {
+                              const next = new Set(current);
+                              if (on) next.add(folder.id);
+                              else next.delete(folder.id);
+                              return next;
+                            });
+                          }}
+                        />
+                        <span className="review-copy">
+                          <span className="review-topic">{folder.name}</span>
+                          <span className="review-meta">{meta}</span>
+                        </span>
+                        {checked && drawn !== undefined ? <span className="tick-drawn">{drawn} in exam</span> : null}
+                      </label>
                     </li>
                   );
                 })}
@@ -253,7 +240,7 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
           </p>
         </section>
       ) : null}
-      {!admin && folders.length > 0 ? (
+      {folders.length > 0 ? (
         <div className="exam-summary" aria-live="polite" aria-busy={updating || undefined}>
           {preview ? (
             <p className="exam-summary-head">
@@ -281,10 +268,10 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
             fullWidth
             className="btn-lg"
             disabled={picked.length === 0 || starting || twinning}
-            onClick={() => {
+            onClick={guard(() => {
               if (setup?.inProgress) setReplacing(true);
               else start();
-            }}
+            })}
           >
             Start exam
           </Button>
@@ -295,7 +282,7 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
                 twins. Your questions stay as they are.
               </p>
               {twinError?.path === path ? <p className="form-error">{twinError.message}</p> : null}
-              <Button variant="secondary" fullWidth className="btn-lg" disabled={picked.length === 0 || starting || twinning} onClick={twin}>
+              <Button variant="secondary" fullWidth className="btn-lg" disabled={picked.length === 0 || starting || twinning} onClick={guard(twin)}>
                 Write exam twins
               </Button>
             </>
@@ -303,7 +290,7 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
         </div>
       ) : null}
       {twinJobs !== null && twinJobs.length > 0 ? <TwinJobs courseId={courseId} jobs={twinJobs} /> : null}
-      {setup !== null && folders.length > 0 ? <PastExams courseId={courseId} exams={setup.exams} admin={admin} /> : null}
+      {setup !== null && folders.length > 0 ? <PastExams courseId={courseId} exams={setup.exams} /> : null}
       {replacing ? (
         <ConfirmSheet
           title="Start a new exam?"
@@ -317,46 +304,34 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
   );
 }
 
-function RunningExam({ exam, admin, loadedAt }: { exam: ExamSummary; admin: boolean; loadedAt: number }) {
+function RunningExam({ exam, loadedAt }: { exam: ExamSummary; loadedAt: number }) {
   const minutesLeft = Math.max(1, Math.ceil((new Date(exam.endsAt).getTime() - loadedAt) / 60_000));
   const answered = `${String(exam.answeredCount)} of ${String(exam.questionCount)} answered`;
-  const copy = (
-    <span className="review-copy">
-      <span className="review-topic">{admin ? "Her exam in progress" : "Exam in progress"}</span>
-      <span className="review-meta">
-        {foldersText(exam.weeks)}
-        {exam.pool === "wrong" ? " · Wrong questions only" : ""} · {answered} · {minutesLeft} min left
-      </span>
-    </span>
-  );
   return (
     <ul className="review-list">
       <li>
-        {admin ? (
-          <div className="review-row">
-            <span className="row-icon">
-              <Icon name="timer" size={20} />
+        <button
+          type="button"
+          className="review-row"
+          onClick={() => {
+            navigate(`/course/${exam.courseId}/exam/${exam.id}`);
+          }}
+        >
+          <span className="row-icon">
+            <Icon name="timer" size={20} />
+          </span>
+          <span className="review-copy">
+            <span className="review-topic">Exam in progress</span>
+            <span className="review-meta">
+              {foldersText(exam.weeks)}
+              {exam.pool === "wrong" ? " · Wrong questions only" : ""} · {answered} · {minutesLeft} min left
             </span>
-            {copy}
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="review-row"
-            onClick={() => {
-              navigate(`/course/${exam.courseId}/exam/${exam.id}`);
-            }}
-          >
-            <span className="row-icon">
-              <Icon name="timer" size={20} />
-            </span>
-            {copy}
-            <span className="exam-resume">Resume</span>
-            <span className="review-chevron">
-              <Icon name="chevron-right" size={18} />
-            </span>
-          </button>
-        )}
+          </span>
+          <span className="exam-resume">Resume</span>
+          <span className="review-chevron">
+            <Icon name="chevron-right" size={18} />
+          </span>
+        </button>
       </li>
     </ul>
   );
@@ -395,16 +370,15 @@ function TwinJobs({ courseId, jobs }: { courseId: string; jobs: readonly TwinJob
   );
 }
 
-function PastExams({ courseId, exams, admin }: { courseId: string; exams: ExamSummary[]; admin: boolean }) {
+function PastExams({ courseId, exams }: { courseId: string; exams: ExamSummary[] }) {
   return (
     <PastExamList
       courseId={courseId}
       exams={exams}
       title="Past exams"
-      readOnly={admin}
       empty={
         <div className="empty-card">
-          <EmptyState icon="timer" message={admin ? "Her finished exams show up here with their scores." : "Exams you finish show up here with their scores."} />
+          <EmptyState icon="timer" message="Exams you finish show up here with their scores." />
         </div>
       }
     />

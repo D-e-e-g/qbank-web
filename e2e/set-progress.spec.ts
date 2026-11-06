@@ -342,7 +342,7 @@ test.describe("a set remembers where she left it", () => {
       await admin.goto(folderPage(set));
       const list = admin.getByRole("list", { name: "Sets in Week 6" });
       await expect(list).toContainText("1 of 4 answered");
-      await expect(list).not.toContainText("Continue");
+      await expect(list).toContainText("Continue");
     } finally {
       await adminContext.close();
     }

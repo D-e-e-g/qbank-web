@@ -1,16 +1,13 @@
 import { useEffect, useState } from "react";
 import { ApiError, api, type CourseTerm } from "../api";
 import { EmptyState } from "../components/EmptyState";
-import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { folderLabel } from "../course/folders";
 import { useCourseVersion } from "../course/deletion";
 import { useCourse, useCourseNaming } from "../course/useCourse";
-import { useSession } from "../login/session-context";
 import { Screen } from "../shell/Screen";
 import { ShellLink } from "../shell/ShellLink";
 
 export function TermsScreen({ courseId }: { courseId: string }) {
-  const session = useSession();
   const [terms, setTerms] = useState<CourseTerm[] | null>(null);
   // Her folders, so a folder name two exam pages share says which page.
   const { course } = useCourse(courseId);
@@ -35,7 +32,6 @@ export function TermsScreen({ courseId }: { courseId: string }) {
 
   return (
     <Screen title="Terms">
-      {session.user.role === "admin" ? <ReadOnlyBanner /> : null}
       <ShellLink to={`/course/${courseId}`} className="text-action" current={false}>
         {words.Container}
       </ShellLink>

@@ -212,7 +212,7 @@ test.describe("deleting a course or topic", () => {
     await expect(deleted.getByRole("button", { name: `Undo deleting ${code}` })).toBeDisabled();
   });
 
-  test("the admin sees Home's Recently deleted read-only, with no Delete and no Undo", async ({ page, browser }, testInfo) => {
+  test("the admin sees Home's Recently deleted as the user does, and Undo answers with the note", async ({ page, browser }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chrome", "admin on the wide layout");
     const code = uniqueName("ADM");
     await signIn(page);
@@ -223,11 +223,12 @@ test.describe("deleting a course or topic", () => {
 
     const admin = await signedInPage(browser, ADMIN_EMAIL, ADMIN_PASSWORD);
     await openHome(admin);
-    await expect(admin.getByRole("button", { name: /^Actions for / })).toHaveCount(0);
     await main(admin).getByRole("list", { name: "Recently deleted" }).getByRole("link").click();
-    await expect(admin.getByText("The courses and study topics she deleted in the last 30 days. She can bring each back as it was.")).toBeVisible();
+    await expect(admin.getByText("The courses and study topics you deleted in the last 30 days.", { exact: false })).toBeVisible();
     await expect(admin.getByRole("list", { name: "Deleted courses" }).getByRole("listitem").filter({ hasText: code })).toContainText("Admin sees it");
-    await expect(admin.getByRole("button", { name: /^Undo deleting/ })).toHaveCount(0);
+    await admin.getByRole("button", { name: /^Undo deleting/ }).first().click();
+    await expect(admin.getByText("This is a frozen view of", { exact: false })).toBeVisible();
+    await expect(admin.getByRole("list", { name: "Deleted courses" }).getByRole("listitem").filter({ hasText: code })).toContainText("Admin sees it");
     await admin.context().close();
   });
 });

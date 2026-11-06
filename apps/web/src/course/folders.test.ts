@@ -99,13 +99,8 @@ describe("folderEmptyMessage", () => {
   const bankOnly = folder("Week 9", [], { examBankCount: 3 });
 
   it("names the next step for her", () => {
-    expect(folderEmptyMessage(empty, false)).toBe("No sets yet. Import a question file here, or move sets here from another folder.");
-    expect(folderEmptyMessage(bankOnly, false)).toBe("No practice sets yet. Import a question file here, or move sets here from another folder.");
-  });
-
-  it("offers nothing to a read-only user", () => {
-    expect(folderEmptyMessage(empty, true)).toBe("No sets in this folder.");
-    expect(folderEmptyMessage(bankOnly, true)).toBe("No practice sets in this folder.");
+    expect(folderEmptyMessage(empty)).toBe("No sets yet. Import a question file here, or move sets here from another folder.");
+    expect(folderEmptyMessage(bankOnly)).toBe("No practice sets yet. Import a question file here, or move sets here from another folder.");
   });
 });
 

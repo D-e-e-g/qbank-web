@@ -155,13 +155,16 @@ test.describe("progress and review", () => {
       expect(await reviewCount(otherPage, courseId)).toBe(1);
 
       await adminPage.goto(`/course/${courseId}/review`);
-      await expect(adminPage.getByText(/progress, read-only\./)).toBeVisible();
+      await expect(adminPage.getByText("Viewing student@example.com")).toBeVisible();
       await expect(adminPage.getByText("Perfusion", { exact: true })).toBeVisible();
-      await expect(adminPage.getByRole("button", { name: "Clear the review list" })).toHaveCount(0);
-      await expect(adminPage.getByRole("button", { name: /Practice these/ })).toHaveCount(0);
-      await adminPage.goto(`/course/${courseId}/review/practice`);
-      await expect(adminPage.getByText("Only she can answer questions.")).toBeVisible();
-      await expect(adminPage.getByRole("button", { name: "Check answer" })).toHaveCount(0);
+      await adminPage.getByRole("button", { name: "Clear the review list" }).click();
+      await expect(adminPage.getByText("This is a frozen view of", { exact: false })).toBeVisible();
+      await expect(adminPage.getByRole("dialog")).toHaveCount(0);
+      await adminPage.getByRole("button", { name: /Practice these/ }).click();
+      await adminPage.getByRole("radio", { name: WRONG, exact: true }).click();
+      await adminPage.getByRole("button", { name: "Check answer" }).click();
+      await expect(adminPage.getByText("This is a frozen view of", { exact: false })).toBeVisible();
+      expect(await reviewCount(studentPage, courseId)).toBe(1);
       const adminPlace = (await (await adminPage.request.get("/api/me/place")).json()) as { courseId: string | null };
       expect(adminPlace.courseId).toBeNull();
 

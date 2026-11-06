@@ -107,7 +107,7 @@ export async function api<T>(path: string, init: { method?: string; json?: unkno
   if (!response.ok) {
     // One place for a dead session, for every screen that calls api().
     reportSessionFailure(path, method, response.status, body);
-    throw new ApiError(response.status, body);
+    throw new ApiError(response.status, refusalBody(response.status, body));
   }
   return body as T;
 }
@@ -138,6 +138,17 @@ export function reportSessionFailure(path: string, method: string, status: numbe
     return;
   }
   if (status === 401 && sessionEnded(path, method, body)) onSessionEnd({ kind: "signed-out" });
+}
+
+let frozenNote: (() => string) | null = null;
+
+/** The admin's frozen view registers its note. A refusal that still reaches a screen says that, not the server's words. */
+export function bindFrozenNote(note: () => string): void {
+  frozenNote = note;
+}
+
+function refusalBody(status: number, body: unknown): unknown {
+  return status === 403 && errorCode(body) === "admin_read_only" && frozenNote !== null ? { error: "admin_read_only", message: frozenNote() } : body;
 }
 
 export function isConflict(body: unknown): body is ImportConflict {

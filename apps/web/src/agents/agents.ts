@@ -23,25 +23,29 @@ export function codeFromSearch(search: string): string {
   return cleanCode(new URLSearchParams(search).get("code") ?? "");
 }
 
+/** An agent key reaches its own account's content, and the admin's session only views: what it asks for reaches nothing. */
+export const ADMIN_KEY = "An agent key reaches only its own account's content, and the admin account has none. QBank refuses this key every time.";
+
 /** What a scope lets an agent do, in plain words, for the approval screen, when the server has not described it. */
 export function scopeWords(scope: string, admin: boolean): { title: string; detail: string } {
-  const whose = admin ? "the user account you look after" : "your account";
   if (scope === "import") {
     return {
       title: "Import question sets",
-      detail: `Into the courses and topics of ${whose}, reading them to file each set. It never replaces, moves, renames, or deletes a set.`,
+      detail: admin ? ADMIN_KEY : "Into the courses and topics of your account, reading them to file each set. It never replaces, moves, renames, or deletes a set.",
     };
   }
   if (scope === "read") {
     return {
       title: "Read progress, read-only",
-      detail: "Where you stand by topic, your Review lists, your exams, and your progress export. It changes nothing.",
+      detail: admin ? ADMIN_KEY : "Where you stand by topic, your Review lists, your exams, and your progress export. It changes nothing.",
     };
   }
   if (scope === "manage") {
     return {
       title: admin ? "Add, change, and delete content" : "Add, change, and delete your content",
-      detail: `The sets, questions, folders, courses, and topics of ${whose}, as you can in QBank. Anything it deletes goes to Recently deleted, where Undo brings it back for 30 days.`,
+      detail: admin
+        ? ADMIN_KEY
+        : "The sets, questions, folders, courses, and topics of your account, as you can in QBank. Anything it deletes goes to Recently deleted, where Undo brings it back for 30 days.",
     };
   }
   // A scope added after this screen was made: shown by its name, as the contract asks.
@@ -57,7 +61,8 @@ export function isStrongest(scope: string): boolean {
 export function pairingScopes(pairing: AgentPairing, admin: boolean): { scope: string; title: string; detail: string; strongest: boolean }[] {
   return pairing.scopes.map((scope) => {
     const words = scopeWords(scope, admin);
-    const text = pairing.scopeTexts.find((described) => described.scope === scope)?.text;
+    // The server's plain words are about the user's own content, so the admin reads its own.
+    const text = admin ? undefined : pairing.scopeTexts.find((described) => described.scope === scope)?.text;
     return { scope, title: words.title, detail: text ?? words.detail, strongest: isStrongest(scope) };
   });
 }

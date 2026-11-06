@@ -5,12 +5,11 @@ import { Button } from "../components/Button";
 import { ConfirmSheet } from "../components/ConfirmSheet";
 import { EmptyState } from "../components/EmptyState";
 import { Icon, type IconName } from "../components/Icon";
-import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { folderLabel } from "../course/folders";
 import { useCourseVersion } from "../course/deletion";
 import { courseName } from "../course/pages";
 import { useCourse, useCourseNaming } from "../course/useCourse";
-import { useSession } from "../login/session-context";
+import { useFrozen } from "../frozen";
 import { navigate } from "../router";
 import { Screen } from "../shell/Screen";
 import { ShellLink } from "../shell/ShellLink";
@@ -26,8 +25,7 @@ const FILTERS: readonly { id: ReviewFilter; label: string }[] = [
 ];
 
 export function ReviewScreen({ courseId }: { courseId: string }) {
-  const session = useSession();
-  const admin = session.user.role === "admin";
+  const { guard } = useFrozen();
   // Her folders, so a folder name two exam pages share says which page.
   const { course: detail } = useCourse(courseId);
   const { name, words } = useCourseNaming(courseId, detail);
@@ -81,7 +79,6 @@ export function ReviewScreen({ courseId }: { courseId: string }) {
 
   return (
     <Screen title="Review">
-      {admin ? <ReadOnlyBanner /> : null}
       <ShellLink to={`/course/${courseId}`} className="text-action" current={false}>
         {words.Container}
       </ShellLink>
@@ -103,7 +100,7 @@ export function ReviewScreen({ courseId }: { courseId: string }) {
           </button>
         ))}
       </div>
-      {!admin && selectedCount > 0 ? (
+      {selectedCount > 0 ? (
         <Button
           fullWidth
           onClick={() => {
@@ -127,37 +124,30 @@ export function ReviewScreen({ courseId }: { courseId: string }) {
         <ul className="review-list">
           {visible.map((question) => (
             <li key={question.questionId}>
-              {admin ? (
-                <div className="review-row">
-                  <QuestionCopy question={question} course={detail} />
-                  <StatusMark question={question} />
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="review-row"
-                  onClick={() => {
-                    navigate(`/course/${courseId}/review/practice?question=${question.questionId}`);
-                  }}
-                >
-                  <QuestionCopy question={question} course={detail} />
-                  <StatusMark question={question} />
-                  <span className="review-chevron">
-                    <Icon name="chevron-right" size={18} />
-                  </span>
-                </button>
-              )}
+              <button
+                type="button"
+                className="review-row"
+                onClick={() => {
+                  navigate(`/course/${courseId}/review/practice?question=${question.questionId}`);
+                }}
+              >
+                <QuestionCopy question={question} course={detail} />
+                <StatusMark question={question} />
+                <span className="review-chevron">
+                  <Icon name="chevron-right" size={18} />
+                </span>
+              </button>
             </li>
           ))}
         </ul>
       ) : null}
-      {!admin && allCount > 0 ? (
+      {allCount > 0 ? (
         <Button
           variant="plain"
           className="text-danger"
-          onClick={() => {
+          onClick={guard(() => {
             setConfirming(true);
-          }}
+          })}
         >
           Clear the review list
         </Button>

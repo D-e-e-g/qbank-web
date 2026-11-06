@@ -322,13 +322,11 @@ test.describe("exam", () => {
     const admin = await signedInPage(browser, ADMIN_EMAIL, ADMIN_PASSWORD);
     await admin.goto(`/course/${courseId}`);
     await admin.getByRole("link", { name: /^Exam/ }).click();
-    await expect(admin.getByText(/progress, read-only\./)).toBeVisible();
-    await expect(admin.getByRole("button", { name: "Start exam" })).toHaveCount(0);
-    await expect(admin.getByRole("checkbox")).toHaveCount(0);
+    await expect(admin.getByText("Viewing student@example.com")).toBeVisible();
+    await expect(admin.getByRole("button", { name: "Start exam" })).toBeVisible();
     await admin.getByRole("button", { name: /^Week 1 · today/ }).click();
     await expect(admin.getByRole("heading", { name: "0 of 4 fully right" })).toBeVisible();
-    await expect(admin.getByText("1 question from this exam went to her Review.")).toBeVisible();
-    await expect(admin.getByRole("button", { name: /Open Review/ })).toHaveCount(0);
+    await expect(admin.getByRole("button", { name: /Open Review · 1 from this exam/ })).toBeVisible();
     await admin.context().close();
   });
 });

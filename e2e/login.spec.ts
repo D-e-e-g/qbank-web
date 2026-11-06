@@ -223,15 +223,14 @@ test.describe("sign-up", () => {
     await signIn(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.getByRole("link", { name: "Admin" }).click();
     await expect(list.getByRole("listitem").filter({ hasText: email })).toContainText("Has an account");
-    const picker = page.getByLabel("Showing progress for");
-    await expect(picker).toHaveValue(/.+/);
-    await picker.selectOption({ label: email });
-    await expect(page.getByText(`For ${email}.`, { exact: false })).toBeVisible();
-    await page.getByRole("link", { name: "Home" }).click();
-    await expect(page.getByText(`${email}'s progress, read-only.`, { exact: false })).toBeVisible();
+    const accounts = page.getByRole("list", { name: "User accounts" });
+    await accounts.getByRole("button", { name: new RegExp(email) }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
+    await expect(page.getByText(`Viewing ${email}`)).toBeVisible();
 
     await page.getByRole("link", { name: "Admin" }).click();
-    await page.getByLabel("Showing progress for").selectOption({ label: STUDENT_EMAIL });
-    await expect(page.getByText(`For ${STUDENT_EMAIL}.`, { exact: false })).toBeVisible();
+    await expect(page.getByText(`For ${email}.`, { exact: false })).toBeVisible();
+    await page.getByRole("list", { name: "User accounts" }).getByRole("button", { name: new RegExp(STUDENT_EMAIL) }).click();
+    await expect(page.getByText(`Viewing ${STUDENT_EMAIL}`)).toBeVisible();
   });
 });

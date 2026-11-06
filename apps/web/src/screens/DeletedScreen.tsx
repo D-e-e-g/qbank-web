@@ -2,13 +2,11 @@ import { useCallback, useEffect } from "react";
 import type { DeletedExam, DeletedExamPage, DeletedFolder, DeletedSet, RecentlyDeleted } from "../api";
 import { DeletedGroup, DeletedRow, UndoOutcome } from "../components/DeletedList";
 import { EmptyState } from "../components/EmptyState";
-import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { courseChanged, recentlyDeleted, useCourseVersion } from "../course/deletion";
 import { courseName } from "../course/pages";
 import { useCourse, useCourseNaming } from "../course/useCourse";
 import { useUndoList } from "../course/useUndoList";
 import { foldersText } from "../exam/names";
-import { useSession } from "../login/session-context";
 import { Screen } from "../shell/Screen";
 import { ShellLink } from "../shell/ShellLink";
 import { when } from "../when";
@@ -20,8 +18,6 @@ import { when } from "../when";
  * alone: its folders are in the course meanwhile, and Undo puts them back on it.
  */
 export function DeletedScreen({ courseId }: { courseId: string }) {
-  const session = useSession();
-  const readOnly = session.user.role !== "student";
   const { course } = useCourse(courseId);
   const { name, words } = useCourseNaming(courseId, course);
   const version = useCourseVersion(courseId);
@@ -39,14 +35,11 @@ export function DeletedScreen({ courseId }: { courseId: string }) {
 
   return (
     <Screen title="Recently deleted">
-      {session.user.role === "admin" ? <ReadOnlyBanner /> : null}
       <ShellLink to={`/course/${courseId}`} className="text-action" current={false}>
         {name ?? "Course"}
       </ShellLink>
       <p className="note">
-        {readOnly
-          ? `What she deleted in this ${words.container} in the last ${String(days)} days. She can bring each back as it was.`
-          : `What you deleted in this ${words.container} in the last ${String(days)} days. Undo brings each back as it was, with your answers counting again.`}
+        What you deleted in this {words.container} in the last {days} days. Undo brings each back as it was, with your answers counting again.
       </p>
       <UndoOutcome loadError={loadError} error={error} done={done} />
       {deleted === null ? (
@@ -66,7 +59,6 @@ export function DeletedScreen({ courseId }: { courseId: string }) {
                   title={page.name}
                   meta={`${pageFolders(page)} · Deleted ${when(page.deletedAt)}`}
                   refusal={page.undoRefusal}
-                  readOnly={readOnly}
                   busy={busy.has(page.id)}
                   label={`Undo deleting ${page.name}`}
                   onUndo={() => {
@@ -85,7 +77,6 @@ export function DeletedScreen({ courseId }: { courseId: string }) {
                   title={folder.name}
                   meta={`${folderSets(folder)} · Deleted ${when(folder.deletedAt)}`}
                   refusal={folder.undoRefusal}
-                  readOnly={readOnly}
                   busy={busy.has(folder.id)}
                   label={`Undo deleting ${folder.name}`}
                   onUndo={() => {
@@ -103,7 +94,6 @@ export function DeletedScreen({ courseId }: { courseId: string }) {
                   title={set.title}
                   meta={`${setMeta(set)} · Deleted ${when(set.deletedAt)}`}
                   refusal={set.undoRefusal}
-                  readOnly={readOnly}
                   busy={busy.has(set.id)}
                   label={`Undo deleting ${set.title}`}
                   onUndo={() => {
@@ -114,14 +104,13 @@ export function DeletedScreen({ courseId }: { courseId: string }) {
             </DeletedGroup>
           ) : null}
           {deleted.exams.length > 0 ? (
-            <DeletedGroup title={readOnly ? "Her exams" : "Past exams"}>
+            <DeletedGroup title="Past exams">
               {deleted.exams.map((exam) => (
                 <DeletedRow
                   key={exam.id}
                   title={`${foldersText(exam.weeks)} · ${when(exam.finishedAt ?? exam.startedAt)}`}
                   meta={`${examMeta(exam)} · Deleted ${when(exam.deletedAt)}`}
                   refusal={null}
-                  readOnly={readOnly}
                   busy={busy.has(exam.id)}
                   label={`Undo deleting the exam over ${foldersText(exam.weeks)}`}
                   onUndo={() => {

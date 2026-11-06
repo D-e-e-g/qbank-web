@@ -314,7 +314,7 @@ test.describe("study topics", () => {
     await expect(topics).toHaveText(starts(second, renamed));
   });
 
-  test("the admin sees her topic and its pages read-only", async ({ page, browser }, testInfo) => {
+  test("the admin sees the topic and its pages as the user does", async ({ page, browser }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chrome", "admin on the wide layout");
     const name = topicName();
     await signIn(page);
@@ -324,20 +324,17 @@ test.describe("study topics", () => {
 
     const admin = await signedInPage(browser, ADMIN_EMAIL, ADMIN_PASSWORD);
     await expect(admin.getByRole("heading", { name: "Study topics" })).toBeVisible();
-    await expect(admin.getByRole("button", { name: "Add", exact: true })).toHaveCount(0);
-    await expect(admin.getByRole("button", { name: /^Actions for / })).toHaveCount(0);
+    await expect(admin.getByRole("button", { name: "Add", exact: true })).toBeVisible();
     await main(admin).getByRole("link", { name: new RegExp(`^${name}`) }).click();
-    await expect(admin.getByText(/progress, read-only\./)).toBeVisible();
+    await expect(admin.getByText("Viewing student@example.com")).toBeVisible();
     await expect(admin.getByRole("heading", { level: 1, name })).toBeVisible();
-    await expect(admin.getByRole("button", { name: `More for ${name}` })).toHaveCount(0);
-    await expect(admin.getByRole("button", { name: "Rename", exact: true })).toHaveCount(0);
+    await expect(admin.getByRole("button", { name: `More for ${name}` })).toBeVisible();
     await expect(admin.getByRole("list", { name: "Pages" }).getByRole("link")).toHaveText([/^Page 1/]);
-    await expect(admin.getByRole("button", { name: `Add to ${name}` })).toHaveCount(0);
+    await expect(admin.getByRole("button", { name: `Add to ${name}` })).toBeVisible();
     await admin.getByRole("list", { name: "Pages" }).getByRole("link", { name: /^Page 1/ }).click();
-    await expect(admin.getByRole("link", { name: "Start exam" })).toHaveCount(0);
-    await expect(admin.getByRole("button", { name: "Edit page", exact: true })).toHaveCount(0);
-    await expect(admin.getByRole("button", { name: "More for Page 1" })).toHaveCount(0);
-    await expect(admin.getByRole("heading", { name: "Her past exams" })).toBeVisible();
+    await expect(admin.getByRole("link", { name: "Start exam" })).toBeVisible();
+    await expect(admin.getByRole("button", { name: "More for Page 1" })).toBeVisible();
+    await expect(admin.getByRole("heading", { name: "Past exams" })).toBeVisible();
     await admin.context().close();
   });
 });

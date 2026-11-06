@@ -4,7 +4,6 @@ import { Button } from "../components/Button";
 import { Icon } from "../components/Icon";
 import { kindWords } from "../course/pages";
 import { navigate } from "../router";
-import type { Role } from "../session";
 import { AnswerArea } from "../practice/Answers";
 import { RationaleImages, StemExhibits } from "../practice/Exhibits";
 import { FORMAT_LABELS, draftFromResponse, initialDraft, readLayout, type LoadedQuestion } from "../practice/model";
@@ -12,13 +11,12 @@ import type { LoadedExam } from "./ExamScreen";
 import { foldersText, practiceFoldersText } from "./names";
 
 /** An ended exam: the score, the breakdowns, and each question with its mark and explanation. */
-export function ExamResultView({ exam, role, wide }: { exam: LoadedExam; role: Role; wide: boolean }) {
+export function ExamResultView({ exam, wide }: { exam: LoadedExam; wide: boolean }) {
   const view = exam.view;
   const words = kindWords(useCatalogCourse(view.courseId)?.kind ?? "course");
   const result = view.result;
   if (result === null) return null;
   const itemById = new Map(result.items.map((item) => [item.questionId, item]));
-  const admin = role !== "student";
   const practiceFolders = view.practiceWeeks ?? [];
   const bankWrong = result.examBankWrong;
 
@@ -69,24 +67,18 @@ export function ExamResultView({ exam, role, wide }: { exam: LoadedExam; role: R
             </li>
           </ul>
           {result.reviewCount > 0 ? (
-            admin ? (
-              <p className="note">
-                {result.reviewCount} {result.reviewCount === 1 ? "question" : "questions"} from this exam went to her Review.
-              </p>
-            ) : (
-              <Button
-                fullWidth
-                className="btn-lg"
-                onClick={() => {
-                  navigate(`/course/${view.courseId}/review`);
-                }}
-              >
-                <Icon name="inbox" size={18} />
-                Open Review · {result.reviewCount} from this exam
-              </Button>
-            )
+            <Button
+              fullWidth
+              className="btn-lg"
+              onClick={() => {
+                navigate(`/course/${view.courseId}/review`);
+              }}
+            >
+              <Icon name="inbox" size={18} />
+              Open Review · {result.reviewCount} from this exam
+            </Button>
           ) : null}
-          {bankWrong > 0 ? <p className="note">{bankWrongText(bankWrong, admin)}</p> : null}
+          {bankWrong > 0 ? <p className="note">{bankWrongText(bankWrong)}</p> : null}
           <Breakdown title="By folder" rows={result.byFolder} />
           <Breakdown title="By clinical judgment step" rows={result.byStep} />
           <section className="result-section">
@@ -166,10 +158,9 @@ function ResultQuestion({ question, item, position }: { question: LoadedQuestion
 }
 
 /** Exam-bank questions stay out of Review, so the result says where the wrong ones went. */
-function bankWrongText(count: number, admin: boolean): string {
+function bankWrongText(count: number): string {
   const one = count === 1;
-  const lead = `${String(count)} exam-bank ${one ? "question" : "questions"} ${admin ? "she" : "you"} got wrong ${one ? "stays" : "stay"} out of Review.`;
-  if (admin) return `${lead} ${one ? "It comes" : "They come"} back when she takes Wrong questions only.`;
+  const lead = `${String(count)} exam-bank ${one ? "question" : "questions"} you got wrong ${one ? "stays" : "stay"} out of Review.`;
   return `${lead} Turn on Wrong questions only to take ${one ? "it" : "them"} again.`;
 }
 

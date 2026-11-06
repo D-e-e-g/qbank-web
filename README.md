@@ -27,8 +27,8 @@ sync across her iPhone, iPad, and Mac.
 - **Installable.** Added to the Home Screen or the Dock, it opens full screen,
   with an iPhone layout and an iPad and Mac layout, in light or dark.
 - **Private.** Only emails the owner approves can sign up. The owner has an
-  admin account to import files and fix things, and sees her progress
-  read-only. Delete account in Settings removes her user account and
+  admin account that sees each user account as its user does, frozen, and
+  repairs it when something breaks. Delete account in Settings removes her user account and
   everything in it for good.
 
 <p align="center">

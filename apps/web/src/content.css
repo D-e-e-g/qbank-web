@@ -915,7 +915,6 @@ button.review-row:disabled {
   color: var(--text-4);
 }
 
-.readonly-banner,
 .status-banner {
   display: flex;
   align-items: flex-start;
@@ -928,14 +927,12 @@ button.review-row:disabled {
   font: var(--text-subhead);
 }
 
-.readonly-banner svg,
 .status-banner svg {
   flex-shrink: 0;
   margin-top: 2px;
   color: var(--tint);
 }
 
-.readonly-banner span,
 .signup-email {
   min-width: 0;
   overflow-wrap: anywhere;

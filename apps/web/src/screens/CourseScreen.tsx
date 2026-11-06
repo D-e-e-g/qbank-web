@@ -9,13 +9,11 @@ import { FolderRows } from "../components/FolderRows";
 import { Icon } from "../components/Icon";
 import { AddMenu, MoreMenu, type MenuItem } from "../components/Menu";
 import { NavRow } from "../components/NavRow";
-import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
-import { recentlyDeleted, useCourseVersion } from "../course/deletion";
 import { looseFolders } from "../course/folders";
 import { badgeLabel, courseName, nextPageName, pageBadge, pageProgress, pageRowMeta } from "../course/pages";
 import { useCourse, useCourseNaming, useRememberPlace } from "../course/useCourse";
 import { useFolderOrder } from "../course/useFolderOrder";
-import { useSession } from "../login/session-context";
+import { useFrozen } from "../frozen";
 import { deletedPath, examPagePath, importPath, makePath, navigate } from "../router";
 import { Screen } from "../shell/Screen";
 import { ShellLink } from "../shell/ShellLink";
@@ -29,7 +27,7 @@ import { ShellLink } from "../shell/ShellLink";
  * screen, called by its name.
  */
 /** Import, then Make questions when the server allows it, then a folder and a page. */
-function addItems(courseId: string, canMakeQuestions: boolean, setMaking: (kind: "page" | "folder") => void): MenuItem[] {
+function addItems(courseId: string, canMakeQuestions: boolean, onMake: (kind: "page" | "folder") => void): MenuItem[] {
   const items: MenuItem[] = [
     {
       key: "import",
@@ -58,7 +56,7 @@ function addItems(courseId: string, canMakeQuestions: boolean, setMaking: (kind:
       label: "New folder",
       icon: "folder",
       onSelect: () => {
-        setMaking("folder");
+        onMake("folder");
       },
     },
     {
@@ -66,7 +64,7 @@ function addItems(courseId: string, canMakeQuestions: boolean, setMaking: (kind:
       label: "New page",
       icon: "layers",
       onSelect: () => {
-        setMaking("page");
+        onMake("page");
       },
     },
   );
@@ -74,14 +72,12 @@ function addItems(courseId: string, canMakeQuestions: boolean, setMaking: (kind:
 }
 
 export function CourseScreen({ courseId }: { courseId: string }) {
-  const session = useSession();
-  const readOnly = session.user.role !== "student";
+  const { guard } = useFrozen();
   const { course, error, reload, replace } = useCourse(courseId);
   const [ordering, setOrdering] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [making, setMaking] = useState<"page" | "folder" | null>(null);
   const [canMakeQuestions, setCanMakeQuestions] = useState(false);
-  const deletedCount = useDeletedCount(courseId, readOnly);
   const { name, words } = useCourseNaming(courseId, course);
   useRememberPlace(courseId);
 
@@ -91,7 +87,6 @@ export function CourseScreen({ courseId }: { courseId: string }) {
 
   // The + offers Make questions only when the server says this account may start a set now.
   useEffect(() => {
-    if (readOnly) return;
     let cancel = false;
     void api<QuestionMakerStatus>("/api/question-maker")
       .then((status) => {
@@ -103,7 +98,7 @@ export function CourseScreen({ courseId }: { courseId: string }) {
     return () => {
       cancel = true;
     };
-  }, [readOnly, courseId]);
+  }, [courseId]);
 
   const closeSheet = useCallback(() => {
     setMaking(null);
@@ -116,10 +111,10 @@ export function CourseScreen({ courseId }: { courseId: string }) {
   const loose = course ? looseFolders(course) : [];
   const order = useFolderOrder({ course, examPageId: null, folders: loose, replace, reload });
   // Ordering needs two folders; if another device leaves one, edit mode ends with its Done button.
-  const editing = ordering && !readOnly && loose.length > 1;
+  const editing = ordering && loose.length > 1;
 
   const header =
-    course && !readOnly ? (
+    course ? (
       <div className="screen-actions">
         <MoreMenu
           name={courseName(course)}
@@ -128,24 +123,19 @@ export function CourseScreen({ courseId }: { courseId: string }) {
               key: "rename",
               label: "Rename",
               icon: "pencil",
-              onSelect: () => {
+              onSelect: guard(() => {
                 setRenaming(true);
-              },
+              }),
             },
             recentlyDeletedItem(course.id),
           ]}
         />
-        <AddMenu label={`Add to ${courseName(course)}`} items={addItems(course.id, canMakeQuestions, setMaking)} />
-      </div>
-    ) : course && deletedCount !== null && deletedCount > 0 ? (
-      <div className="screen-actions">
-        <MoreMenu name={courseName(course)} items={[recentlyDeletedItem(course.id)]} />
+        <AddMenu label={`Add to ${courseName(course)}`} items={addItems(course.id, canMakeQuestions, guard(setMaking))} />
       </div>
     ) : undefined;
 
   return (
     <Screen title={name ?? "Course"} action={header}>
-      {session.user.role === "admin" ? <ReadOnlyBanner /> : null}
       <ShellLink to="/" className="text-action" current={false}>
         {words.home}
       </ShellLink>
@@ -190,7 +180,7 @@ export function CourseScreen({ courseId }: { courseId: string }) {
             <div className="empty-card">
               <EmptyState
                 icon="layers"
-                message={readOnly ? `This ${words.container} has no question sets yet.` : `This ${words.container} has no question sets yet. Tap + to import a question file.`}
+                message={`This ${words.container} has no question sets yet. Tap + to import a question file.`}
               />
             </div>
           ) : (
@@ -198,7 +188,7 @@ export function CourseScreen({ courseId }: { courseId: string }) {
               <section className="group">
                 <h2 className="group-header">Pages</h2>
                 {course.exams.length === 0 ? (
-                  <p className="folder-empty">{readOnly ? "No pages yet." : `No pages yet. Tap + to make ${nextPageName(course.exams)}.`}</p>
+                  <p className="folder-empty">{`No pages yet. Tap + to make ${nextPageName(course.exams)}.`}</p>
                 ) : (
                   <ul className="list-group" aria-label="Pages">
                     {course.exams.map((page) => {
@@ -224,14 +214,14 @@ export function CourseScreen({ courseId }: { courseId: string }) {
                 <section className="group">
                   <div className="group-head">
                     <h2 className="group-header">Folders</h2>
-                    {readOnly || loose.length < 2 ? null : (
+                    {loose.length < 2 ? null : (
                       <button
                         type="button"
                         className="group-action"
                         aria-label={editing ? "Done ordering folders" : "Edit folder order"}
-                        onClick={() => {
+                        onClick={guard(() => {
                           setOrdering(!editing);
-                        }}
+                        })}
                       >
                         {editing ? "Done" : "Edit"}
                       </button>
@@ -300,33 +290,6 @@ function recentlyDeletedItem(courseId: string): MenuItem {
       navigate(deletedPath(courseId));
     },
   };
-}
-
-/**
- * How many pages, folders, sets and past exams of the course Undo can still bring back; null until it
- * is read. Only the read-only view reads it, whose More has nothing else to hold: hers always has the row.
- */
-function useDeletedCount(courseId: string, readOnly: boolean): number | null {
-  const version = useCourseVersion(courseId);
-  const [loaded, setLoaded] = useState<{ courseId: string; count: number } | null>(null);
-  useEffect(() => {
-    if (!readOnly) return;
-    let cancel = false;
-    recentlyDeleted(courseId).then(
-      (deleted) => {
-        if (!cancel) {
-          setLoaded({ courseId, count: deleted.examPages.length + deleted.folders.length + deleted.sets.length + deleted.exams.length });
-        }
-      },
-      (caught: unknown) => {
-        console.error(caught);
-      },
-    );
-    return () => {
-      cancel = true;
-    };
-  }, [courseId, readOnly, version]);
-  return loaded?.courseId === courseId ? loaded.count : null;
 }
 
 /** How long an exam over every folder takes: 60 minutes for 40, or 1.5 minutes a question when there are fewer. */

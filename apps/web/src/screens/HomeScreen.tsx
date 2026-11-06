@@ -10,12 +10,11 @@ import { AddMenu, Menu, type MenuAnchor, type MenuItem } from "../components/Men
 import { RowBody } from "../components/NavRow";
 import { NewTopicSheet } from "../components/NewTopicSheet";
 import { Notice, type NoticeMessage } from "../components/Notice";
-import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { recentlyDeletedCourses, useCoursesVersion } from "../course/deletion";
 import { courseName } from "../course/pages";
 import { saveTopicOrder } from "../course/requests";
 import { cardActionLabel, cardActions, homeAdds, semesterOf, topicOrderAfterMove, type CardAction, type HomeAdd } from "../home/menus";
-import { useSession } from "../login/session-context";
+import { useFrozen } from "../frozen";
 import { DELETED_COURSES_PATH, navigate } from "../router";
 import { Screen } from "../shell/Screen";
 import { ShellLink } from "../shell/ShellLink";
@@ -38,14 +37,13 @@ const ACTION_ICONS: Record<CardAction["kind"], IconName> = {
 /**
  * Her semesters with their courses, her study topics, and what she archived. One + at the top adds
  * a course to a semester, a topic, or the next semester; each card's "…" (or a right-click) opens,
- * renames, moves, archives or deletes it. The owner's read-only view has neither. Recently deleted,
- * last, brings a deleted course or topic back for 30 days.
+ * renames, moves, archives or deletes it. Recently deleted, last, brings a deleted course or topic
+ * back for 30 days.
  */
 export function HomeScreen() {
-  const session = useSession();
-  const readOnly = session.user.role !== "student";
+  const { guard } = useFrozen();
   const catalog = useCatalog();
-  const editable = !readOnly && catalog.fromServer;
+  const editable = catalog.fromServer;
   const [sheet, setSheet] = useState<Sheet>(null);
   const [notice, setNotice] = useState<NoticeMessage | null>(null);
   const notices = useRef(0);
@@ -127,7 +125,9 @@ export function HomeScreen() {
           icon: ACTION_ICONS[action.kind],
           destructive: action.kind === "delete",
           onSelect: () => {
-            act(course, action);
+            // Open only reads, so it opens in the frozen view too.
+            if (action.kind === "open") act(course, action);
+            else guard(act)(course, action);
           },
         }))
     : undefined;
@@ -137,13 +137,12 @@ export function HomeScreen() {
     label: item.label,
     icon: ADD_ICONS[item.kind],
     onSelect: () => {
-      add(item);
+      guard(add)(item);
     },
   }));
 
   return (
     <Screen title="Home" action={editable ? <AddMenu label="Add" items={addItems} /> : undefined}>
-      {session.user.role === "admin" ? <ReadOnlyBanner /> : null}
       {semesters.map(({ semester, courses }) => (
         <section key={semester.id} className="semester">
           <h2 className="semester-label">{semester.label}</h2>

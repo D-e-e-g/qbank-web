@@ -3,8 +3,8 @@ import { ApiError, api } from "../api";
 import { Button } from "../components/Button";
 import { ConfirmSheet } from "../components/ConfirmSheet";
 import { Icon, type IconName } from "../components/Icon";
+import { useFrozen } from "../frozen";
 import { navigate } from "../router";
-import type { Role } from "../session";
 import { AnswerArea } from "./Answers";
 import { RationaleImages, StemExhibits } from "./Exhibits";
 import { FORMAT_LABELS, readPracticeSet, toResponse } from "./model";
@@ -13,7 +13,8 @@ import { recordPracticeAnswer, type Feedback } from "./recordPracticeAnswer";
 import { RunnerShell } from "./RunnerShell";
 import { advance, answeredCount, beginSession, nextIndex, pickedUpLine, reveal, startOver, startOverMessage, strike, updateAttempt, type Session } from "./session";
 
-export function PracticeScreen({ courseId, source, role, wide }: { courseId: string; source: PracticeSource; role: Role; wide: boolean }) {
+export function PracticeScreen({ courseId, source, wide }: { courseId: string; source: PracticeSource; wide: boolean }) {
+  const { guard } = useFrozen();
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -59,14 +60,6 @@ export function PracticeScreen({ courseId, source, role, wide }: { courseId: str
   const close = () => {
     navigate(source.closeTo);
   };
-
-  if (role !== "student") {
-    return (
-      <RunnerShell wide={wide} title="Practice" count="" onClose={close}>
-        <p className="note">Only she can answer questions. Her progress is read-only here.</p>
-      </RunnerShell>
-    );
-  }
 
   if (!session) {
     return (
@@ -160,7 +153,7 @@ export function PracticeScreen({ courseId, source, role, wide }: { courseId: str
             {last ? "See results" : "Next question"}
           </Button>
         ) : (
-          <Button fullWidth disabled={response === null || checking} onClick={check}>
+          <Button fullWidth disabled={response === null || checking} onClick={guard(check)}>
             Check answer
           </Button>
         )
@@ -173,9 +166,9 @@ export function PracticeScreen({ courseId, source, role, wide }: { courseId: str
             type="button"
             className="runner-pickup-action"
             disabled={checking}
-            onClick={() => {
+            onClick={guard(() => {
               setAskingStartOver(true);
-            }}
+            })}
           >
             Start over
           </button>

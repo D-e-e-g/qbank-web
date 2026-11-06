@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api, ApiError } from "../api";
-import { SemestersEditor } from "../components/CatalogEditor";
+import { SemestersEditor } from "../components/SemestersEditor";
 import { SegmentedControl } from "../components/SegmentedControl";
 import { AccountSection } from "../login/AccountPanels";
 import type { Account } from "../login/api";
