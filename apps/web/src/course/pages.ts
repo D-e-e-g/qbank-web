@@ -1,4 +1,4 @@
-import type { CourseDetail, CourseExam, CourseFolder, CourseKind, ExamSummary, PageBadge } from "../api";
+import type { CourseDetail, CourseExam, CourseFolder, CourseKind, ExamPreview, ExamSummary, PageBadge } from "../api";
 import { pageFolders, setsProgress, type FolderProgress } from "./folders";
 
 /**
@@ -62,6 +62,25 @@ export function examTwinsLine(folders: readonly CourseFolder[]): string {
   if (banks.length === 0) return "";
   const count = banks.reduce((sum, folder) => sum + folder.examBankCount, 0);
   return `Exam twins: ${String(count)} in ${joined(banks.map((folder) => folder.name))}. Exams draw from these first.`;
+}
+
+/**
+ * Under Start exam, from the server's plan over the page's folders.
+ * "All 26 questions in this folder, or wrong questions only."
+ * One question: "The 1 question in this folder, or wrong questions only."
+ * Fewer than the folders hold: "40 questions from the 217 in these 5 folders, or wrong questions only."
+ */
+export function examDrawLine(preview: Pick<ExamPreview, "questionCount" | "folders">): string {
+  const pool = preview.folders;
+  const total = pool.reduce((sum, folder) => sum + folder.questionCount, 0);
+  const where = pool.every((folder) => folder.source === "exam") ? "its exam banks" : pool.length === 1 ? "this folder" : `these ${String(pool.length)} folders`;
+  const draw =
+    preview.questionCount < total
+      ? `${String(preview.questionCount)} questions from the ${String(total)} in ${where}`
+      : total === 1
+        ? `The 1 question in ${where}`
+        : `All ${String(total)} questions in ${where}`;
+  return `${draw}, or wrong questions only.`;
 }
 
 /** Her finished exams that belong to a page: the server names the page that holds all their folders. */

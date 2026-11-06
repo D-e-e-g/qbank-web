@@ -7,6 +7,7 @@ import {
   chipState,
   courseLine,
   courseName,
+  examDrawLine,
   examSetupPath,
   examTwinsLine,
   kindWords,
@@ -78,6 +79,27 @@ describe("the exam twins line", () => {
       "Exam twins: 41 in Week 4, Week 5 and Week 6. Exams draw from these first.",
     );
     expect(examTwinsLine([folder("plain", "Week 3", [], "p1")])).toBe("");
+  });
+});
+
+describe("the exam draw line", () => {
+  const drawn = (questionCount: number, source: "exam" | "practice" = "practice") => ({
+    id: "folder",
+    name: "Week 1",
+    questionCount,
+    drawn: questionCount,
+    source,
+  });
+
+  it("says the one question as one, and All N questions for more", () => {
+    expect(examDrawLine({ questionCount: 1, folders: [drawn(1)] })).toBe("The 1 question in this folder, or wrong questions only.");
+    expect(examDrawLine({ questionCount: 3, folders: [drawn(3)] })).toBe("All 3 questions in this folder, or wrong questions only.");
+    expect(examDrawLine({ questionCount: 9, folders: [drawn(3), drawn(3), drawn(3)] })).toBe("All 9 questions in these 3 folders, or wrong questions only.");
+    expect(examDrawLine({ questionCount: 26, folders: [drawn(26, "exam")] })).toBe("All 26 questions in its exam banks, or wrong questions only.");
+  });
+
+  it("keeps the shorter draw when the exam takes fewer than the folders hold", () => {
+    expect(examDrawLine({ questionCount: 40, folders: [drawn(100), drawn(117)] })).toBe("40 questions from the 217 in these 2 folders, or wrong questions only.");
   });
 });
 

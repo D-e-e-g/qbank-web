@@ -8356,7 +8356,7 @@ export interface components {
             answeredCount: number;
             fullyRightCount: number;
             lastAnsweredAt: string | null;
-            /** @description The sitting she would continue, so the row says Continue. Null when opening the set starts it at question 1: a new set, a finished one, or one she chose Start over on, whose answeredCount above still counts every answer she has given. */
+            /** @description The sitting she would continue, so the row says Continue. Null when opening the set starts it at question 1: a new set, a finished one, one she answered only on exams, or one she chose Start over on, whose answeredCount above still counts every answer she has given. */
             sitting: components["schemas"]["SetSittingSummary"] | null;
             questionIds: string[];
             /** @description The agent key that imported this version of the set, such as the user's own AI agent (see the Agents tag): show it as "Imported by your agent". Null when it was imported in the app or QBank made it. It stays after the key is revoked. */
@@ -8630,7 +8630,7 @@ export interface components {
         SetSitting: {
             /**
              * Format: uuid
-             * @description Null until her next answer saves it: a set she was midway through before sittings, which continues from the answers it has.
+             * @description Null until her next answer saves it: a set she was midway through before sittings, which continues from the answers she practiced.
              */
             id: string | null;
             /** @description Null as `id` is. */

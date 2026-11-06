@@ -38,7 +38,6 @@ export function folderMeta(folder: CourseFolder, progress: FolderProgress = fold
   return `${sets} · ${String(answeredCount)} of ${String(questionCount)} answered`;
 }
 
-/** The word at a row's right edge: Done, how far she is, or Not started. Empty when there is no practice set. */
 /** Where a folder sits, as its note and More's Change page say it. */
 export function folderPlace(page: CourseExam | null): string {
   return page === null ? "On no page" : `On ${page.name}`;
@@ -51,6 +50,7 @@ export function folderEmptyMessage(folder: CourseFolder, readOnly: boolean): str
   return `${bankOnly ? "No practice sets yet." : "No sets yet."} Import a question file here, or move sets here from another folder.`;
 }
 
+/** The word at a row's right edge: Done, how far she is, or Not started. Empty when there is no practice set. */
 export function stateLabel(progress: FolderProgress): string {
   if (progress.setCount === 0) return "";
   if (progress.state === "done") return "Done";

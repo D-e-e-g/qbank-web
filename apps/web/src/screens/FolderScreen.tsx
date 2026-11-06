@@ -16,7 +16,7 @@ import { useSession } from "../login/session-context";
 import { examPagePath, importPath, navigate } from "../router";
 import { Screen } from "../shell/Screen";
 import { ShellLink } from "../shell/ShellLink";
-import { when } from "../when";
+import { statusLine } from "./set-status";
 
 type Sheet = "rename" | "page" | "move" | "delete" | "delete-sets" | null;
 
@@ -335,18 +335,4 @@ function SetCopy({ set, opens = false }: { set: SetSummary; opens?: boolean }) {
       {set.importedByAgent === null ? null : <span className="list-meta">{admin ? "Imported by an agent" : "Imported by your agent"}</span>}
     </span>
   );
-}
-
-function statusLine(set: SetSummary): string {
-  // Her answers this time through. Without a sitting, the counts below are every answer she has given.
-  if (set.sitting) return `${String(set.sitting.answeredCount)} of ${String(set.questionCount)} answered`;
-  if (set.answeredCount === 0) {
-    const word = set.status === "imported" ? "Imported" : set.status === "replaced" ? "Replaced" : "Restored";
-    return `${word} ${when(set.activeSince)} · ${String(set.questionCount)} questions`;
-  }
-  if (set.questionCount > 0 && set.answeredCount >= set.questionCount) {
-    const finished = set.lastAnsweredAt === null ? when(set.activeSince) : when(set.lastAnsweredAt);
-    return `Done ${finished} · ${String(set.fullyRightCount)} of ${String(set.questionCount)} fully right`;
-  }
-  return `${String(set.answeredCount)} of ${String(set.questionCount)} answered`;
 }
