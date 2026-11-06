@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { api, type QuestionJob, type QuestionMakerStatus } from "../api";
 import { Icon } from "../components/Icon";
+import { frozenNote, useFrozen } from "../frozen";
 import { makeJobPath, makePath } from "../router";
 import { ShellLink } from "../shell/ShellLink";
+import { viewedEmail } from "../students";
 import { canMake, inProgressJobs, jobProgress, jobTitle, makerClosed, makeNote } from "./states";
 
 /**
@@ -10,6 +12,7 @@ import { canMake, inProgressJobs, jobProgress, jobTitle, makerClosed, makeNote }
  * server's reason when it may not, and the sets still being made.
  */
 export function MakeHub() {
+  const { frozen } = useFrozen();
   const [status, setStatus] = useState<QuestionMakerStatus | null>(null);
   const [jobs, setJobs] = useState<QuestionJob[]>([]);
   const [now, setNow] = useState<number | null>(null);
@@ -38,7 +41,8 @@ export function MakeHub() {
     };
   }, []);
 
-  const note = makeNote(status);
+  // The frozen view makes nothing. Its note takes the line where the server's reason shows, so the screen lays out the same.
+  const note = frozen && status !== null ? frozenNote(viewedEmail()) : makeNote(status);
   const listed = now === null ? [] : inProgressJobs(jobs, now);
   if (!note && listed.length === 0) return null;
 

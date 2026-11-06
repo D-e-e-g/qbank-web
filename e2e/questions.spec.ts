@@ -157,18 +157,18 @@ test.describe("import into a folder", () => {
 });
 
 test.describe("admin import", () => {
-  test.afterEach(async ({ page }) => {
-    await archiveCourses(page);
-  });
-
-  test("an admin imports a file into a new course and folder, and sees it read-only", async ({ page }, testInfo) => {
+  test("an admin checks a file on Import, and Import answers with the note and files nothing", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chrome", "admin on the wide layout");
     const code = `A${Math.random().toString(36).slice(2, 8)}`;
     const title = "Mobility practice";
+    const writes: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().endsWith("/api/imports")) writes.push(request.method());
+    });
 
     await signIn(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto("/import");
-    await expect(page.getByRole("link", { name: "Admin" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Accounts" })).toBeVisible();
     await page.getByLabel("Paste JSON").fill(file(title, ["An invented mobility stem."]));
     await page.getByLabel("Course code").fill(code);
     await page.getByLabel("Course name").fill("Foundations");
@@ -177,15 +177,10 @@ test.describe("admin import", () => {
     await page.getByRole("textbox", { name: "New folder name" }).fill("Week 1");
     await page.getByRole("button", { name: "Check file" }).click();
     await page.getByRole("button", { name: "Import", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Imported" })).toBeVisible();
-    await expect(page.getByText(`“${title}” · 1 question in ${code}, Week 1.`)).toBeVisible();
-
-    await page.getByRole("complementary", { name: "Sidebar" }).getByRole("link", { name: new RegExp(code) }).click();
-    await expect(page.getByRole("list", { name: "Folders", exact: true }).getByRole("link")).toHaveText([/^Week 1/]);
-    await page.getByRole("link", { name: /^Week 1 / }).click();
-    await expect(page.getByText(title)).toBeVisible();
-    await expect(page.getByRole("button", { name: "More for Week 1" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Rename" })).toHaveCount(0);
+    await expect(page.getByRole("status").getByText("This is a frozen view of", { exact: false })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Imported" })).toHaveCount(0);
+    expect(writes).toEqual([]);
+    await expect(page.getByRole("complementary", { name: "Sidebar" }).getByRole("link", { name: new RegExp(code) })).toHaveCount(0);
   });
 });
 

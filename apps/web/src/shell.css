@@ -14,9 +14,57 @@ body,
 }
 
 .shell {
+  --safe-top: env(safe-area-inset-top);
   min-height: 100dvh;
   background: var(--bg);
   color: var(--text-1);
+}
+
+/*
+ * The admin's frozen view: one thin line in a band of its own above the app. Widths and everything
+ * inside the app stay as the user's, only lower by the band; the line takes the safe area for them.
+ */
+.shell-frozen {
+  --frozen-line: 24px;
+  --safe-top: 0px;
+  box-sizing: border-box;
+  padding-top: calc(var(--frozen-line) + env(safe-area-inset-top));
+}
+
+.frozen-line {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  box-sizing: border-box;
+  height: calc(var(--frozen-line) + env(safe-area-inset-top));
+  margin: 0;
+  padding: env(safe-area-inset-top) calc(var(--gutter-phone) + env(safe-area-inset-right)) 0 calc(var(--gutter-phone) + env(safe-area-inset-left));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--tint-soft);
+  color: var(--text-2);
+  font: var(--text-caption);
+}
+
+.frozen-line .icon {
+  color: var(--tint);
+}
+
+.frozen-line-who {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.frozen-line-link {
+  flex-shrink: 0;
+  color: var(--tint);
+  text-decoration: none;
 }
 
 .shell-phone {
@@ -59,14 +107,14 @@ body,
   box-sizing: border-box;
   width: min(100%, var(--content-max-wide));
   margin: 0 auto;
-  padding: calc(12px + env(safe-area-inset-top)) var(--gutter-phone) 32px;
+  padding: calc(12px + var(--safe-top)) var(--gutter-phone) 32px;
   display: flex;
   flex-direction: column;
   gap: var(--gap-section);
 }
 
 .shell-wide .screen-body {
-  padding: calc(28px + env(safe-area-inset-top)) var(--gutter-tablet) 48px;
+  padding: calc(28px + var(--safe-top)) var(--gutter-tablet) 48px;
 }
 
 .screen-body-narrow {
@@ -433,7 +481,7 @@ button.text-action {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: calc(16px + env(safe-area-inset-top)) 12px 16px calc(12px + env(safe-area-inset-left));
+  padding: calc(16px + var(--safe-top)) 12px 16px calc(12px + env(safe-area-inset-left));
   background: var(--bg-sidebar);
   border-right: 0.5px solid var(--separator-strong);
   overflow-y: auto;

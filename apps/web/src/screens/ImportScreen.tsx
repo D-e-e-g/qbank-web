@@ -16,6 +16,7 @@ import { Icon } from "../components/Icon";
 import { SegmentedControl } from "../components/SegmentedControl";
 import { TextField } from "../components/TextField";
 import { courseLine, courseName, kindWords } from "../course/pages";
+import { useFrozen } from "../frozen";
 import { MakeHub } from "../make/MakeHub";
 import type { FolderChoice } from "../make/states";
 import { folderPath, readImportPreset, useSearch } from "../router";
@@ -34,6 +35,7 @@ const NEW_TOPIC = "new-topic";
  * goes to Unsorted unless she picks a folder.
  */
 export function ImportScreen() {
+  const { guard } = useFrozen();
   const catalog = useCatalog();
   const search = useSearch();
   const [preset] = useState(() => readImportPreset(search));
@@ -354,7 +356,7 @@ export function ImportScreen() {
       {error ? <p className="form-error">{error}</p> : null}
 
       {report?.ok === true ? (
-        <Button fullWidth disabled={busy} onClick={() => { commit("import"); }}>
+        <Button fullWidth disabled={busy} onClick={guard(() => { commit("import"); })}>
           Import
         </Button>
       ) : (

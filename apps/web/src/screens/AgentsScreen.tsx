@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  ADMIN_KEY,
   AGENTS_PATH,
   answerPairing,
   approvalNote,
@@ -272,7 +273,7 @@ export function AgentsScreen() {
                       {key.revokedAt === null && key.scopes.includes("manage") ? <MostAccess /> : null}
                     </span>
                     <span className="list-meta">{keyDates(key)}</span>
-                    <span className="list-meta">{key.revokedAt === null ? scopesLine(key.scopes) : "Revoked: it never works again"}</span>
+                    <span className="list-meta">{key.revokedAt !== null ? "Revoked: it never works again" : admin ? ADMIN_KEY : scopesLine(key.scopes)}</span>
                   </span>
                   {key.revokedAt === null ? (
                     <Button

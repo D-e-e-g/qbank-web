@@ -42,7 +42,7 @@ export function useStudents(enabled: boolean): StudentList | null {
   return enabled ? value : null;
 }
 
-/** Points the admin's read-only view, the temporary password, and Repair at another student. */
+/** Points the admin's frozen view, the temporary password, and Repair at another student. */
 export async function pickStudent(studentId: string): Promise<void> {
   publish(await api<StudentList>("/api/admin/students/viewing", { method: "PUT", json: { studentId } }));
   await refreshCatalog();
@@ -50,6 +50,11 @@ export async function pickStudent(studentId: string): Promise<void> {
 
 export function viewedStudent(list: StudentList | null): Student | null {
   return list?.students.find((student) => student.id === list.viewingId) ?? null;
+}
+
+/** The email of the account on screen, once the list is read. */
+export function viewedEmail(): string | null {
+  return viewedStudent(snapshot)?.email ?? null;
 }
 
 /** Forgets the list on sign-out, so another account never sees it. */

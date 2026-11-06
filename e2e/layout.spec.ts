@@ -272,7 +272,7 @@ test.describe("adding where she is", () => {
     await expect(page.getByRole("link", { name: /^Connect an agent/ })).toBeVisible();
   });
 
-  test("the admin's read-only Home has no + and no card menu", async ({ page, browser }, testInfo) => {
+  test("the admin's frozen Home has the user's + and card menu, and they answer with the note", async ({ page, browser }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chrome", "admin on the wide layout");
     const code = courseCode();
     await signIn(page);
@@ -286,10 +286,13 @@ test.describe("adding where she is", () => {
     await openHome(admin);
     const card = main(admin).getByRole("link", { name: new RegExp(`^${code}`) });
     await expect(card).toBeVisible();
-    await expect(admin.getByRole("button", { name: "Add", exact: true })).toHaveCount(0);
-    await expect(admin.getByRole("button", { name: /^Actions for / })).toHaveCount(0);
+    await admin.getByRole("button", { name: "Add", exact: true }).click();
+    await admin.getByRole("menuitem", { name: "New study topic" }).click();
+    await expect(admin.getByText("This is a frozen view of", { exact: false })).toBeVisible();
+    await expect(admin.getByRole("dialog")).toHaveCount(0);
     await card.click({ button: "right" });
-    await expect(admin.getByRole("menu")).toHaveCount(0);
+    await admin.getByRole("menuitem", { name: "Open" }).click();
+    await expect(admin.getByRole("heading", { level: 1, name: code })).toBeVisible();
     await admin.context().close();
   });
 });

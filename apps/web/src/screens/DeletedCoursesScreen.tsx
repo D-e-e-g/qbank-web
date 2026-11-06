@@ -1,11 +1,9 @@
 import type { DeletedCourse, RecentlyDeletedCourses } from "../api";
 import { DeletedGroup, DeletedRow, UndoOutcome } from "../components/DeletedList";
 import { EmptyState } from "../components/EmptyState";
-import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { courseChanged, recentlyDeletedCourses, useCoursesVersion } from "../course/deletion";
 import { courseLine, courseName } from "../course/pages";
 import { useUndoList } from "../course/useUndoList";
-import { useSession } from "../login/session-context";
 import { Screen } from "../shell/Screen";
 import { ShellLink } from "../shell/ShellLink";
 import { when } from "../when";
@@ -16,8 +14,6 @@ import { when } from "../when";
  * exam pages, sets and past exams, in its semester or her topics as before.
  */
 export function DeletedCoursesScreen() {
-  const session = useSession();
-  const readOnly = session.user.role !== "student";
   const version = useCoursesVersion();
   const { list: deleted, loadError, error, done, busy, undo } = useUndoList<RecentlyDeletedCourses>(recentlyDeletedCourses, version, (item) => {
     courseChanged(item.id);
@@ -34,7 +30,6 @@ export function DeletedCoursesScreen() {
       title={courseLine(course)}
       meta={`${courseMeta(course)} · Deleted ${when(course.deletedAt)}`}
       refusal={course.undoRefusal}
-      readOnly={readOnly}
       busy={busy.has(course.id)}
       label={`Undo deleting ${courseName(course)}`}
       onUndo={() => {
@@ -45,14 +40,11 @@ export function DeletedCoursesScreen() {
 
   return (
     <Screen title="Recently deleted">
-      {session.user.role === "admin" ? <ReadOnlyBanner /> : null}
       <ShellLink to="/" className="text-action" current={false}>
         Home
       </ShellLink>
       <p className="note">
-        {readOnly
-          ? `The courses and study topics she deleted in the last ${String(days)} days. She can bring each back as it was.`
-          : `The courses and study topics you deleted in the last ${String(days)} days. Undo brings each back as it was, with its folders and sets, and your answers counting again.`}
+        The courses and study topics you deleted in the last {days} days. Undo brings each back as it was, with its folders and sets, and your answers counting again.
       </p>
       <UndoOutcome loadError={loadError} error={error} done={done} />
       {deleted === null ? (

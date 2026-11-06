@@ -29,7 +29,7 @@
 }
 
 .runner-top {
-  padding-top: env(safe-area-inset-top);
+  padding-top: var(--safe-top);
   border-bottom: 0.5px solid var(--separator);
 }
 
@@ -872,7 +872,7 @@
 }
 
 .result-column {
-  padding-top: calc(20px + env(safe-area-inset-top));
+  padding-top: calc(20px + var(--safe-top));
   padding-bottom: 48px;
   gap: 24px;
 }
@@ -1181,7 +1181,7 @@
 .exhibit-viewer-bar {
   display: flex;
   justify-content: flex-end;
-  padding: calc(4px + env(safe-area-inset-top)) var(--gutter-phone) 4px;
+  padding: calc(4px + var(--safe-top)) var(--gutter-phone) 4px;
 }
 
 /* login.css gives every .btn full width; this one sits at the trailing edge like a nav bar button. */

@@ -44,9 +44,8 @@ export function folderPlace(page: CourseExam | null): string {
 }
 
 /** What a folder with no sets says. An exam bank is a set too, but not one to practice, so the folder holding only one says so. */
-export function folderEmptyMessage(folder: CourseFolder, readOnly: boolean): string {
+export function folderEmptyMessage(folder: CourseFolder): string {
   const bankOnly = folder.examBankCount > 0;
-  if (readOnly) return bankOnly ? "No practice sets in this folder." : "No sets in this folder.";
   return `${bankOnly ? "No practice sets yet." : "No sets yet."} Import a question file here, or move sets here from another folder.`;
 }
 

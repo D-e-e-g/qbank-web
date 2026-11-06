@@ -8,11 +8,10 @@ import { DeleteSheet } from "../components/DeleteSheet";
 import { FolderPageSheet, MoveSetsSheet, RenameFolderSheet } from "../components/FolderSheets";
 import { Icon } from "../components/Icon";
 import { MoreMenu } from "../components/Menu";
-import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { examPageOf, folderEmptyMessage, folderMeta, folderPlace } from "../course/folders";
 import { courseName } from "../course/pages";
 import { useCourse, useCourseNaming, useRememberPlace } from "../course/useCourse";
-import { useSession } from "../login/session-context";
+import { useFrozen } from "../frozen";
 import { examPagePath, importPath, navigate } from "../router";
 import { Screen } from "../shell/Screen";
 import { ShellLink } from "../shell/ShellLink";
@@ -27,8 +26,7 @@ type Sheet = "rename" | "page" | "move" | "delete" | "delete-sets" | null;
  * at the bottom moves the ones she ticks to another folder or deletes them.
  */
 export function FolderScreen({ courseId, folderId }: { courseId: string; folderId: string }) {
-  const session = useSession();
-  const readOnly = session.user.role !== "student";
+  const { guard } = useFrozen();
   const { course, error, reload } = useCourse(courseId);
   const folder = course?.folders.find((item) => item.id === folderId) ?? null;
   const page = course && folder ? examPageOf(course, folder) : null;
@@ -75,11 +73,11 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
 
   const sets = folder?.sets ?? [];
   const picked = sets.filter((set) => selected?.has(set.id) === true);
-  const selecting = selected !== null && !readOnly;
+  const selecting = selected !== null;
   const importHere = importPath(courseId, { folderId });
 
   const header =
-    folder && !readOnly ? (
+    folder ? (
       <div className="screen-actions">
         <MoreMenu
           name={folder.name}
@@ -88,18 +86,18 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
               key: "rename",
               label: "Rename",
               icon: "pencil",
-              onSelect: () => {
+              onSelect: guard(() => {
                 setSheet("rename");
-              },
+              }),
             },
             {
               key: "page",
               label: "Change page",
               detail: folderPlace(page),
               icon: "layers",
-              onSelect: () => {
+              onSelect: guard(() => {
                 setSheet("page");
-              },
+              }),
             },
             {
               key: "delete",
@@ -107,9 +105,9 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
               icon: "trash-2",
               destructive: true,
               separated: true,
-              onSelect: () => {
+              onSelect: guard(() => {
                 setSheet("delete");
-              },
+              }),
             },
           ]}
         />
@@ -121,7 +119,6 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
 
   return (
     <Screen title={folder?.name ?? "Folder"} action={header}>
-      {session.user.role === "admin" ? <ReadOnlyBanner /> : null}
       <ShellLink to={back.to} className="text-action" current={false}>
         {back.label}
       </ShellLink>
@@ -150,15 +147,15 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
           <section className="group">
             <div className="group-head">
               <h2 className="group-header">Sets</h2>
-              {readOnly || sets.length === 0 ? null : (
+              {sets.length === 0 ? null : (
                 <button
                   type="button"
                   className="group-action"
                   aria-label={selecting ? "Cancel selecting sets" : "Select sets"}
-                  onClick={() => {
+                  onClick={guard(() => {
                     setSelected(selecting ? null : new Set());
                     setMoved(null);
-                  }}
+                  })}
                 >
                   {selecting ? "Cancel" : "Select"}
                 </button>
@@ -166,13 +163,11 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
             </div>
             {sets.length === 0 ? (
               <div className="folder-empty folder-empty-import">
-                <p>{folderEmptyMessage(folder, readOnly)}</p>
-                {readOnly ? null : (
-                  <ShellLink to={importHere} className="btn btn-secondary" current={false}>
-                    <Icon name="file-input" size={18} strokeWidth={2} />
-                    Import here
-                  </ShellLink>
-                )}
+                <p>{folderEmptyMessage(folder)}</p>
+                <ShellLink to={importHere} className="btn btn-secondary" current={false}>
+                  <Icon name="file-input" size={18} strokeWidth={2} />
+                  Import here
+                </ShellLink>
               </div>
             ) : (
               <ul className={selecting ? "list-group list-group-picking" : "list-group list-group-sets"} aria-label={`Sets in ${folder.name}`}>
@@ -199,10 +194,6 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
                         </span>
                         <SetCopy set={set} />
                       </label>
-                    ) : readOnly ? (
-                      <div className="list-row">
-                        <SetCopy set={set} />
-                      </div>
                     ) : (
                       <ShellLink to={`/course/${courseId}/practice/${set.id}?folder=${folder.id}`} className="list-row" current={false}>
                         <SetCopy set={set} opens />
@@ -216,9 +207,9 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
                         <Button
                           variant="secondary"
                           aria-label={`Restore the previous “${set.title}”`}
-                          onClick={() => {
+                          onClick={guard(() => {
                             setRestore(set);
-                          }}
+                          })}
                         >
                           Restore
                         </Button>
@@ -319,7 +310,6 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
 
 /** A set's title and status. On a row that opens the set (`opens`), one she left midway offers Continue. */
 function SetCopy({ set, opens = false }: { set: SetSummary; opens?: boolean }) {
-  const admin = useSession().user.role === "admin";
   return (
     <span className="list-copy">
       <span className="list-title list-title-strong">{set.title}</span>
@@ -332,7 +322,7 @@ function SetCopy({ set, opens = false }: { set: SetSummary; opens?: boolean }) {
           </>
         ) : null}
       </span>
-      {set.importedByAgent === null ? null : <span className="list-meta">{admin ? "Imported by an agent" : "Imported by your agent"}</span>}
+      {set.importedByAgent === null ? null : <span className="list-meta">Imported by your agent</span>}
     </span>
   );
 }

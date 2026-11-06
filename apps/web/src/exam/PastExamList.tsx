@@ -1,6 +1,7 @@
 import { useCallback, useState, type ReactNode } from "react";
 import type { ExamSummary } from "../api";
 import { DeleteSheet } from "../components/DeleteSheet";
+import { useFrozen } from "../frozen";
 import { PastExamRow } from "./PastExamRow";
 
 /**
@@ -11,18 +12,17 @@ export function PastExamList({
   courseId,
   exams,
   title,
-  readOnly,
   empty,
 }: {
   courseId: string;
   exams: readonly ExamSummary[];
   title: string;
-  readOnly: boolean;
   empty: ReactNode;
 }) {
+  const { guard } = useFrozen();
   const [edit, setEdit] = useState(false);
   const [doomed, setDoomed] = useState<string | null>(null);
-  const editing = edit && !readOnly && exams.length > 0;
+  const editing = edit && exams.length > 0;
   const close = useCallback(() => {
     setDoomed(null);
   }, []);
@@ -36,14 +36,14 @@ export function PastExamList({
     <section className="group">
       <div className="group-head">
         <h2 className="group-header">{title}</h2>
-        {readOnly || exams.length === 0 ? null : (
+        {exams.length === 0 ? null : (
           <button
             type="button"
             className="group-action"
             aria-label={editing ? `Done editing ${title.toLowerCase()}` : `Edit ${title.toLowerCase()}`}
-            onClick={() => {
+            onClick={guard(() => {
               setEdit(!editing);
-            }}
+            })}
           >
             {editing ? "Done" : "Edit"}
           </button>

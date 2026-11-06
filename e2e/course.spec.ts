@@ -565,43 +565,39 @@ test.describe("pages", () => {
     await expect(page.getByRole("list", { name: "Study material on Page 2" }).getByRole("link")).toHaveText([/^Week 5/]);
   });
 
-  test("the admin sees the same pages and folders, read-only", async ({ page, browser }) => {
+  test("the admin sees the same pages and folders, with the user's controls", async ({ page, browser }) => {
     await signIn(page);
     const course = await sevenWeekCourse(page);
     const exam1 = await addExamPage(page, course.id, "Exam 1", folderIds(course, ["Week 1", "Week 2", "Week 3"]));
 
     const admin = await signedInPage(browser, ADMIN_EMAIL, ADMIN_PASSWORD);
     await admin.goto(`/course/${course.id}`);
-    await expect(admin.getByText(/progress, read-only\./)).toBeVisible();
+    await expect(admin.getByText("Viewing student@example.com")).toBeVisible();
     await expect(admin.getByRole("list", { name: "Pages" }).getByRole("link")).toHaveText([/^Exam 1/]);
     await expect(admin.getByRole("list", { name: "Folders", exact: true }).getByRole("link")).toHaveText([/^Week 4/, /^Week 5/, /^Week 6/, /^Week 7/]);
-    await expect(admin.getByRole("button", { name: `Add to ${course.code}` })).toHaveCount(0);
-    await expect(admin.getByRole("button", { name: `More for ${course.code}` })).toHaveCount(0);
-    await expect(admin.getByRole("button", { name: "Rename", exact: true })).toHaveCount(0);
-    await expect(admin.getByRole("button", { name: "Edit folder order" })).toHaveCount(0);
+    await expect(admin.getByRole("button", { name: `Add to ${course.code}` })).toBeVisible();
+    await expect(admin.getByRole("button", { name: `More for ${course.code}` })).toBeVisible();
+    await expect(admin.getByRole("button", { name: "Edit folder order" })).toBeVisible();
 
     await admin.goto(`/course/${course.id}/exam-page/${exam1}`);
     await expect(admin.getByRole("heading", { level: 1, name: "Exam 1" })).toBeVisible();
-    await expect(admin.getByRole("link", { name: "Start exam" })).toHaveCount(0);
-    await expect(admin.getByRole("button", { name: "Edit the page" })).toHaveCount(0);
-    await expect(admin.getByRole("button", { name: "Edit page", exact: true })).toHaveCount(0);
-    await expect(admin.getByRole("button", { name: "More for Exam 1" })).toHaveCount(0);
-    await expect(admin.getByRole("button", { name: "Add to Exam 1" })).toHaveCount(0);
-    await expect(admin.getByRole("heading", { name: "Her past exams" })).toBeVisible();
+    await expect(admin.getByRole("button", { name: "Edit the page" })).toBeVisible();
+    await expect(admin.getByRole("button", { name: "More for Exam 1" })).toBeVisible();
+    await expect(admin.getByRole("button", { name: "Add to Exam 1" })).toBeVisible();
+    await expect(admin.getByRole("heading", { name: "Past exams" })).toBeVisible();
 
     await folderLink(admin, "Study material on Exam 1", "Week 3").click();
     await expect(admin.getByText("On Exam 1 · 2 sets · 3 of 5 answered")).toBeVisible();
     await expect(admin.getByText("Week 3 - Set 2: Antipsychotics")).toBeVisible();
-    await expect(admin.getByRole("link", { name: /^Week 3 - Set/ })).toHaveCount(0);
-    for (const action of ["More for Week 3", "Rename", "Select sets"]) await expect(admin.getByRole("button", { name: action })).toHaveCount(0);
-    await expect(admin.getByRole("link", { name: "Import here" })).toHaveCount(0);
+    await expect(admin.getByRole("link", { name: /^Week 3 - Set/ })).toHaveCount(2);
+    for (const action of ["More for Week 3", "Select sets"]) await expect(admin.getByRole("button", { name: action })).toBeVisible();
+    await expect(admin.getByRole("link", { name: "Import here" })).toBeVisible();
 
-    // An empty folder has no Import here for the admin either.
+    // An empty folder says what it says to the user.
     const empty = await page.request.post(`/api/courses/${course.id}/folders`, { data: { name: "Week 8" } });
     expect(empty.status()).toBe(201);
     await admin.goto(`/course/${course.id}/folder/${((await empty.json()) as { id: string }).id}`);
-    await expect(admin.getByText("No sets in this folder.")).toBeVisible();
-    await expect(admin.getByRole("link", { name: "Import here" })).toHaveCount(0);
+    await expect(admin.getByText("No sets yet. Import a question file here, or move sets here from another folder.")).toBeVisible();
     await admin.context().close();
   });
 

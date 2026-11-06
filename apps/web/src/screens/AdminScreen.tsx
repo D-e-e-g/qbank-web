@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { ApiError, api, type RepairPlan } from "../api";
-import { CatalogEditor } from "../components/CatalogEditor";
 import { ConfirmSheet } from "../components/ConfirmSheet";
 import { Icon } from "../components/Icon";
 import { SignUpList } from "../components/SignUpList";
@@ -8,15 +7,17 @@ import { StudentsSection } from "../components/StudentsSection";
 import { useSession } from "../login/session-context";
 import { Screen } from "../shell/Screen";
 import { useStudents, viewedStudent } from "../students";
+import { NotFoundScreen } from "./NotFoundScreen";
 
+/** The admin's home control page: the user accounts it may view, and its tools for them. Nobody else has this screen. */
 export function AdminScreen() {
   const session = useSession();
+  if (session.user.role !== "admin") return <NotFoundScreen />;
   return (
     <Screen title="Admin">
-      {session.user.role === "admin" ? <StudentsSection /> : null}
-      {session.user.role === "admin" ? <SignUpList /> : null}
-      <CatalogEditor />
-      {session.user.role === "admin" ? <RepairPanel /> : null}
+      <StudentsSection />
+      <SignUpList />
+      <RepairPanel />
     </Screen>
   );
 }

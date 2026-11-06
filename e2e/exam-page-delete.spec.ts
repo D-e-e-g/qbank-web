@@ -276,7 +276,7 @@ test.describe("deleting a page", () => {
     await expect(page.getByRole("status").filter({ hasText: "Brought back" })).toHaveText("Brought back Page 1.");
   });
 
-  test("the admin sees a deleted page in Recently deleted without Undo, and no Delete", async ({ page, browser }, testInfo) => {
+  test("the admin sees a deleted page in Recently deleted, and Delete and Undo answer with the note", async ({ page, browser }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chrome", "admin on the wide layout");
     await signIn(page);
     const course = await importInto(page, newCourse(), [
@@ -291,19 +291,22 @@ test.describe("deleting a page", () => {
     const admin = await signedInPage(browser, ADMIN_EMAIL, ADMIN_PASSWORD);
     await admin.goto(`/course/${course.id}/exam-page/${exam1}`);
     await expect(admin.getByRole("heading", { level: 1, name: "Exam 1" })).toBeVisible();
-    await expect(admin.getByRole("button", { name: "Edit the page" })).toHaveCount(0);
-    await expect(admin.getByRole("button", { name: /^More for / })).toHaveCount(0);
+    await admin.getByRole("button", { name: "More for Exam 1" }).click();
+    await admin.getByRole("menuitem", { name: "Delete page" }).click();
+    await expect(admin.getByText("This is a frozen view of", { exact: false })).toBeVisible();
+    await expect(admin.getByRole("dialog")).toHaveCount(0);
 
     await admin.goto(`/course/${course.id}`);
     await expect(links(admin, "Pages")).toHaveText([/^Exam 1/]);
     await expect(links(admin, "Folders")).toHaveText([/^Week 2/]);
     // Her More has Rename too; his holds only this, and only now something is deleted.
     await admin.getByRole("button", { name: `More for ${course.code}` }).click();
-    await expect(admin.getByRole("menu", { name: course.code }).getByRole("menuitem")).toHaveText(["Recently deleted"]);
+    await expect(admin.getByRole("menu", { name: course.code }).getByRole("menuitem")).toHaveText(["Rename", "Recently deleted"]);
     await admin.getByRole("menuitem", { name: "Recently deleted" }).click();
-    await expect(admin.getByText("What she deleted in this course in the last 30 days. She can bring each back as it was.")).toBeVisible();
+    await expect(admin.getByText("What you deleted in this course in the last 30 days.", { exact: false })).toBeVisible();
     await expect(admin.getByRole("list", { name: "Deleted pages" })).toContainText("Week 2 · Deleted today");
-    await expect(admin.getByRole("button", { name: /^Undo deleting/ })).toHaveCount(0);
+    await admin.getByRole("button", { name: /^Undo deleting/ }).click();
+    await expect(admin.getByRole("list", { name: "Deleted pages" })).toContainText("Week 2 · Deleted today");
     await admin.context().close();
   });
 });

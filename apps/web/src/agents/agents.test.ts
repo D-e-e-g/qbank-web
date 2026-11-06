@@ -66,8 +66,10 @@ describe("what an agent asks to do", () => {
     expect(words.detail).toContain("never replaces, moves, renames, or deletes a set");
   });
 
-  it("names the account he looks after for the admin", () => {
-    expect(scopeWords("import", true).detail).toContain("the user account you look after");
+  it("says a key the admin approves reaches nothing, whatever it asks for", () => {
+    for (const scope of ["import", "read", "manage"]) {
+      expect(scopeWords(scope, true).detail).toBe("An agent key reaches only its own account's content, and the admin account has none. QBank refuses this key every time.");
+    }
   });
 
   it("says read is read-only", () => {
@@ -81,7 +83,6 @@ describe("what an agent asks to do", () => {
     expect(words.title).toBe("Add, change, and delete your content");
     expect(words.detail).toContain("sets, questions, folders, courses, and topics of your account");
     expect(words.detail).toContain("goes to Recently deleted");
-    expect(scopeWords("manage", true).detail).toContain("the user account you look after");
   });
 
   it("marks only manage as the scope that reaches the most", () => {

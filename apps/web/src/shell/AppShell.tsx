@@ -11,7 +11,10 @@ import { practiceSource } from "../practice/source";
 import { JobScreen } from "../make/JobScreen";
 import { MakeScreen } from "../make/MakeScreen";
 import { matchDetail, matchExam, matchMake, matchPractice, navigate, normalizePath, usePathname, useSearch } from "../router";
-import { matchRoute, navigationFor } from "../routes";
+import { inSection, matchRoute, navigationFor } from "../routes";
+import { useStudents } from "../students";
+import { FrozenLine } from "../components/FrozenLine";
+import { FrozenNote } from "../components/FrozenNote";
 import { UndoToast } from "../components/UndoToast";
 import { CourseScreen } from "../screens/CourseScreen";
 import { DeletedScreen } from "../screens/DeletedScreen";
@@ -28,7 +31,6 @@ import { useMediaQuery, WIDE_LAYOUT_QUERY } from "./useMediaQuery";
 export function AppShell({ role }: { role: Role }) {
   const pathname = usePathname();
   const wide = useMediaQuery(WIDE_LAYOUT_QUERY);
-  const items = navigationFor(role);
   const route = matchRoute(pathname);
   const detail = useMemo(() => matchDetail(pathname), [pathname]);
   const search = useSearch();
@@ -40,6 +42,13 @@ export function AppShell({ role }: { role: Role }) {
   // The runner fills the screen: no tab bar, and the screen does not scroll behind it.
   const runner = practice !== null || exam !== null;
   const ScreenBody = route?.Screen ?? NotFoundScreen;
+  // Admin and Settings are the admin's own. Every other screen is the account being viewed, frozen,
+  // and has the user's navigation: the line's Accounts goes to Admin. With no account to view, the
+  // line goes and the navigation keeps Admin. Until the list is read the line holds its place.
+  const students = useStudents(role === "admin");
+  const viewing = students?.viewingId !== null;
+  const frozenScreen = role === "admin" && viewing && !inSection(pathname, "/admin") && !inSection(pathname, "/settings");
+  const items = navigationFor(frozenScreen ? "student" : role);
   const width = make ? "reading" : (detail?.width ?? route?.width);
 
   useEffect(() => {
@@ -70,14 +79,15 @@ export function AppShell({ role }: { role: Role }) {
   }, [detail, route, runner, make]);
 
   return (
-    <div className={wide ? "shell shell-wide" : "shell shell-phone"}>
+    <div className={`${wide ? "shell shell-wide" : "shell shell-phone"}${frozenScreen ? " shell-frozen" : ""}`}>
+      {frozenScreen ? <FrozenLine /> : null}
       {wide ? <Sidebar items={items} pathname={pathname} /> : null}
       <div className="shell-main">
         <main className={runner ? "screen screen-practice" : "screen"}>
           {exam ? (
-            <ExamScreen key={exam.examId} courseId={exam.courseId} examId={exam.examId} role={role} wide={wide} />
+            <ExamScreen key={exam.examId} courseId={exam.courseId} examId={exam.examId} wide={wide} />
           ) : practice && source ? (
-            <PracticeScreen key={source.key} courseId={practice.courseId} source={source} role={role} wide={wide} />
+            <PracticeScreen key={source.key} courseId={practice.courseId} source={source} wide={wide} />
           ) : (
             <div className={width === "reading" ? "screen-body screen-body-narrow" : "screen-body"}>
               {/* Keyed, so another course, exam page, or folder starts fresh: out of Edit and Select. */}
@@ -112,6 +122,7 @@ export function AppShell({ role }: { role: Role }) {
       </div>
       {/* Undo after a delete stays while the screen changes, as a deleted folder's screen goes back. */}
       {runner ? null : <UndoToast />}
+      {role === "admin" ? <FrozenNote /> : null}
       {wide || runner ? null : <TabBar items={items} pathname={pathname} />}
     </div>
   );

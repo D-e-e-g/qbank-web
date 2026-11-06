@@ -10,13 +10,12 @@ import { FolderRows } from "../components/FolderRows";
 import { Icon } from "../components/Icon";
 import { AddMenu, MoreMenu } from "../components/Menu";
 import { RowBody } from "../components/NavRow";
-import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { pageFolders } from "../course/folders";
 import { courseName, examDrawLine, examSetupPath, examTwinsLine, pageMeta, pageSittings } from "../course/pages";
 import { useCourse, useCourseNaming, useRememberPlace } from "../course/useCourse";
 import { useFolderOrder } from "../course/useFolderOrder";
 import { PastExamList } from "../exam/PastExamList";
-import { useSession } from "../login/session-context";
+import { useFrozen } from "../frozen";
 import { importPath, navigate } from "../router";
 import { Screen } from "../shell/Screen";
 import { ShellLink } from "../shell/ShellLink";
@@ -32,8 +31,7 @@ import { ShellLink } from "../shell/ShellLink";
  * link when it has one.
  */
 export function ExamPageScreen({ courseId, examPageId }: { courseId: string; examPageId: string }) {
-  const session = useSession();
-  const readOnly = session.user.role !== "student";
+  const { guard } = useFrozen();
   const { course, setup, error, setupError, reload, replace } = useCourse(courseId, true);
   const page = course?.exams.find((item) => item.id === examPageId) ?? null;
   const { name, words } = useCourseNaming(courseId, course);
@@ -61,12 +59,12 @@ export function ExamPageScreen({ courseId, examPageId }: { courseId: string; exa
 
   const folders = course && page ? pageFolders(course, page.id) : [];
   // An empty page has Add folders instead, so Edit (her order, then its name and folders) waits for one.
-  const canEdit = !readOnly && folders.length > 0;
+  const canEdit = folders.length > 0;
   const edit = ordering && canEdit;
   const order = useFolderOrder({ course, examPageId, folders, replace, reload });
 
   const header =
-    course && page && !readOnly ? (
+    course && page ? (
       <div className="screen-actions">
         <MoreMenu
           name={page.name}
@@ -75,9 +73,9 @@ export function ExamPageScreen({ courseId, examPageId }: { courseId: string; exa
               key: "edit",
               label: "Edit page",
               icon: "pencil",
-              onSelect: () => {
+              onSelect: guard(() => {
                 setEditing(true);
-              },
+              }),
             },
             {
               key: "delete",
@@ -85,9 +83,9 @@ export function ExamPageScreen({ courseId, examPageId }: { courseId: string; exa
               icon: "trash-2",
               destructive: true,
               separated: true,
-              onSelect: () => {
+              onSelect: guard(() => {
                 setDeleting(true);
-              },
+              }),
             },
           ]}
         />
@@ -107,17 +105,17 @@ export function ExamPageScreen({ courseId, examPageId }: { courseId: string; exa
               key: "folder",
               label: "New folder on this page",
               icon: "folder",
-              onSelect: () => {
+              onSelect: guard(() => {
                 setMaking(true);
-              },
+              }),
             },
             {
               key: "existing",
               label: "Add existing folders",
               icon: "plus",
-              onSelect: () => {
+              onSelect: guard(() => {
                 setEditing(true);
-              },
+              }),
             },
           ]}
         />
@@ -126,7 +124,6 @@ export function ExamPageScreen({ courseId, examPageId }: { courseId: string; exa
 
   return (
     <Screen title={page?.name ?? "Page"} action={header}>
-      {session.user.role === "admin" ? <ReadOnlyBanner /> : null}
       <ShellLink to={`/course/${courseId}`} className="text-action" current={false}>
         {name ?? "Course"}
       </ShellLink>
@@ -145,7 +142,7 @@ export function ExamPageScreen({ courseId, examPageId }: { courseId: string; exa
         <>
           <p className="note">{pageMeta(course, page)}</p>
           {page.linkUrl === null ? null : <PrimerLink url={page.linkUrl} />}
-          {readOnly ? null : <StartExam course={course} page={page} setup={setup} />}
+          <StartExam course={course} page={page} setup={setup} />
           <section className="group">
             <div className="group-head">
               <h2 className="group-header">Study material</h2>
@@ -154,9 +151,9 @@ export function ExamPageScreen({ courseId, examPageId }: { courseId: string; exa
                   type="button"
                   className="group-action"
                   aria-label={edit ? "Done editing the page" : "Edit the page"}
-                  onClick={() => {
+                  onClick={guard(() => {
                     setOrdering(!edit);
-                  }}
+                  })}
                 >
                   {edit ? "Done" : "Edit"}
                 </button>
@@ -178,19 +175,17 @@ export function ExamPageScreen({ courseId, examPageId }: { courseId: string; exa
               <div className="empty-card">
                 <EmptyState
                   icon="folder"
-                  message={readOnly ? "No folders on this page yet." : "No folders on this page yet. Add the folders this page covers."}
+                  message="No folders on this page yet. Add the folders this page covers."
                   action={
-                    readOnly ? null : (
-                      <Button
-                        variant="secondary"
-                        onClick={() => {
-                          setEditing(true);
-                        }}
-                      >
-                        <Icon name="plus" size={18} strokeWidth={2} />
-                        Add folders
-                      </Button>
-                    )
+                    <Button
+                      variant="secondary"
+                      onClick={guard(() => {
+                        setEditing(true);
+                      })}
+                    >
+                      <Icon name="plus" size={18} strokeWidth={2} />
+                      Add folders
+                    </Button>
                   }
                 />
               </div>
@@ -201,20 +196,15 @@ export function ExamPageScreen({ courseId, examPageId }: { courseId: string; exa
           </section>
           {setup === null ? (
             <section className="group">
-              <h2 className="group-header">{readOnly ? "Her past exams" : "Past exams"}</h2>
+              <h2 className="group-header">Past exams</h2>
               <p className={setupError ? "form-error" : "note"}>{setupError ?? "Loading the exams."}</p>
             </section>
           ) : (
             <PastExamList
               courseId={course.id}
               exams={pageSittings(setup.exams, page.id)}
-              title={readOnly ? "Her past exams" : "Past exams"}
-              readOnly={readOnly}
-              empty={
-                <p className="folder-empty">
-                  {readOnly ? `Her finished exams over ${page.name} show up here with their scores.` : `Exams you finish over ${page.name} show up here with their scores.`}
-                </p>
-              }
+              title="Past exams"
+              empty={<p className="folder-empty">{`Exams you finish over ${page.name} show up here with their scores.`}</p>}
             />
           )}
         </>

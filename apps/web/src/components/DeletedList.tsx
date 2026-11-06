@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useFrozen } from "../frozen";
 import { Button } from "./Button";
 import { Icon, type IconName } from "./Icon";
 
@@ -34,7 +35,6 @@ export function DeletedRow({
   title,
   meta,
   refusal,
-  readOnly,
   busy,
   label,
   onUndo,
@@ -45,11 +45,11 @@ export function DeletedRow({
   meta: string;
   /** Why Undo would be refused now, as the server says it ("Its folder Week 4 is deleted. Bring the folder back first."). */
   refusal: string | null;
-  readOnly: boolean;
   busy: boolean;
   label: string;
   onUndo: () => void;
 }) {
+  const { guard } = useFrozen();
   return (
     <li>
       <div className="list-row">
@@ -62,12 +62,10 @@ export function DeletedRow({
           <span className="list-title list-title-strong">{title}</span>
           <span className="list-meta">{meta}</span>
         </span>
-        {readOnly ? null : (
-          <Button variant="secondary" className="row-undo" aria-label={label} disabled={busy || refusal !== null} onClick={onUndo}>
-            <Icon name="rotate-ccw" size={16} strokeWidth={2} />
-            Undo
-          </Button>
-        )}
+        <Button variant="secondary" className="row-undo" aria-label={label} disabled={busy || refusal !== null} onClick={guard(onUndo)}>
+          <Icon name="rotate-ccw" size={16} strokeWidth={2} />
+          Undo
+        </Button>
       </div>
       {refusal !== null ? <p className="list-row-note">{refusal}</p> : null}
     </li>
