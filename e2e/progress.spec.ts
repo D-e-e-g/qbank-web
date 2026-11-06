@@ -171,7 +171,7 @@ test.describe("progress and review", () => {
       await adminPage.goto("/admin");
       await adminPage.getByRole("button", { name: /Rebuild progress and Review/ }).click();
       const dialog = adminPage.getByRole("dialog");
-      await expect(dialog.getByRole("heading", { name: "Rebuild her progress and Review?" })).toBeVisible();
+      await expect(dialog.getByRole("heading", { name: "Rebuild their progress and Review?" })).toBeVisible();
       expect(await dialog.locator(".sheet-message").innerText()).toContain("saved answer");
       await dialog.getByRole("button", { name: "Cancel" }).click();
       await expect(dialog).toBeHidden();

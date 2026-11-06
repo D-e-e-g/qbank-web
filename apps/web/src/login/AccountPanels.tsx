@@ -201,7 +201,7 @@ export function StudentPassword({ email }: { email: string }) {
         void setTemporaryPassword(temporaryPassword)
           .then((reset) => {
             setTemporary("");
-            setMessage(`Temporary password set for ${reset}. She'll choose her own the next time she signs in.`);
+            setMessage(`Temporary password set for ${reset}. They'll choose their own the next time they sign in.`);
           })
           .catch((caught: unknown) => {
             setError(caught instanceof ApiError ? caught.message : "The temporary password could not be set.");
@@ -218,7 +218,7 @@ export function StudentPassword({ email }: { email: string }) {
         autoComplete="off"
         value={temporaryPassword}
         onChange={setTemporary}
-        hint={`For ${email}. Give it to her yourself. She'll choose her own the next time she signs in.`}
+        hint={`For ${email}. Give it to them yourself. They'll choose their own the next time they sign in.`}
       />
       <Button type="submit" variant="secondary" icon="lock" disabled={busy}>
         Set temporary password

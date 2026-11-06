@@ -161,7 +161,7 @@ test.describe("signed-in account", () => {
 
     await page.getByLabel("Temporary password").fill("temp-pass-1");
     await page.getByRole("button", { name: "Set temporary password" }).click();
-    await expect(page.getByText(`Temporary password set for ${STUDENT_EMAIL}. She'll choose her own the next time she signs in.`)).toBeVisible();
+    await expect(page.getByText(`Temporary password set for ${STUDENT_EMAIL}. They'll choose their own the next time they sign in.`)).toBeVisible();
 
     await page.getByRole("link", { name: "Settings" }).click();
     await page.getByRole("button", { name: "Sign out", exact: true }).click();
