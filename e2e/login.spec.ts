@@ -147,7 +147,7 @@ test.describe("signed-in account", () => {
 
   test("the admin resets her password, and she chooses her own", async ({ page }) => {
     await signIn(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.getByRole("link", { name: "Admin" }).click();
+    await page.getByRole("link", { name: "Accounts" }).click();
     const denied = await page.request.post("/api/attempts", {
       data: {
         clientAttemptId: crypto.randomUUID(),
@@ -184,7 +184,7 @@ test.describe("sign-up", () => {
   test("the admin lets an email sign up, and only that email gets an account", async ({ page }) => {
     const email = `new-${String(Date.now())}@example.com`;
     await signIn(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.getByRole("link", { name: "Admin" }).click();
+    await page.getByRole("link", { name: "Accounts" }).click();
     await page.getByLabel("Email to add").fill(email);
     await page.getByRole("button", { name: "Add email" }).click();
     const list = page.getByRole("list", { name: "Emails that can sign up" });
@@ -221,14 +221,14 @@ test.describe("sign-up", () => {
     await page.getByRole("button", { name: "Sign out", exact: true }).click();
 
     await signIn(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    await page.getByRole("link", { name: "Admin" }).click();
+    await page.getByRole("link", { name: "Accounts" }).click();
     await expect(list.getByRole("listitem").filter({ hasText: email })).toContainText("Has an account");
     const accounts = page.getByRole("list", { name: "User accounts" });
     await accounts.getByRole("button", { name: new RegExp(email) }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
     await expect(page.getByText(`Viewing ${email}`)).toBeVisible();
 
-    await page.getByRole("link", { name: "Admin" }).click();
+    await page.getByRole("link", { name: "Accounts" }).click();
     await expect(page.getByText(`For ${email}.`, { exact: false })).toBeVisible();
     await page.getByRole("list", { name: "User accounts" }).getByRole("button", { name: new RegExp(STUDENT_EMAIL) }).click();
     await expect(page.getByText(`Viewing ${STUDENT_EMAIL}`)).toBeVisible();

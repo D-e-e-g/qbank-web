@@ -12,6 +12,7 @@ import { JobScreen } from "../make/JobScreen";
 import { MakeScreen } from "../make/MakeScreen";
 import { matchDetail, matchExam, matchMake, matchPractice, navigate, normalizePath, usePathname, useSearch } from "../router";
 import { inSection, matchRoute, navigationFor } from "../routes";
+import { useStudents } from "../students";
 import { FrozenLine } from "../components/FrozenLine";
 import { FrozenNote } from "../components/FrozenNote";
 import { UndoToast } from "../components/UndoToast";
@@ -30,7 +31,6 @@ import { useMediaQuery, WIDE_LAYOUT_QUERY } from "./useMediaQuery";
 export function AppShell({ role }: { role: Role }) {
   const pathname = usePathname();
   const wide = useMediaQuery(WIDE_LAYOUT_QUERY);
-  const items = navigationFor(role);
   const route = matchRoute(pathname);
   const detail = useMemo(() => matchDetail(pathname), [pathname]);
   const search = useSearch();
@@ -42,8 +42,13 @@ export function AppShell({ role }: { role: Role }) {
   // The runner fills the screen: no tab bar, and the screen does not scroll behind it.
   const runner = practice !== null || exam !== null;
   const ScreenBody = route?.Screen ?? NotFoundScreen;
-  // Admin and Settings are the admin's own. Every other screen is the account being viewed, frozen.
-  const frozenScreen = role === "admin" && !inSection(pathname, "/admin") && !inSection(pathname, "/settings");
+  // Admin and Settings are the admin's own. Every other screen is the account being viewed, frozen,
+  // and has the user's navigation: the line's Accounts goes to Admin. With no account to view, the
+  // line goes and the navigation keeps Admin. Until the list is read the line holds its place.
+  const students = useStudents(role === "admin");
+  const viewing = students?.viewingId !== null;
+  const frozenScreen = role === "admin" && viewing && !inSection(pathname, "/admin") && !inSection(pathname, "/settings");
+  const items = navigationFor(frozenScreen ? "student" : role);
   const width = make ? "reading" : (detail?.width ?? route?.width);
 
   useEffect(() => {

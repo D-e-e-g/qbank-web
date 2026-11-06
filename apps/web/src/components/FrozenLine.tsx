@@ -4,7 +4,7 @@ import { Icon } from "./Icon";
 
 /**
  * Whose account is on screen, in a band of its own above the app, so the screens under it lay out
- * as the user's do. Accounts goes back to the Admin page, also out of an exam, which has no way back of its own.
+ * as the user's do. Accounts is the way to the Admin page, also out of an exam, which has no way back of its own.
  */
 export function FrozenLine() {
   const student = viewedStudent(useStudents(true));

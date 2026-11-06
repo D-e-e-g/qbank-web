@@ -181,7 +181,7 @@ The clickable wireframes from the planning phase are the reference for every sta
 - An empty semester says: "No courses yet. Tap + to add one, or import its first question file." An empty Study topics group says: "A topic is a place for questions that are not a course: a certification, a language, your own notes."
 - **Archived**, after the groups and closed until she opens it, only when a semester, course, or topic is archived. The sidebar does not list archived items.
 - **Recently deleted**, last on the page: once she has deleted a course or topic, a row ("2 items · Undo for 30 days") opens Home's Recently deleted (see [Delete and Undo](#delete-and-undo)).
-- Navigation: Home, Import, Settings (bottom tabs on iPhone, sidebar on iPad and Mac; see [Platforms and layouts](#platforms-and-layouts)). The owner also gets Admin (see [The owner's admin account](#the-owners-admin-account)).
+- Navigation: Home, Import, Settings (bottom tabs on iPhone, sidebar on iPad and Mac; see [Platforms and layouts](#platforms-and-layouts)). The owner also reaches Admin (see [The owner's admin account](#the-owners-admin-account)).
 
 ### Course
 
@@ -330,11 +330,11 @@ Courses, study topics, exam and study pages, sets, folders, and past exams can b
 
 ### The owner's admin account
 
-He signs in the same way, with his own login, and lands on the Home of the user account he is looking at. His navigation is Home, Import, Admin, and Settings. He sees that account only.
+He signs in the same way, with his own login, and lands on the Home of the user account he is looking at. On the frozen screens his navigation is the user's: Home, Import, and Settings. On Admin and Settings, which are his own, and when there is no account to view, it adds Admin. He sees that account only.
 
 - **The frozen view:** Home, a course or topic, its pages and folders, Review, Exam setup, Terms, Recently deleted, Import, and the practice and exam runners look as they do for that user, in that user's words. Rows that open for the user open here too, reading only: a set opens in the practice runner, a past exam its result, a running exam its runner. Each control that would change something, such as +, Rename, Edit, Select, Delete, Undo, Restore, Check answer, Start exam, End exam, and Import, answers with one short note and sends nothing: "This is a frozen view of sam@example.com. Nothing here can be changed." The iPhone says the same. If a refusal still comes back from the server (403 `admin_read_only`), it says the same note.
 - **What stays local in that view:** picking a choice, ticking folders on Exam setup with its plan, Skip for now, and Check file on Import write nothing, so they work. Time running out on an exam does not end it: only that user's app does.
-- **Whose account is on screen:** one thin line at the very top names the account, in a band of its own, so the screens under it lay out as the user's do, and its **Accounts** links back to Admin. Admin and Settings are his own and have no line.
+- **Whose account is on screen:** one thin line at the very top names the account, in a band of its own, so the screens under it lay out as the user's do, and its **Accounts** is how he gets to Admin. Home in the navigation goes back to the frozen Home. Admin and Settings are his own and have no line, and neither does a session with no account to view.
 - **Admin > User accounts:** the home control page: each user account he may view, with its email, name, and when it was made, and a **Viewing** mark on the one he is looking at. Opening one shows its frozen Home. The temporary password and Repair act on the one marked Viewing. Until he picks, it is the oldest user account. Nobody else has this page.
 - **Admin > temporary password:** reset that account's password by setting a temporary password he gives its user, who chooses their own at their next sign-in. There is no reset email.
 - **Admin > Sign-up list:** add or remove the emails that may sign up, each with "Has an account" or "not signed up yet". Removing an email does not remove an account made with it.

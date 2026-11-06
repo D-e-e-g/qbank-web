@@ -168,7 +168,7 @@ test.describe("admin import", () => {
 
     await signIn(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto("/import");
-    await expect(page.getByRole("link", { name: "Admin" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Accounts" })).toBeVisible();
     await page.getByLabel("Paste JSON").fill(file(title, ["An invented mobility stem."]));
     await page.getByLabel("Course code").fill(code);
     await page.getByLabel("Course name").fill("Foundations");

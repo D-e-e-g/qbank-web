@@ -123,14 +123,32 @@ test.describe("the owner's frozen view", () => {
     await row.click();
     await expect(admin.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
     await expect(admin.getByText(`Viewing ${other.email}`)).toBeVisible();
+    // The frozen view has the user's navigation. Accounts is the way to Admin, and Home the way back.
+    const sections = admin.getByRole("navigation", { name: /^(Sections|Tabs)$/ }).getByRole("link");
+    await expect(sections).toHaveText(["Home", "Import", "Settings"]);
     await admin.getByRole("link", { name: "Accounts" }).click();
     await expect(admin.getByRole("list", { name: "User accounts" }).getByRole("button", { name: new RegExp(other.email) })).toContainText("Viewing");
+    await expect(sections).toHaveText(["Home", "Import", "Admin", "Settings"]);
+    await expect(admin.getByRole("link", { name: "Accounts" })).toHaveCount(0);
+    await sections.getByText("Home").click();
+    await expect(admin.getByText(`Viewing ${other.email}`)).toBeVisible();
     await admin.context().close();
 
     await userPage.goto("/admin");
     await expect(userPage.getByRole("heading", { level: 1, name: "Not found" })).toBeVisible();
     await expect(userPage.getByRole("link", { name: "Admin" })).toHaveCount(0);
     await expect(userPage.getByText("Viewing ", { exact: false })).toHaveCount(0);
+  });
+
+  test("with no account to view there is no line, and the navigation keeps Admin", async ({ browser }) => {
+    const admin = await adminPage(browser);
+    await admin.route("**/api/admin/students", (route) => route.fulfill({ json: { students: [], viewingId: null } }));
+    await admin.goto("/");
+    await expect(admin.getByRole("heading", { level: 1, name: "Home" })).toBeVisible();
+    await expect(admin.getByRole("link", { name: "Accounts" })).toHaveCount(0);
+    await admin.getByRole("navigation", { name: /^(Sections|Tabs)$/ }).getByRole("link", { name: "Admin" }).click();
+    await expect(admin.getByText("No user account yet.", { exact: false })).toBeVisible();
+    await admin.context().close();
   });
 
   test("each control answers with the note and sends no request, and rows open as they do for the user", async ({ browser }) => {
