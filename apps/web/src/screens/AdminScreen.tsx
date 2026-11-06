@@ -57,7 +57,7 @@ function RepairPanel() {
           </span>
           <span className="review-copy">
             <span className="review-topic">Rebuild progress and Review</span>
-            <span className="review-meta">{done ?? (student === null ? "From her saved answers" : `From ${student.email}'s saved answers`)}</span>
+            <span className="review-meta">{done ?? (student === null ? "From their saved answers" : `From ${student.email}'s saved answers`)}</span>
           </span>
           <span className="review-chevron">
             <Icon name="chevron-right" size={18} />
@@ -67,7 +67,7 @@ function RepairPanel() {
       {error ? <p className="form-error">{error}</p> : null}
       {asking && plan !== null ? (
         <ConfirmSheet
-          title="Rebuild her progress and Review?"
+          title="Rebuild their progress and Review?"
           message={plan.summary}
           confirmLabel="Rebuild"
           onConfirm={() => {
@@ -80,7 +80,7 @@ function RepairPanel() {
                 setDone(`Rebuilt just now from ${String(result.attemptCount)} saved ${answers}`);
               })
               .catch((caught: unknown) => {
-                setError(caught instanceof ApiError ? caught.message : "Could not rebuild her progress.");
+                setError(caught instanceof ApiError ? caught.message : "Could not rebuild their progress.");
               })
               .finally(() => {
                 setBusy(false);
