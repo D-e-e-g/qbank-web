@@ -12,7 +12,7 @@ import { AddMenu, MoreMenu } from "../components/Menu";
 import { RowBody } from "../components/NavRow";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { pageFolders } from "../course/folders";
-import { courseName, examSetupPath, examTwinsLine, pageMeta, pageSittings } from "../course/pages";
+import { courseName, examDrawLine, examSetupPath, examTwinsLine, pageMeta, pageSittings } from "../course/pages";
 import { useCourse, useCourseNaming, useRememberPlace } from "../course/useCourse";
 import { useFolderOrder } from "../course/useFolderOrder";
 import { PastExamList } from "../exam/PastExamList";
@@ -263,8 +263,6 @@ function StartExam({ course, page, setup }: { course: CourseDetail; page: Course
   const preview = setup?.courseExams.find((item) => item.courseExamId === page.id)?.preview ?? null;
   const pool = preview?.folders ?? [];
   if (preview === null || pool.length === 0) return null;
-  const total = pool.reduce((sum, folder) => sum + folder.questionCount, 0);
-  const where = pool.every((folder) => folder.source === "exam") ? "its exam banks" : pool.length === 1 ? "this folder" : `these ${String(pool.length)} folders`;
   // Twins are what the next exam draws from, not a place to open, so this stays a line under the draw.
   const twins = examTwinsLine(pageFolders(course, page.id));
   return (
@@ -281,11 +279,7 @@ function StartExam({ course, page, setup }: { course: CourseDetail; page: Course
         <Icon name="timer" size={18} />
         Start exam
       </ShellLink>
-      <p className="folder-note">
-        {preview.questionCount < total
-          ? `${String(preview.questionCount)} questions from the ${String(total)} in ${where}, or wrong questions only.`
-          : `All ${String(total)} ${total === 1 ? "question" : "questions"} in ${where}, or wrong questions only.`}
-      </p>
+      <p className="folder-note">{examDrawLine(preview)}</p>
       {twins === "" ? null : (
         <p className="folder-bank">
           <Icon name="timer" size={16} />
