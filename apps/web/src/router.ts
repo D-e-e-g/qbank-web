@@ -105,7 +105,7 @@ export function readMakeQuery(search: string): { courseId: string | null; keep: 
   return { courseId: courseId === "" ? null : courseId, keep: query.get("keep") === "1" };
 }
 
-/** Import with the course picked, from its +, an exam page's +, or a folder's Import here. */
+/** Import with the course picked, from its +, an exam page's +, or a folder's + or Import here. */
 export function importPath(courseId: string, place: { folderId?: string; examPageId?: string } = {}): string {
   const query = new URLSearchParams({ course: courseId });
   if (place.folderId !== undefined) query.set("folder", place.folderId);

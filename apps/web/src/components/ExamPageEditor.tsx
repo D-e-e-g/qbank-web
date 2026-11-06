@@ -3,30 +3,25 @@ import { ApiError, type CourseDetail, type CourseExam, type CourseFolder, type P
 import { looseFolders, pageFolders } from "../course/folders";
 import { BADGE_CHOICES, chipState, kindWords, nextPageName, pageBadge, pickedSummary } from "../course/pages";
 import { createExamPage, updateExamPage } from "../course/requests";
-import { Button } from "./Button";
 import { FormSheet } from "./FormSheet";
-import { Icon } from "./Icon";
 import { SegmentedControl } from "./SegmentedControl";
 
 /**
  * A new page, or an existing one's name, folders and badge, with the course's folders as chips. A
  * folder on another page is greyed and names it, so no folder is on two. A topic's page also takes
  * its primer link. A new page asks for no badge: it has none until she sets one here. Nothing is
- * saved until Done. An existing page ends with Delete.
+ * saved until Done.
  */
 export function ExamPageEditor({
   course,
   page,
   onSaved,
-  onDelete,
   onClose,
 }: {
   course: CourseDetail;
   /** The page to edit, or null for a new one. */
   page: CourseExam | null;
   onSaved: (page: CourseExam) => void;
-  /** Asks to delete the page, after its warning; only for an existing one. */
-  onDelete?: () => void;
   onClose: () => void;
 }) {
   const words = kindWords(course.kind);
@@ -137,12 +132,6 @@ export function ExamPageEditor({
           <span className="field-hint">Says what the page is for</span>
         </div>
       ) : null}
-      {onDelete === undefined ? null : (
-        <Button variant="secondary" fullWidth className="text-danger" disabled={busy} onClick={onDelete}>
-          <Icon name="trash-2" size={18} />
-          Delete this page
-        </Button>
-      )}
     </FormSheet>
   );
 }

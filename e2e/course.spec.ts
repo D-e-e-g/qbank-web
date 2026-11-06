@@ -114,6 +114,12 @@ function listRows(page: Page, list: string) {
   return page.getByRole("list", { name: list, exact: true }).getByRole("listitem");
 }
 
+/** Opens More at a folder's or page's title and taps one of its rows. */
+async function moreMenuRow(page: Page, title: string, row: string): Promise<void> {
+  await page.getByRole("button", { name: `More for ${title}` }).click();
+  await page.getByRole("menu", { name: title }).getByRole("menuitem", { name: row }).click();
+}
+
 function sheet(page: Page, title: string) {
   return page.getByRole("dialog", { name: title });
 }
@@ -164,6 +170,67 @@ test.describe("course page", () => {
     await expect(folders).toHaveCount(7);
   });
 
+  test("a folder's + goes straight to Import with it picked, and More holds Rename, Change page and Delete folder", async ({ page }) => {
+    await signIn(page);
+    const course = await sevenWeekCourse(page);
+    await addExamPage(page, course.id, "Exam 1", folderIds(course, ["Week 3"]));
+    const week3 = `/course/${course.id}/folder/${course.folders["Week 3"] ?? ""}`;
+    await page.goto(week3);
+
+    // Nothing under the note: no pills, only + and More at the title.
+    await expect(page.getByText("On Exam 1 · 2 sets · 3 of 5 answered")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Delete", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Page/ })).toHaveCount(0);
+
+    // More: Rename, Change page saying where the folder is, then a line and the red Delete folder last.
+    await page.getByRole("button", { name: "More for Week 3" }).click();
+    const more = page.getByRole("menu", { name: "Week 3" });
+    await expect(more.getByRole("menuitem")).toHaveText(["Rename", /^Change page/, "Delete folder"]);
+    await expect(more.getByRole("menuitem", { name: "Change page" })).toHaveAccessibleDescription("On Exam 1");
+    await expect(more.locator("[role=separator] + [role=menuitem]")).toHaveText("Delete folder");
+    await expect(more.getByRole("menuitem").last()).toHaveClass(/menu-row-destructive/);
+
+    // Change page opens the Page sheet, and Delete folder the warning; each cancels without a change.
+    await more.getByRole("menuitem", { name: "Change page" }).click();
+    await expect(sheet(page, "Page").getByRole("radio", { name: /^Exam 1 / })).toBeChecked();
+    await sheet(page, "Page").getByRole("button", { name: "Cancel" }).click();
+    await moreMenuRow(page, "Week 3", "Delete folder");
+    await expect(sheet(page, "Delete Week 3?")).toContainText("You can undo this for 30 days.");
+    await sheet(page, "Delete Week 3?").getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByText("On Exam 1 · 2 sets · 3 of 5 answered")).toBeVisible();
+
+    // A folder on no page says so.
+    await page.goto(`/course/${course.id}/folder/${course.folders["Week 4"] ?? ""}`);
+    await page.getByRole("button", { name: "More for Week 4" }).click();
+    await expect(page.getByRole("menu", { name: "Week 4" }).getByRole("menuitem", { name: "Change page" })).toHaveAccessibleDescription("On no page");
+    await page.keyboard.press("Escape");
+
+    // + is one tap, with no menu: Import, this folder picked.
+    await page.goto(week3);
+    const plus = page.getByRole("link", { name: "Import here" });
+    await expect(plus).toHaveAttribute("title", "Import here");
+    await plus.click();
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 1, name: "Import" })).toBeVisible();
+    await expect(page.getByLabel("Course", { exact: true })).toHaveValue(course.id);
+    await expect(page.getByRole("radiogroup", { name: "Folder" }).getByRole("radio", { name: "Week 3" })).toBeChecked();
+  });
+
+  test("an empty folder's card has Import here, which opens Import with it picked", async ({ page }) => {
+    await signIn(page);
+    const course = await sevenWeekCourse(page);
+    const made = await page.request.post(`/api/courses/${course.id}/folders`, { data: { name: "Week 8" } });
+    expect(made.status()).toBe(201);
+    await page.goto(`/course/${course.id}/folder/${((await made.json()) as { id: string }).id}`);
+
+    const card = page.locator(".folder-empty");
+    await expect(card.getByText("No sets yet. Import a question file here, or move sets here from another folder.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Select sets" })).toHaveCount(0);
+    await card.getByRole("link", { name: "Import here" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Import" })).toBeVisible();
+    await expect(page.getByRole("radiogroup", { name: "Folder" }).getByRole("radio", { name: "Week 8" })).toBeChecked();
+  });
+
   test("she renames a folder, and its sets and progress stay with it", async ({ page }) => {
     await signIn(page);
     const course = await sevenWeekCourse(page);
@@ -171,10 +238,7 @@ test.describe("course page", () => {
 
     // Rename is in More at the title, not a pill under it.
     await expect(page.getByRole("button", { name: "Rename", exact: true })).toHaveCount(0);
-    await page.getByRole("button", { name: "More for Week 3" }).click();
-    const folderMenu = page.getByRole("menu", { name: "Week 3" });
-    await expect(folderMenu.getByRole("menuitem")).toHaveText(["Rename"]);
-    await folderMenu.getByRole("menuitem", { name: "Rename" }).click();
+    await moreMenuRow(page, "Week 3", "Rename");
     const rename = sheet(page, "Rename folder");
     await expect(rename.getByRole("textbox", { name: "Folder name" })).toHaveValue("Week 3");
     await expect(rename.getByRole("textbox", { name: "Folder name" })).toBeFocused();
@@ -251,11 +315,11 @@ test.describe("course page", () => {
     await move.getByRole("button", { name: "Move" }).click();
     await expect(move).toBeHidden();
     await expect(page.getByRole("status").filter({ hasText: "Moved" })).toHaveText("Moved “Week 3 - Set 1: Psychosis” to Psych review.");
-    await expect(page.getByText("No sets yet. Move sets here, or tap Import here.")).toBeVisible();
+    await expect(page.getByText("No sets yet. Import a question file here, or move sets here from another folder.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Select sets" })).toHaveCount(0);
 
     // Week 3 is empty now, and the warning says so. Nothing else changes.
-    await page.getByRole("button", { name: "Delete" }).click();
+    await moreMenuRow(page, "Week 3", "Delete folder");
     await expect(sheet(page, "Delete Week 3?")).toContainText("It has no sets. You can undo this for 30 days.");
     await sheet(page, "Delete Week 3?").getByRole("button", { name: "Delete" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Deleted" })).toContainText("Deleted Week 3.");
@@ -400,7 +464,6 @@ test.describe("pages", () => {
     await page.getByRole("list", { name: "Pages" }).getByRole("link", { name: /^Exam 1/ }).click();
     await folderLink(page, "Study material on Exam 1", "Week 2").click();
     await expect(page.getByText("On Exam 1 · 1 set · 2 of 2 fully right")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Page: Exam 1" })).toBeVisible();
     await page.getByRole("link", { name: "Exam 1", exact: true }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Exam 1" })).toBeVisible();
 
@@ -421,14 +484,14 @@ test.describe("pages", () => {
     await expect(page.getByRole("checkbox", { name: /^Week 1 / })).not.toBeChecked();
   });
 
-  test("a folder's Page sheet moves it between pages, the editor greys another page's folders, and deleting a page keeps its folders", async ({ page }) => {
+  test("a folder's Change page sheet moves it between pages, the editor greys another page's folders, and deleting a page keeps its folders", async ({ page }) => {
     await signIn(page);
     const course = await sevenWeekCourse(page);
     const exam1 = await addExamPage(page, course.id, "Exam 1", folderIds(course, ["Week 1", "Week 2", "Week 3"]));
 
     // From Week 4's page she makes Page 2 with it on.
     await page.goto(`/course/${course.id}/folder/${course.folders["Week 4"] ?? ""}`);
-    await page.getByRole("button", { name: "Page: none" }).click();
+    await moreMenuRow(page, "Week 4", "Change page");
     const pick = sheet(page, "Page");
     await expect(pick.getByRole("radio", { name: /^No page/ })).toBeChecked();
     await expect(pick.getByRole("radio", { name: /^Exam 1 / })).toHaveAccessibleName("Exam 1 3 folders · 4 practice sets · 9 questions");
@@ -440,7 +503,7 @@ test.describe("pages", () => {
 
     // Week 5 goes on Exam 1 the same way.
     await page.goto(`/course/${course.id}/folder/${course.folders["Week 5"] ?? ""}`);
-    await page.getByRole("button", { name: "Page: none" }).click();
+    await moreMenuRow(page, "Week 5", "Change page");
     await pick.getByRole("radio", { name: /^Exam 1 / }).check();
     await pick.getByRole("button", { name: "Done" }).click();
     await expect(page.getByText("On Exam 1 · 1 set · 2 questions")).toBeVisible();
@@ -481,9 +544,7 @@ test.describe("pages", () => {
 
     // Deleting Page 2 puts its folders at the end of the Folders list; their sets are untouched.
     await page.getByRole("list", { name: "Pages" }).getByRole("link", { name: /^Page 2/ }).click();
-    await page.getByRole("button", { name: "Edit the page" }).click();
-    await page.getByRole("button", { name: "Name and folders" }).click();
-    await sheet(page, "Edit page").getByRole("button", { name: "Delete this page" }).click();
+    await moreMenuRow(page, "Page 2", "Delete page");
     const confirm = page.getByRole("dialog", { name: "Delete Page 2?" });
     await expect(confirm).toContainText("Its 2 folders stay, with their sets and your progress, under Folders: Week 4 and Week 6. You can undo this for 30 days.");
     await confirm.getByRole("button", { name: "Delete", exact: true }).click();
@@ -495,7 +556,7 @@ test.describe("pages", () => {
 
     // A folder already on a page can start a new one: it leaves Midterm for the new Page 2.
     await page.goto(`/course/${course.id}/folder/${course.folders["Week 5"] ?? ""}`);
-    await page.getByRole("button", { name: "Page: Midterm" }).click();
+    await moreMenuRow(page, "Week 5", "Change page");
     await pick.getByRole("radio", { name: /^New page Page 2$/ }).check();
     await pick.getByRole("button", { name: "Done" }).click();
     await expect(pick).toBeHidden();
@@ -532,7 +593,14 @@ test.describe("pages", () => {
     await expect(admin.getByText("On Exam 1 · 2 sets · 3 of 5 answered")).toBeVisible();
     await expect(admin.getByText("Week 3 - Set 2: Antipsychotics")).toBeVisible();
     await expect(admin.getByRole("link", { name: /^Week 3 - Set/ })).toHaveCount(0);
-    for (const action of ["More for Week 3", "Rename", "Select sets", "Page: Exam 1"]) await expect(admin.getByRole("button", { name: action })).toHaveCount(0);
+    for (const action of ["More for Week 3", "Rename", "Select sets"]) await expect(admin.getByRole("button", { name: action })).toHaveCount(0);
+    await expect(admin.getByRole("link", { name: "Import here" })).toHaveCount(0);
+
+    // An empty folder has no Import here for the admin either.
+    const empty = await page.request.post(`/api/courses/${course.id}/folders`, { data: { name: "Week 8" } });
+    expect(empty.status()).toBe(201);
+    await admin.goto(`/course/${course.id}/folder/${((await empty.json()) as { id: string }).id}`);
+    await expect(admin.getByText("No sets in this folder.")).toBeVisible();
     await expect(admin.getByRole("link", { name: "Import here" })).toHaveCount(0);
     await admin.context().close();
   });

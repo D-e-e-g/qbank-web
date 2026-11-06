@@ -556,52 +556,6 @@ label.list-row:active {
   color: var(--tint);
 }
 
-/* Pill buttons under a folder's title: its page, Import here, and Delete. */
-.folder-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.folder-action {
-  box-sizing: border-box;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 16px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--surface-sunken);
-  color: var(--text-1);
-  font: var(--weight-medium) var(--size-subhead) / var(--lh-subhead) var(--font-ui);
-  text-decoration: none;
-  cursor: pointer;
-  transition: background var(--dur-instant) var(--ease-standard);
-}
-
-.folder-action svg {
-  color: var(--tint);
-}
-
-.folder-action:hover {
-  color: var(--text-1);
-  text-decoration: none;
-}
-
-.folder-action:active {
-  background: var(--surface-pressed);
-}
-
-.folder-action-danger,
-.folder-action-danger svg {
-  color: var(--wrong);
-}
-
-.folder-action-danger:hover {
-  color: var(--wrong);
-}
-
 /* Select's Move bar: pinned above the tab bar on a phone, and to the bottom beside the sidebar. */
 .action-bar {
   position: fixed;
@@ -1082,6 +1036,24 @@ button.review-row:disabled {
   text-wrap: pretty;
 }
 
+/* A folder's empty card, with its next step under the sentence. */
+.folder-empty-import {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.folder-empty-import p {
+  margin: 0;
+}
+
+/* login.css gives every .btn full width; this one is as wide as its words. */
+.folder-empty-import .btn {
+  width: auto;
+  gap: 8px;
+}
+
 .start-block {
   display: flex;
   flex-direction: column;
@@ -1410,7 +1382,6 @@ button.review-row:disabled {
   a.list-row:hover,
   label.list-row:hover,
   .radio-row:hover,
-  .folder-action:hover,
   .icon-button:hover {
     background: var(--surface-pressed);
   }
@@ -1430,8 +1401,7 @@ button.review-row:disabled {
   .list-row,
   .list-dragging > li,
   .pick-circle,
-  .radio-row,
-  .folder-action {
+  .radio-row {
     transition: none;
   }
 }
@@ -1691,6 +1661,11 @@ button.review-row:disabled {
 .menu-row:focus-visible {
   outline: none;
   background: var(--surface-pressed);
+}
+
+.menu-separator {
+  margin: 6px 10px;
+  border-top: 0.5px solid var(--separator-strong);
 }
 
 .menu-icon {

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { CourseDetail, CourseExam, CourseFolder, CourseKind, SetSummary } from "../api";
 import {
+  folderEmptyMessage,
   folderGroups,
   folderLabel,
   folderMeta,
+  folderPlace,
   folderProgress,
   looseFolders,
   pageFolders,
@@ -82,6 +84,28 @@ describe("a folder's row", () => {
     expect(folderMeta(bankOnly)).toBe("Exam twins only · 1 question");
     expect(stateLabel(folderProgress(bankOnly))).toBe("");
     expect(folderMeta(folder("Unsorted", []))).toBe("Empty folder");
+  });
+});
+
+describe("folderPlace", () => {
+  it("says the page a folder is on, or that it is on none", () => {
+    expect(folderPlace(page("p2", "Exam 2"))).toBe("On Exam 2");
+    expect(folderPlace(null)).toBe("On no page");
+  });
+});
+
+describe("folderEmptyMessage", () => {
+  const empty = folder("Week 8", []);
+  const bankOnly = folder("Week 9", [], { examBankCount: 3 });
+
+  it("names the next step for her", () => {
+    expect(folderEmptyMessage(empty, false)).toBe("No sets yet. Import a question file here, or move sets here from another folder.");
+    expect(folderEmptyMessage(bankOnly, false)).toBe("No practice sets yet. Import a question file here, or move sets here from another folder.");
+  });
+
+  it("offers nothing to a read-only user", () => {
+    expect(folderEmptyMessage(empty, true)).toBe("No sets in this folder.");
+    expect(folderEmptyMessage(bankOnly, true)).toBe("No practice sets in this folder.");
   });
 });
 

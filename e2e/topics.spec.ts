@@ -241,7 +241,8 @@ test.describe("study topics", () => {
       await page.goto(`/course/${screen.id}/folder/${screen.folderId}`);
       await expect(page.getByText("On no page · 1 set · 2 questions")).toBeVisible();
       await expect(main(page).getByRole("link", { name: screen.heading, exact: true })).toBeVisible();
-      await page.getByRole("button", { name: "Page: none" }).click();
+      await main(page).getByRole("button", { name: /^More for / }).click();
+      await page.getByRole("menuitem", { name: "Change page" }).click();
       const pick = sheet(page, "Page");
       await expect(pick.getByRole("radio", { name: `No page Stays in the ${screen.container}’s Folders list` })).toBeChecked();
       await expect(pick.getByRole("radio", { name: "New page Page 1" })).toBeVisible();

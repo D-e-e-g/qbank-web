@@ -114,7 +114,7 @@ test.describe("renaming from the screen", () => {
     const beforePage = await held(page, course.courseId);
     await page.getByRole("button", { name: "More for Testing, Got & Tooling" }).click();
     const pageMenu = page.getByRole("menu", { name: "Testing, Got & Tooling" });
-    await expect(pageMenu.getByRole("menuitem")).toHaveText(["Edit page"]);
+    await expect(pageMenu.getByRole("menuitem")).toHaveText(["Edit page", "Delete page"]);
     await pageMenu.getByRole("menuitem", { name: "Edit page" }).click();
     const editor = sheet(page, "Edit page");
     await expect(editor.getByText("Page name", { exact: true })).toBeVisible();
@@ -135,7 +135,7 @@ test.describe("renaming from the screen", () => {
     const beforeCourse = await held(page, course.courseId);
     await page.getByRole("button", { name: `More for ${code}` }).click();
     const courseMenu = page.getByRole("menu", { name: code });
-    await expect(courseMenu.getByRole("menuitem")).toHaveText(["Rename"]);
+    await expect(courseMenu.getByRole("menuitem")).toHaveText(["Rename", "Recently deleted"]);
     await courseMenu.getByRole("menuitem", { name: "Rename" }).click();
     const renameCourse = sheet(page, "Rename course");
     await expect(renameCourse.getByRole("textbox", { name: "Course code" })).toHaveValue(code);
@@ -165,7 +165,7 @@ test.describe("renaming from the screen", () => {
     const beforeTopic = await held(page, topicId);
     await page.getByRole("button", { name: `More for ${topic}` }).click();
     const topicMenu = page.getByRole("menu", { name: topic });
-    await expect(topicMenu.getByRole("menuitem")).toHaveText(["Rename"]);
+    await expect(topicMenu.getByRole("menuitem")).toHaveText(["Rename", "Recently deleted"]);
     await topicMenu.getByRole("menuitem", { name: "Rename" }).click();
     const renameTopic = sheet(page, "Rename topic");
     await expect(renameTopic.getByRole("textbox", { name: "Course code" })).toHaveCount(0);

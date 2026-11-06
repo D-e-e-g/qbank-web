@@ -93,6 +93,12 @@ function sheet(page: Page, title: string) {
 }
 
 /** The Undo offered at the bottom of the screen after a delete. */
+/** Delete folder, last in More at the folder's title. */
+async function deleteFolder(page: Page, folder: string): Promise<void> {
+  await page.getByRole("button", { name: `More for ${folder}` }).click();
+  await page.getByRole("menu", { name: folder }).getByRole("menuitem", { name: "Delete folder" }).click();
+}
+
 function toast(page: Page) {
   return page.getByRole("status").filter({ has: page.getByRole("button", { name: "Dismiss" }) });
 }
@@ -146,7 +152,7 @@ test.describe("delete and undo", () => {
     await expect(both).toContainText("Delete Anxiety B? Its 2 questions go with it. You can undo this for 30 days.");
     await both.getByRole("button", { name: "Delete" }).click();
     await expect(toast(page)).toContainText("Deleted 2 sets.");
-    await expect(page.getByText("No sets yet. Move sets here, or tap Import here.")).toBeVisible();
+    await expect(page.getByText("No sets yet. Import a question file here, or move sets here from another folder.")).toBeVisible();
     await toast(page).getByRole("button", { name: "Undo" }).click();
     await expect(toast(page)).toContainText("Brought back 2 sets.");
     await expect(sets(page, "Week 4")).toHaveText([/^Anxiety A/, /^Anxiety B/]);
@@ -167,7 +173,7 @@ test.describe("delete and undo", () => {
 
     // A folder with sets has Delete too, and its warning names every set that goes with it.
     await page.goto(`/course/${course.id}/folder/${folderId(course, "Week 4")}`);
-    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await deleteFolder(page, "Week 4");
     const warning = sheet(page, "Delete Week 4?");
     await expect(warning).toContainText("Its 2 sets go with it: Anxiety A and Anxiety B, 5 questions in all. It comes off Exam 2. You can undo this for 30 days.");
     await warning.getByRole("button", { name: "Delete" }).click();
@@ -181,9 +187,9 @@ test.describe("delete and undo", () => {
 
     // The course lists what Undo can still bring back.
     await page.goto(`/course/${course.id}`);
-    const recent = page.getByRole("link", { name: /^Recently deleted/ });
-    await expect(recent).toContainText("1 item · Undo for 30 days");
-    await recent.click();
+    await expect(page.getByRole("link", { name: /^Recently deleted/ })).toHaveCount(0);
+    await page.getByRole("button", { name: `More for ${course.code}` }).click();
+    await page.getByRole("menu", { name: course.code }).getByRole("menuitem", { name: "Recently deleted" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Recently deleted" })).toBeVisible();
     const folders = page.getByRole("list", { name: "Deleted folders" });
     await expect(folders.getByRole("listitem")).toHaveCount(1);
@@ -254,7 +260,7 @@ test.describe("delete and undo", () => {
     await signIn(page);
     const course = await importCourse(page, [["Week 4", "Anxiety A", 3]]);
     await page.goto(`/course/${course.id}/folder/${folderId(course, "Week 4")}`);
-    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await deleteFolder(page, "Week 4");
     const warning = sheet(page, "Delete Week 4?");
     await expect(warning).toContainText("Its set goes with it: Anxiety A, 3 questions in all.");
 

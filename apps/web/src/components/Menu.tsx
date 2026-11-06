@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Icon, type IconName } from "./Icon";
 import { position, type MenuAnchor } from "./menu-position";
@@ -14,6 +14,8 @@ export interface MenuItem {
   icon?: IconName;
   /** Red, for a row that deletes. */
   destructive?: boolean;
+  /** A line above the row, setting it apart from the rows before it. */
+  separated?: boolean;
   onSelect: () => void;
 }
 
@@ -130,35 +132,37 @@ export function Menu({
           </p>
         )}
         {items.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            role="menuitem"
-            className={item.destructive === true ? "menu-row menu-row-destructive" : "menu-row"}
-            // The row is called by its label; its second line describes it.
-            aria-labelledby={`${id}-${item.key}`}
-            aria-describedby={item.detail === undefined ? undefined : `${id}-${item.key}-detail`}
-            onClick={() => {
-              close();
-              item.onSelect();
-            }}
-          >
-            {item.icon === undefined ? null : (
-              <span className="menu-icon">
-                <Icon name={item.icon} size={20} />
-              </span>
-            )}
-            <span className="menu-copy">
-              <span className="menu-label" id={`${id}-${item.key}`}>
-                {item.label}
-              </span>
-              {item.detail === undefined ? null : (
-                <span className="menu-detail" id={`${id}-${item.key}-detail`}>
-                  {item.detail}
+          <Fragment key={item.key}>
+            {item.separated === true ? <div className="menu-separator" role="separator" /> : null}
+            <button
+              type="button"
+              role="menuitem"
+              className={item.destructive === true ? "menu-row menu-row-destructive" : "menu-row"}
+              // The row is called by its label; its second line describes it.
+              aria-labelledby={`${id}-${item.key}`}
+              aria-describedby={item.detail === undefined ? undefined : `${id}-${item.key}-detail`}
+              onClick={() => {
+                close();
+                item.onSelect();
+              }}
+            >
+              {item.icon === undefined ? null : (
+                <span className="menu-icon">
+                  <Icon name={item.icon} size={20} />
                 </span>
               )}
-            </span>
-          </button>
+              <span className="menu-copy">
+                <span className="menu-label" id={`${id}-${item.key}`}>
+                  {item.label}
+                </span>
+                {item.detail === undefined ? null : (
+                  <span className="menu-detail" id={`${id}-${item.key}-detail`}>
+                    {item.detail}
+                  </span>
+                )}
+              </span>
+            </button>
+          </Fragment>
         ))}
       </div>
     </div>,
@@ -168,7 +172,8 @@ export function Menu({
 
 /**
  * The + at the top right of a screen that holds things: Home, a course or topic, an exam or study
- * page. It opens a menu of what can be added there, and each row adds into that screen.
+ * page. It opens a menu of what can be added there, and each row adds into that screen. A folder has
+ * one way to add, so its + is a link straight to Import instead.
  */
 export function AddMenu({ label, items }: { label: string; items: readonly MenuItem[] }) {
   const [anchor, setAnchor] = useState<MenuAnchor | null>(null);
@@ -196,8 +201,8 @@ export function AddMenu({ label, items }: { label: string; items: readonly MenuI
 }
 
 /**
- * The quiet "…" just left of + on a course, topic or page, or alone at a folder's title: what changes
- * the screen itself (Rename, Edit page) rather than adding into it.
+ * The quiet "…" just left of + on a course, topic, page or folder: what changes the screen itself
+ * (Rename, Edit page) rather than adding into it.
  */
 export function MoreMenu({ name, items }: { name: string; items: readonly MenuItem[] }) {
   const [anchor, setAnchor] = useState<MenuAnchor | null>(null);

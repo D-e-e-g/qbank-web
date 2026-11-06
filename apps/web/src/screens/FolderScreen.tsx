@@ -9,7 +9,7 @@ import { FolderPageSheet, MoveSetsSheet, RenameFolderSheet } from "../components
 import { Icon } from "../components/Icon";
 import { MoreMenu } from "../components/Menu";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
-import { examPageOf, folderMeta } from "../course/folders";
+import { examPageOf, folderEmptyMessage, folderMeta, folderPlace } from "../course/folders";
 import { courseName } from "../course/pages";
 import { useCourse, useCourseNaming, useRememberPlace } from "../course/useCourse";
 import { useSession } from "../login/session-context";
@@ -21,10 +21,10 @@ import { when } from "../when";
 type Sheet = "rename" | "page" | "move" | "delete" | "delete-sets" | null;
 
 /**
- * One folder: More, the "…" at the title, renames it. Under the title, its exam page, Import here,
- * and Delete (with its sets, after a warning naming them); then its sets, which open in practice,
- * and its exam bank. Select puts a check circle on each set, and a bar at the bottom moves the ones
- * she ticks to another folder or deletes them.
+ * One folder. At the title, + opens Import with this folder picked, and More, the "…", renames it,
+ * changes its page, or deletes it (with its sets, after a warning naming them). Under the title, its
+ * sets, which open in practice, and its exam bank. Select puts a check circle on each set, and a bar
+ * at the bottom moves the ones she ticks to another folder or deletes them.
  */
 export function FolderScreen({ courseId, folderId }: { courseId: string; folderId: string }) {
   const session = useSession();
@@ -76,6 +76,7 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
   const sets = folder?.sets ?? [];
   const picked = sets.filter((set) => selected?.has(set.id) === true);
   const selecting = selected !== null && !readOnly;
+  const importHere = importPath(courseId, { folderId });
 
   const header =
     folder && !readOnly ? (
@@ -91,8 +92,30 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
                 setSheet("rename");
               },
             },
+            {
+              key: "page",
+              label: "Change page",
+              detail: folderPlace(page),
+              icon: "layers",
+              onSelect: () => {
+                setSheet("page");
+              },
+            },
+            {
+              key: "delete",
+              label: "Delete folder",
+              icon: "trash-2",
+              destructive: true,
+              separated: true,
+              onSelect: () => {
+                setSheet("delete");
+              },
+            },
           ]}
         />
+        <ShellLink to={importHere} className="add-button" current={false} label="Import here">
+          <Icon name="plus" size={22} strokeWidth={2} />
+        </ShellLink>
       </div>
     ) : undefined;
 
@@ -116,37 +139,8 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
       ) : (
         <>
           <p className="note">
-            {page === null ? "On no page" : `On ${page.name}`} · {folderMeta(folder)}
+            {folderPlace(page)} · {folderMeta(folder)}
           </p>
-          {readOnly ? null : (
-            <div className="folder-actions">
-              <button
-                type="button"
-                className="folder-action"
-                aria-label={page === null ? "Page: none" : `Page: ${page.name}`}
-                onClick={() => {
-                  setSheet("page");
-                }}
-              >
-                <Icon name="layers" size={16} strokeWidth={2} />
-                {page === null ? "Page" : page.name}
-              </button>
-              <ShellLink to={importPath(courseId, { folderId: folder.id })} className="folder-action" current={false}>
-                <Icon name="file-input" size={16} strokeWidth={2} />
-                Import here
-              </ShellLink>
-              <button
-                type="button"
-                className="folder-action folder-action-danger"
-                onClick={() => {
-                  setSheet("delete");
-                }}
-              >
-                <Icon name="trash-2" size={16} strokeWidth={2} />
-                Delete
-              </button>
-            </div>
-          )}
           {moved ? (
             <p className="status-banner" role="status">
               <Icon name="check" size={16} strokeWidth={2} />
@@ -171,16 +165,15 @@ export function FolderScreen({ courseId, folderId }: { courseId: string; folderI
               )}
             </div>
             {sets.length === 0 ? (
-              <p className="folder-empty">
-                {/* An exam bank is a set too, but not one to practice, so the folder holding only one says so. */}
-                {folder.examBankCount > 0
-                  ? readOnly
-                    ? "No practice sets in this folder."
-                    : "No practice sets yet. Move sets here, or tap Import here."
-                  : readOnly
-                    ? "No sets in this folder."
-                    : "No sets yet. Move sets here, or tap Import here."}
-              </p>
+              <div className="folder-empty folder-empty-import">
+                <p>{folderEmptyMessage(folder, readOnly)}</p>
+                {readOnly ? null : (
+                  <ShellLink to={importHere} className="btn btn-secondary" current={false}>
+                    <Icon name="file-input" size={18} strokeWidth={2} />
+                    Import here
+                  </ShellLink>
+                )}
+              </div>
             ) : (
               <ul className={selecting ? "list-group list-group-picking" : "list-group list-group-sets"} aria-label={`Sets in ${folder.name}`}>
                 {sets.map((set) => (

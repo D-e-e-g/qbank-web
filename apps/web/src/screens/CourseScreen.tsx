@@ -8,7 +8,7 @@ import { NewFolderSheet } from "../components/FolderSheets";
 import { FolderRows } from "../components/FolderRows";
 import { Icon } from "../components/Icon";
 import { AddMenu, MoreMenu, type MenuItem } from "../components/Menu";
-import { NavRow, RowBody } from "../components/NavRow";
+import { NavRow } from "../components/NavRow";
 import { ReadOnlyBanner } from "../components/ReadOnlyBanner";
 import { recentlyDeleted, useCourseVersion } from "../course/deletion";
 import { looseFolders } from "../course/folders";
@@ -81,7 +81,7 @@ export function CourseScreen({ courseId }: { courseId: string }) {
   const [renaming, setRenaming] = useState(false);
   const [making, setMaking] = useState<"page" | "folder" | null>(null);
   const [canMakeQuestions, setCanMakeQuestions] = useState(false);
-  const deleted = useRecentlyDeleted(courseId);
+  const deletedCount = useDeletedCount(courseId, readOnly);
   const { name, words } = useCourseNaming(courseId, course);
   useRememberPlace(courseId);
 
@@ -132,9 +132,14 @@ export function CourseScreen({ courseId }: { courseId: string }) {
                 setRenaming(true);
               },
             },
+            recentlyDeletedItem(course.id),
           ]}
         />
         <AddMenu label={`Add to ${courseName(course)}`} items={addItems(course.id, canMakeQuestions, setMaking)} />
+      </div>
+    ) : course && deletedCount !== null && deletedCount > 0 ? (
+      <div className="screen-actions">
+        <MoreMenu name={courseName(course)} items={[recentlyDeletedItem(course.id)]} />
       </div>
     ) : undefined;
 
@@ -245,20 +250,6 @@ export function CourseScreen({ courseId }: { courseId: string }) {
               ) : null}
             </>
           )}
-          {deleted !== null && deleted.count > 0 ? (
-            <section className="group">
-              <ul className="list-group" aria-label="Recently deleted">
-                <li>
-                  <ShellLink to={deletedPath(course.id)} className="list-row" current={false}>
-                    <RowBody icon="trash-2" title="Recently deleted" meta={`${plural(deleted.count, "item")} · Undo for ${String(deleted.undoDays)} days`} />
-                    <span className="list-chevron">
-                      <Icon name="chevron-right" size={18} strokeWidth={2} />
-                    </span>
-                  </ShellLink>
-                </li>
-              </ul>
-            </section>
-          ) : null}
         </>
       ) : error ? null : (
         <p className="note">Loading the {words.container}.</p>
@@ -299,17 +290,32 @@ export function CourseScreen({ courseId }: { courseId: string }) {
   );
 }
 
-/** How many pages, folders, sets and past exams of the course Undo can still bring back, and for how long; null until it is read. */
-function useRecentlyDeleted(courseId: string): { count: number; undoDays: number } | null {
+/** More's row to the course's Recently deleted. */
+function recentlyDeletedItem(courseId: string): MenuItem {
+  return {
+    key: "deleted",
+    label: "Recently deleted",
+    icon: "trash-2",
+    onSelect: () => {
+      navigate(deletedPath(courseId));
+    },
+  };
+}
+
+/**
+ * How many pages, folders, sets and past exams of the course Undo can still bring back; null until it
+ * is read. Only the read-only view reads it, whose More has nothing else to hold: hers always has the row.
+ */
+function useDeletedCount(courseId: string, readOnly: boolean): number | null {
   const version = useCourseVersion(courseId);
-  const [loaded, setLoaded] = useState<{ courseId: string; count: number; undoDays: number } | null>(null);
+  const [loaded, setLoaded] = useState<{ courseId: string; count: number } | null>(null);
   useEffect(() => {
+    if (!readOnly) return;
     let cancel = false;
     recentlyDeleted(courseId).then(
       (deleted) => {
         if (!cancel) {
-          const count = deleted.examPages.length + deleted.folders.length + deleted.sets.length + deleted.exams.length;
-          setLoaded({ courseId, count, undoDays: deleted.undoDays });
+          setLoaded({ courseId, count: deleted.examPages.length + deleted.folders.length + deleted.sets.length + deleted.exams.length });
         }
       },
       (caught: unknown) => {
@@ -319,8 +325,8 @@ function useRecentlyDeleted(courseId: string): { count: number; undoDays: number
     return () => {
       cancel = true;
     };
-  }, [courseId, version]);
-  return loaded?.courseId === courseId ? loaded : null;
+  }, [courseId, readOnly, version]);
+  return loaded?.courseId === courseId ? loaded.count : null;
 }
 
 /** How long an exam over every folder takes: 60 minutes for 40, or 1.5 minutes a question when there are fewer. */
