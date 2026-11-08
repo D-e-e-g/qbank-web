@@ -29,7 +29,7 @@ For study use only; not clinical advice.
 - **Organized the way her program is, and the way she likes:** Semester (1, 2, 3) > Course (for example "NURS 101") > Folder (Week 1, First Pass, ABG Practice, ... named by her) > Practice set > Questions. Her folders can sit on an exam page (Exam 1, Exam 2), one page at most each, so each exam gathers the folders it covers. A study topic is not inside a semester: Topic > Folder > Practice set > Questions, and its folders sit on a study page the same way (see [Study topics](#study-topics)).
 - **The same everywhere.** Every answer is saved on the server, so her progress, Review list, and exam history are identical on her iPhone, iPad, and Mac. Sync is the reason the app exists; without it, the existing offline practice pages would be enough.
 - **Installable.** A web app (PWA) with a manifest and icons: on iPhone and iPad it is added from Share > Add to Home Screen, on the Mac from Safari > File > Add to Dock, and it opens full-screen without browser chrome, like a native app.
-- **The existing runner, kept.** The question screens, the eight question formats, the scoring with partial credit, "I'm guessing", and the per-option rationale all come from the offline practice pages she already uses (see [Question formats and scoring](#question-formats-and-scoring)).
+- **The existing runner, kept.** The question screens, the question formats, the scoring with partial credit, "I'm guessing", and the per-option rationale all come from the offline practice pages she already uses (see [Question formats and scoring](#question-formats-and-scoring)).
 
 ## What the app is not
 
@@ -137,6 +137,7 @@ Any question may also carry a table of readings under its stem and up to 4 image
 - `order`: 3 or more items with text, listed in the correct order.
 - `match`: 2 or more pairs, each with `l` and `r`.
 - `matrix`: 2 or more columns, at least one row, and every row's `ans` names a column.
+- `matrixmulti`: 2 or more columns with different names, at least one row, every row's `ans` a list of those column names (each once, and at least one), and not every box right. A warning, not a refusal, when the ask does not say a row can fit more than one column.
 - `highlight`: 3 or more segments, some `ok` and some not.
 - `cloze` (drop-down): one `{0}`, `{1}`, ... placeholder per blank, and every blank has 2 or more `opts` and a valid `ans` index.
 - `table`, when present: a `rows` list of rows, each a list of cell texts; `head`, when present, a list of cell texts; `caption`, when present, text.
@@ -373,16 +374,17 @@ The app ports the existing runner's formats and scoring unchanged into the serve
 | `order` | Ordering | Puts items in order | 1 per item in the right position | Every item in the right position |
 | `match` | Matching | Pairs each left item with a right item (with optional extra distractors) | 1 per correct pair | Every pair right |
 | `matrix` | Matrix | Picks a column for each row | 1 per correct row | Every row right |
+| `matrixmulti` | Matrix, check all that fit | Checks every column that fits each row; a row can fit more than one | +1 per correct box, -1 per wrong box, never below 0; max = number of right boxes | Every right box and no wrong one |
 | `cloze` | Drop-down | Picks a choice in each blank | 1 per correct blank | Every blank right |
 
 - **Status:** `correct` when points equal the maximum, `partial` when above 0 but below the maximum, `incorrect` at 0.
 - **Guessing:** "I'm guessing" is saved with the attempt. A guessed answer stays in Review even when it was right.
 - **Exam scoring:** points and fully-right counts over every question in the exam; an unanswered question earns 0.
-- **Feedback text:** the multi-part banner explains the rule, for example "+1 for each correct choice, -1 for each wrong one" for select-all and highlight, and "items in the right position; full credit needs all of them" for ordering.
+- **Feedback text:** the multi-part banner explains the rule, for example "+1 for each correct choice, -1 for each wrong one" for select-all and highlight, "+1 for each correct box, -1 for each wrong one" for a matrix where a row can fit more than one column, and "items in the right position; full credit needs all of them" for ordering. Its points line is the same shape for every multi-part format, for example "5 of 8 points".
 
 ## Data the app stores
 
-Postgres. Question bodies stay JSON because the eight formats have different shapes. Questions and answers both belong to one account. She imports the questions; the answers are hers. Ownership of the questions lives on the semester and the course. Folders, pages, sets, questions, and terms are that account's because their course is.
+Postgres. Question bodies stay JSON because the nine formats have different shapes. Questions and answers both belong to one account. She imports the questions; the answers are hers. Ownership of the questions lives on the semester and the course. Folders, pages, sets, questions, and terms are that account's because their course is.
 
 | Table | Holds |
 |---|---|

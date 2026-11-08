@@ -13,8 +13,9 @@ sync across her iPhone, iPad, and Mac.
   says what it is for. Courses, topics, pages, sets, folders, and past exams
   can be deleted after a warning naming everything that goes (a page goes
   alone, and its folders stay), and Undo brings them back for 30 days.
-- **Eight NCLEX question formats.** Single answer, priority, select all that
-  apply, highlight, ordering, matching, matrix, and drop-down, scored with
+- **Nine NCLEX question formats.** Single answer, priority, select all that
+  apply, highlight, ordering, matching, matrix, a matrix where one row can
+  fit more than one column, and drop-down, scored with
   partial credit. Every option explains why it is right or wrong. While she
   answers a choice question, she can strike out the choices she has ruled
   out, and restore one with the same tap.

@@ -8,6 +8,7 @@ import {
   moveOrder,
   readLayout,
   readPracticeSet,
+  toggleMatrixColumn,
   toggleStrike,
   toResponse,
   togglePick,
@@ -28,6 +29,15 @@ const match: Question = {
     { l: "Metoprolol", r: "Beta blocker" },
   ],
   extra: [{ r: "Anticoagulant" }],
+};
+
+const matrixMulti: Question = {
+  type: "matrixmulti",
+  columns: ["Asthma", "Heart failure"],
+  rows: [
+    { t: "Wheeze", ans: ["Asthma"], why: "Wheeze points to asthma." },
+    { t: "Wakes short of breath", ans: ["Asthma", "Heart failure"] },
+  ],
 };
 
 const cloze: Question = {
@@ -97,6 +107,21 @@ describe("drafts and responses", () => {
     expect(toResponse({ type: "matrix", choices: ["Yes", "No"] })).toEqual({ type: "matrix", choices: ["Yes", "No"] });
     expect(toResponse({ type: "cloze", choices: [1, 0] })).toEqual({ type: "cloze", choices: [1, 0] });
     expect(toResponse({ type: "sata", picks: [] })).toBeNull();
+  });
+
+  it("holds a matrix with several checks per row until every row has one, then sends the column names", () => {
+    expect(toResponse(initialDraft(matrixMulti, makeLayout(matrixMulti)))).toBeNull();
+    expect(toResponse({ type: "matrixmulti", choices: [["Asthma"], []] })).toBeNull();
+    expect(toResponse({ type: "matrixmulti", choices: [["Heart failure", "Asthma"], ["Asthma"]] })).toEqual({
+      type: "matrixmulti",
+      choices: [
+        ["Heart failure", "Asthma"],
+        ["Asthma"],
+      ],
+    });
+    expect(toggleMatrixColumn(matrixMulti.columns, ["Heart failure"], "Asthma")).toEqual(["Asthma", "Heart failure"]);
+    expect(toggleMatrixColumn(matrixMulti.columns, ["Asthma", "Heart failure"], "Asthma")).toEqual(["Heart failure"]);
+    expect(makeLayout(matrixMulti)).toEqual({ kind: "plain" });
   });
 
   it("toggles picks and swaps neighbors", () => {
@@ -169,6 +194,20 @@ describe("readPracticeSet", () => {
     expect(loaded?.images.map((image) => image.alt)).toEqual(["A chart"]);
   });
 
+  it("reads a matrix where a row can fit more than one column, and refuses one whose answers are not column lists", () => {
+    const body = {
+      columns: ["Asthma", "Heart failure"],
+      rows: [
+        { t: "Wheeze", ans: ["Asthma"], why: "Wheeze points to asthma." },
+        { t: "Wakes short of breath", ans: ["Asthma", "Heart failure"] },
+      ],
+    };
+    const loaded = readPracticeSet({ ...set, questions: [{ ...question, type: "matrixmulti", body }] });
+    expect(loaded?.questions[0]?.question).toEqual({ type: "matrixmulti", ...body });
+    expect(readPracticeSet({ ...set, questions: [{ ...question, type: "matrixmulti", body: { ...body, rows: [{ t: "Wheeze", ans: "Asthma" }] } }] })).toBeNull();
+    expect(readPracticeSet({ ...set, questions: [{ ...question, type: "matrixmulti", body: { ...body, rows: [{ t: "Wheeze", ans: [] }] } }] })).toBeNull();
+  });
+
   it("refuses a set with a question it cannot read", () => {
     expect(readPracticeSet({ ...set, questions: [{ ...question, type: "essay" }] })).toBeNull();
     expect(readPracticeSet({ ...set, questions: [{ ...question, body: { options: [] } }] })).toBeNull();
@@ -221,10 +260,17 @@ describe("draftFromResponse", () => {
     expect(draftFromResponse(sata, { type: "sata", picks: [0, 2] })).toEqual({ type: "sata", picks: [0, 2] });
     expect(draftFromResponse(order, { type: "order", positions: [2, 0, 1] })).toEqual({ type: "order", positions: [2, 0, 1] });
     expect(draftFromResponse(cloze, { type: "cloze", choices: [1, null] })).toEqual({ type: "cloze", choices: [1, null] });
+    expect(draftFromResponse(matrixMulti, { type: "matrixmulti", choices: [["Asthma"], []] })).toEqual({
+      type: "matrixmulti",
+      choices: [["Asthma"], []],
+    });
   });
 
   it("refuses an answer of another format or shape", () => {
     expect(draftFromResponse(sata, { type: "single", choice: 0 })).toBeNull();
+    expect(draftFromResponse(matrixMulti, { type: "matrix", choices: ["Asthma", null] })).toBeNull();
+    expect(draftFromResponse(matrixMulti, { type: "matrixmulti", choices: [["Asthma"]] })).toBeNull();
+    expect(draftFromResponse(matrixMulti, { type: "matrixmulti", choices: ["Asthma", "Heart failure"] })).toBeNull();
     expect(draftFromResponse(order, { type: "order", positions: [0, 0, 1] })).toBeNull();
     expect(draftFromResponse(match, { type: "match", choices: [1, 2] })).toBeNull();
     expect(draftFromResponse(sata, null)).toBeNull();

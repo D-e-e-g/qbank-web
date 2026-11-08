@@ -8304,7 +8304,7 @@ export interface components {
             publicId: string;
             position: number;
             /** @enum {string} */
-            type: "single" | "priority" | "sata" | "highlight" | "order" | "match" | "matrix" | "cloze";
+            type: "single" | "priority" | "sata" | "highlight" | "order" | "match" | "matrix" | "matrixmulti" | "cloze";
             topic: string;
             cj: string | null;
             stem: string;
@@ -8323,7 +8323,7 @@ export interface components {
             }[];
         };
         /** @description The fields of the format the question's `type` names, as the import file wrote them. The importer checks what scoring needs: the text of every option, item, pair and row, which options or segments are right (only `ok: true` counts), and each row's or blank's answer; `why` and the rest are kept as written, so read a field of another type as absent. The file's other fields stay here as well; read its table and images from the question's own `table` and `images`, which are checked and ready to draw. */
-        QuestionBody: components["schemas"]["ChoiceBody"] | components["schemas"]["HighlightBody"] | components["schemas"]["OrderBody"] | components["schemas"]["MatchBody"] | components["schemas"]["MatrixBody"] | components["schemas"]["ClozeBody"];
+        QuestionBody: components["schemas"]["ChoiceBody"] | components["schemas"]["HighlightBody"] | components["schemas"]["OrderBody"] | components["schemas"]["MatchBody"] | components["schemas"]["MatrixBody"] | components["schemas"]["MatrixMultiBody"] | components["schemas"]["ClozeBody"];
         /** @description single, priority, and sata. */
         ChoiceBody: {
             options: components["schemas"]["QuestionOption"][];
@@ -8376,7 +8376,7 @@ export interface components {
             /** @description Why it is right or wrong, shown after she answers. */
             why?: string;
         };
-        /** @description matrix. */
+        /** @description matrix. Each row has one right column. */
         MatrixBody: {
             columns: string[];
             rows: components["schemas"]["MatrixRow"][];
@@ -8385,6 +8385,18 @@ export interface components {
             t: string;
             /** @description The column name that is right for the row. */
             ans: string;
+            /** @description Why it is right or wrong, shown after she answers. */
+            why?: string;
+        };
+        /** @description matrixmulti. A row can have more than one right column. */
+        MatrixMultiBody: {
+            columns: string[];
+            rows: components["schemas"]["MatrixMultiRow"][];
+        };
+        MatrixMultiRow: {
+            t: string;
+            /** @description The column names that are right for the row. Each names a column, once. */
+            ans: string[];
             /** @description Why it is right or wrong, shown after she answers. */
             why?: string;
         };
@@ -8454,7 +8466,7 @@ export interface components {
             label: string;
             /** @description "N of M points" for a multi-part format. Null for single answer and priority. */
             pointsText: string | null;
-            /** @description How the format is scored, for select all that apply, highlight, and ordering. Null for the others. */
+            /** @description How the format is scored, for select all that apply, highlight, a matrix where a row can fit more than one column, and ordering. Null for the others. */
             ruleText: string | null;
             /** @description Her answer as she sent it. */
             response: components["schemas"]["Answer"] | null;
@@ -8497,6 +8509,11 @@ export interface components {
             type: "matrix";
             /** @description choices[i] is the column she picked for row i. */
             choices: (string | null)[];
+        } | {
+            /** @enum {string} */
+            type: "matrixmulti";
+            /** @description choices[i] is the column names she checked for row i. An empty list is a blank row. */
+            choices: string[][];
         } | {
             /** @enum {string} */
             type: "cloze";
@@ -8727,7 +8744,7 @@ export interface components {
             label: string;
             /** @description "N of M points", the banner's point line for a multi-part format. Null for single answer and priority. */
             pointsText: string | null;
-            /** @description How the format is scored, the banner's rule line: for select all that apply and highlight, and for ordering. Null for the other formats. */
+            /** @description How the format is scored, the banner's rule line: for select all that apply, highlight, and a matrix where a row can fit more than one column, and for ordering. Null for the other formats. */
             ruleText: string | null;
             replayed: boolean;
         };
@@ -9206,7 +9223,7 @@ export interface components {
             publicId: string;
             position: number;
             /** @enum {string} */
-            type: "single" | "priority" | "sata" | "highlight" | "order" | "match" | "matrix" | "cloze";
+            type: "single" | "priority" | "sata" | "highlight" | "order" | "match" | "matrix" | "matrixmulti" | "cloze";
             topic: string;
             cj: string | null;
             weekLabel: string;
@@ -9807,7 +9824,7 @@ export interface components {
             /** @description Its id in the set file (A01, P01...). */
             id: string;
             /** @enum {string} */
-            type: "single" | "priority" | "sata" | "highlight" | "order" | "match" | "matrix" | "cloze";
+            type: "single" | "priority" | "sata" | "highlight" | "order" | "match" | "matrix" | "matrixmulti" | "cloze";
             topic: string;
             cj: string | null;
             need: string | null;

@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { signIn } from "./sign-in";
 
-const KINDS = ["single", "priority", "sata", "highlight", "order", "match", "matrix", "cloze"] as const;
+const KINDS = ["single", "priority", "sata", "highlight", "order", "match", "matrix", "matrixmulti", "cloze"] as const;
 
 interface Built {
   raw: Record<string, unknown>;
@@ -41,6 +41,8 @@ function build(index: number): Built {
       return matchQuestion(common, n);
     case "matrix":
       return matrixQuestion(common, n);
+    case "matrixmulti":
+      return matrixMultiQuestion(common, n);
     case "cloze":
       return clozeQuestion(common, n);
   }
@@ -157,6 +159,30 @@ function matrixQuestion(common: Record<string, unknown>, n: string): Built {
   };
 }
 
+function matrixMultiQuestion(common: Record<string, unknown>, n: string): Built {
+  const rows = [
+    { row: `Wheeze ${n}`, columns: ["Asthma"] },
+    { row: `Night cough ${n}`, columns: ["Asthma", "Heart failure"] },
+  ];
+  return {
+    points: 3,
+    raw: {
+      ...common,
+      ask: `For each finding ${n}, check every disorder it fits. A finding may fit more than one column.`,
+      columns: ["Asthma", "Heart failure"],
+      rows: rows.map((row) => ({ t: row.row, ans: row.columns, why: "That column fits." })),
+    },
+    answer: async (page) => {
+      for (const row of rows) {
+        const group = page.getByRole("group", { name: row.row, exact: true });
+        for (const column of row.columns) {
+          await group.getByRole("checkbox", { name: column, exact: true }).click();
+        }
+      }
+    },
+  };
+}
+
 function clozeQuestion(common: Record<string, unknown>, n: string): Built {
   const first = `upright ${n}`;
   const second = `morning ${n}`;
@@ -256,13 +282,13 @@ test.describe("practice runner", () => {
 
   test("a phone can answer every format, including a guess", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "iphone-safari", "phone layout");
-    const built = Array.from({ length: 8 }, (_, index) => build(index));
+    const built = Array.from({ length: KINDS.length }, (_, index) => build(index));
     const points = built.reduce((sum, item) => sum + item.points, 0);
     await signIn(page);
     await practice(page, built, "One of each format");
     expect(await overflows(page)).toBe(false);
     await answerAll(page, built, true);
-    await expect(page.getByRole("heading", { name: "8 of 8 fully right" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: `${String(KINDS.length)} of ${String(KINDS.length)} fully right` })).toBeVisible();
     await expect(page.getByText(`${String(points)} of ${String(points)} points`)).toBeVisible();
     await expect(page.getByRole("list", { name: "Score summary" }).getByRole("listitem").filter({ hasText: "Guessed" })).toContainText("1");
     expect(await overflows(page)).toBe(false);
