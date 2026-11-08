@@ -112,6 +112,18 @@
   padding: 0 var(--gutter-tablet);
 }
 
+/* Above question 1 of a set she has already finished. Text only: nothing to tap. */
+.runner-new-run {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--tint-soft);
+  color: var(--text-1);
+  font: var(--text-subhead);
+  text-wrap: pretty;
+  overflow-wrap: break-word;
+}
+
 /* Under the title of a set she came back to. The button is a 44px target that does not make the line taller. */
 .runner-pickup {
   display: flex;
