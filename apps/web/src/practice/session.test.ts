@@ -110,6 +110,7 @@ describe("a set she left midway", () => {
     const session = beginSession({ ...set, questions }, "set");
     expect(session.index).toBe(0);
     expect(session.pickedUp).toBeNull();
+    expect(session.newRun).toBe(false);
     expect(answeredCount(session)).toBe(0);
   });
 
@@ -125,6 +126,7 @@ describe("a set she left midway", () => {
   it("does not ask again a question answered out of order, and ends when none is left", () => {
     const opened = beginSession(sitting(["q2", "q4"]), "set");
     expect(opened.index).toBe(0);
+    expect(opened.newRun).toBe(false);
     expect(nextIndex(opened)).toBe(2);
     const moved = advance(reveal(opened, 0, false, score));
     expect(moved?.index).toBe(2);
@@ -145,7 +147,22 @@ describe("a set she left midway", () => {
     const session = beginSession(sitting(["q1", "q2", "q3", "q4"]), "set");
     expect(session.index).toBe(0);
     expect(session.pickedUp).toBeNull();
+    expect(session.newRun).toBe(true);
     expect(answeredCount(session)).toBe(0);
+  });
+
+  it("opens a finished set with no sitting as a new run at question 1", () => {
+    const session = beginSession({ ...set, questions }, "set", true);
+    expect(session.index).toBe(0);
+    expect(session.pickedUp).toBeNull();
+    expect(session.newRun).toBe(true);
+    expect(answeredCount(session)).toBe(0);
+  });
+
+  it("does not call a set she left midway a new run", () => {
+    const session = beginSession(sitting(["q1", "q2"]), "set", true);
+    expect(session.index).toBe(2);
+    expect(session.newRun).toBe(false);
   });
 
   it("starts over at question 1 with nothing filled in and new attempt ids", () => {
@@ -153,6 +170,7 @@ describe("a set she left midway", () => {
     const again = startOver(opened);
     expect(again?.index).toBe(0);
     expect(again?.pickedUp).toBeNull();
+    expect(again?.newRun).toBe(false);
     expect(again?.finishedAt).toBeNull();
     expect(again && answeredCount(again)).toBe(0);
     expect(again?.attempts[0]?.clientAttemptId).not.toBe("attempt-q1");

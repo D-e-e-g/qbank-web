@@ -105,6 +105,12 @@ function pickedUp(page: Page) {
   return page.locator(".runner-pickup");
 }
 
+const NEW_RUN_NOTICE = "You've answered this set before. Answering now starts a new practice run.";
+
+function newRunNotice(page: Page) {
+  return page.getByText(NEW_RUN_NOTICE, { exact: true });
+}
+
 /** Leaves the sample student's Home as the other specs found it. */
 async function archiveCourses(page: Page): Promise<void> {
   const { request } = page.context();
@@ -132,6 +138,7 @@ test.describe("a set remembers where she left it", () => {
     await setRow(page, set).click();
     await expectOnQuestion(page, 1, 6);
     await expect(pickedUp(page)).toHaveCount(0);
+    await expect(newRunNotice(page)).toHaveCount(0);
 
     // A practice answer says nothing about where it came from.
     const sent = page.waitForRequest((request) => request.url().endsWith("/api/attempts") && request.method() === "POST");
@@ -146,6 +153,7 @@ test.describe("a set remembers where she left it", () => {
     await expectOnQuestion(page, 4, 6);
     await expect(pickedUp(page)).toContainText("Picked up at 4 · 3 answered earlier");
     await expect(pickedUp(page).getByRole("button", { name: "Start over" })).toBeVisible();
+    await expect(newRunNotice(page)).toHaveCount(0);
     await expect(progressBar(page)).toHaveAttribute("aria-valuenow", "50");
 
     // Close the tab and open it again.
@@ -205,6 +213,7 @@ test.describe("a set remembers where she left it", () => {
     await expect(dialog).toBeHidden();
     await expectOnQuestion(page, 1, 5);
     await expect(pickedUp(page)).toHaveCount(0);
+    await expect(newRunNotice(page)).toHaveCount(0);
     await expect(progressBar(page)).toHaveAttribute("aria-valuenow", "0");
 
     // Her answers stay, and the row goes back to saying only that.
@@ -218,6 +227,7 @@ test.describe("a set remembers where she left it", () => {
     await setRow(page, set).click();
     await expectOnQuestion(page, 1, 5);
     await expect(pickedUp(page)).toHaveCount(0);
+    await expect(newRunNotice(page)).toHaveCount(0);
     await answerAndGoOn(page, 1);
     await page.getByRole("button", { name: "Close" }).click();
     await expect(setRow(page, set)).toContainText("1 of 5 answered · Continue");
@@ -239,8 +249,12 @@ test.describe("a set remembers where she left it", () => {
     await setRow(page, set).click();
     await expectOnQuestion(page, 1, 3);
     await expect(pickedUp(page)).toHaveCount(0);
+    await expect(newRunNotice(page)).toBeVisible();
+    await expect(page.getByRole("button", { name: NEW_RUN_NOTICE })).toHaveCount(0);
 
     await answerAndGoOn(page, 1);
+    await expectOnQuestion(page, 2, 3);
+    await expect(newRunNotice(page)).toHaveCount(0);
     await page.getByRole("button", { name: "Close" }).click();
     await expect(setRow(page, set)).toContainText("1 of 3 answered · Continue");
   });
@@ -280,6 +294,7 @@ test.describe("a set remembers where she left it", () => {
     await page.reload();
     await expectOnQuestion(page, 1, 3);
     await expect(pickedUp(page)).toHaveCount(0);
+    await expect(newRunNotice(page)).toHaveCount(0);
   });
 
   test("a question she already answered out of order is not asked again", async ({ page }) => {
@@ -291,6 +306,7 @@ test.describe("a set remembers where she left it", () => {
     await setRow(page, set).click();
     await expectOnQuestion(page, 1, 4);
     await expect(pickedUp(page)).toContainText("Picked up at 1 · 1 answered earlier");
+    await expect(newRunNotice(page)).toHaveCount(0);
     await expect(progressBar(page)).toHaveAttribute("aria-valuenow", "25");
 
     await answerRight(page);
@@ -319,6 +335,7 @@ test.describe("a set remembers where she left it", () => {
     await page.goto(`/course/${set.courseId}/review/practice?question=${set.questionIds[0] ?? ""}`);
     await expect(page.getByText("Invented stem 1.", { exact: true })).toBeVisible();
     await expect(pickedUp(page)).toHaveCount(0);
+    await expect(newRunNotice(page)).toHaveCount(0);
     const sent = page.waitForRequest((request) => request.url().endsWith("/api/attempts") && request.method() === "POST");
     await answerRight(page);
     expect((await sent).postDataJSON()).toMatchObject({ fromReview: true });

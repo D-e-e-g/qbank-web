@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { ApiError, api } from "../api";
+import { ApiError, api, type CourseDetail } from "../api";
 import { Button } from "../components/Button";
 import { ConfirmSheet } from "../components/ConfirmSheet";
 import { Icon, type IconName } from "../components/Icon";
 import { useFrozen } from "../frozen";
 import { navigate } from "../router";
+import { practiceSetIsFinished } from "../screens/set-status";
 import { AnswerArea } from "./Answers";
 import { RationaleImages, StemExhibits } from "./Exhibits";
 import { FORMAT_LABELS, readPracticeSet, toResponse } from "./model";
+import { NewRunNotice } from "./NewRunNotice";
 import type { PracticeSource } from "./source";
 import { recordPracticeAnswer, type Feedback } from "./recordPracticeAnswer";
 import { RunnerShell } from "./RunnerShell";
@@ -23,8 +25,17 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
 
   useEffect(() => {
     let cancel = false;
-    void api<unknown>(source.loadPath)
-      .then((body) => {
+    // The course row says whether the set is already finished. Read it with the set so the notice
+    // is in the first paint, rather than shifting the question down when it arrives.
+    const detail: Promise<CourseDetail | null> =
+      source.kind === "set"
+        ? api<CourseDetail>(`/api/courses/${courseId}`).then(
+            (course) => course,
+            () => null,
+          )
+        : Promise.resolve(null);
+    void Promise.all([api<unknown>(source.loadPath), detail])
+      .then(([body, course]) => {
         if (cancel) return;
         if (typeof body === "object" && body !== null && "kind" in body && body.kind === "exam") {
           setError("This set’s questions are asked only on exams.");
@@ -36,7 +47,7 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
           return;
         }
         setError(null);
-        setSession(beginSession(loaded, source.kind));
+        setSession(beginSession(loaded, source.kind, practiceSetIsFinished(course, loaded.id)));
       })
       .catch((caught: unknown) => {
         if (!cancel) setError(caught instanceof ApiError ? caught.message : "Could not open that set.");
@@ -174,6 +185,7 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
           </button>
         </div>
       ) : null}
+      <NewRunNotice session={session} />
       {error ? <p className="form-error">{error}</p> : null}
       {waiting ? (
         <p className="status-banner" role="status">

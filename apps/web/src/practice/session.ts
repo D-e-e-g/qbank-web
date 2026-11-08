@@ -1,6 +1,7 @@
 // One opening of a practice set or Review: her answer to each question as she works through it,
 // and the results once she reaches the end. A set she left midway opens at the first question she
-// has not answered, with the answers the server kept for it already filled in.
+// has not answered, with the answers the server kept for it already filled in. A set she has
+// already finished opens at question 1 as a new run.
 
 import { initialDraft, makeLayout, toggleStrike, type Draft, type Layout, type LoadedQuestion, type LoadedSet } from "./model";
 import type { Feedback } from "./recordPracticeAnswer";
@@ -38,6 +39,8 @@ export interface Session {
   index: number;
   /** Null when it opened at question 1 with nothing answered. */
   pickedUp: PickedUp | null;
+  /** This opening is a new run of a set she has already finished. */
+  newRun: boolean;
   startedAt: number;
   finishedAt: number | null;
 }
@@ -55,7 +58,8 @@ function freshAttempt(question: LoadedQuestion): AttemptState {
   };
 }
 
-export function beginSession(loaded: LoadedSet, kind: PracticeSource["kind"]): Session {
+/** `finished` is true when the set's row says Done. A sitting that already holds every question is that same opening. */
+export function beginSession(loaded: LoadedSet, kind: PracticeSource["kind"], finished = false): Session {
   const fresh: Session = {
     title: loaded.title,
     kind,
@@ -63,16 +67,19 @@ export function beginSession(loaded: LoadedSet, kind: PracticeSource["kind"]): S
     questions: loaded.questions,
     index: 0,
     pickedUp: null,
+    newRun: false,
     startedAt: Date.now(),
     finishedAt: null,
     attempts: loaded.questions.map(freshAttempt),
   };
   const sitting = loaded.sitting;
-  if (!sitting) return fresh;
+  if (!sitting) return finished ? { ...fresh, newRun: true } : fresh;
   const answered = new Set(sitting.answeredQuestionIds);
   const answers = new Map(sitting.answers.map((answer) => [answer.questionId, answer]));
   const index = loaded.questions.findIndex((question) => !answered.has(question.id));
-  if (answered.size === 0 || index === -1) return fresh;
+  if (answered.size === 0 || index === -1) {
+    return index === -1 && answered.size > 0 ? { ...fresh, newRun: true } : fresh;
+  }
   const attempts = fresh.attempts.map((attempt, position) => {
     const id = loaded.questions[position]?.id ?? "";
     if (!answered.has(id)) return attempt;
