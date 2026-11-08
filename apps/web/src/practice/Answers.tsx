@@ -1,9 +1,11 @@
+import type { CSSProperties } from "react";
 import { Icon } from "../components/Icon";
 import {
   choiceLetter,
   clozeParts,
   FORMAT_LABELS,
   moveOrder,
+  toggleMatrixColumn,
   togglePick,
   type Draft,
   type HighlightSegment,
@@ -113,6 +115,23 @@ export function AnswerArea({
             onDraft({
               type: "matrix",
               choices: draft.choices.map((choice, index) => (index === row ? value : choice)),
+            });
+          }}
+        />
+      );
+    case "matrixmulti":
+      if (draft.type !== "matrixmulti") return null;
+      return (
+        <MatrixMultiList
+          rowIdPrefix={loaded.id}
+          columns={question.columns}
+          rows={question.rows}
+          selected={draft.choices}
+          revealed={revealed}
+          onToggle={(row, column) => {
+            onDraft({
+              type: "matrixmulti",
+              choices: draft.choices.map((picked, index) => (index === row ? toggleMatrixColumn(question.columns, picked, column) : picked)),
             });
           }}
         />
@@ -428,6 +447,81 @@ function MatrixMark({ state }: { state: "idle" | "selected" | "correct" | "wrong
   if (state === "correct" || state === "missed") return <Icon name="circle-check" />;
   if (state === "wrong") return <Icon name="circle-x" />;
   return <span className="matrix-radio" aria-hidden="true" />;
+}
+
+function MatrixMultiList({
+  rowIdPrefix,
+  columns,
+  rows,
+  selected,
+  revealed,
+  onToggle,
+}: {
+  rowIdPrefix: string;
+  columns: readonly string[];
+  rows: readonly { t: string; ans: readonly string[]; why?: string }[];
+  selected: readonly (readonly string[])[];
+  revealed: boolean;
+  onToggle: (row: number, column: string) => void;
+}) {
+  return (
+    <div className="matrix-multi" style={{ "--matrix-columns": String(columns.length) } as CSSProperties}>
+      <div className="matrix-multi-head" aria-hidden="true">
+        <span className="matrix-multi-corner" />
+        {columns.map((column) => (
+          <span key={column} className="matrix-multi-col">
+            {column}
+          </span>
+        ))}
+      </div>
+      {rows.map((row, rowIndex) => {
+        const picked = new Set(selected[rowIndex] ?? []);
+        const right = new Set(row.ans);
+        const rowId = `matrix-multi-${rowIdPrefix}-${String(rowIndex)}`;
+        return (
+          <div key={rowIndex} className="matrix-multi-row answer-card">
+            <span className="answer-card-label" id={rowId}>
+              {row.t}
+            </span>
+            <div className="matrix-choices" role="group" aria-labelledby={rowId}>
+              {columns.map((column) => {
+                const on = picked.has(column);
+                const state = revealed ? revealState(on, right.has(column)) : on ? "selected" : "idle";
+                return (
+                  <button
+                    key={column}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={on}
+                    aria-disabled={revealed}
+                    className={`matrix-choice matrix-choice-${state}`}
+                    onClick={() => {
+                      if (!revealed) onToggle(rowIndex, column);
+                    }}
+                  >
+                    <MatrixCheckMark state={state} />
+                    <span className="matrix-choice-label">{column}</span>
+                    {revealed && state !== "dim" ? <span className="sr-only">{markText(on, right.has(column))}</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+            {revealed && row.why ? <span className="choice-reason matrix-multi-why">{row.why}</span> : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MatrixCheckMark({ state }: { state: "idle" | "selected" | "correct" | "wrong" | "missed" | "dim" }) {
+  if (state === "correct" || state === "missed") return <Icon name="circle-check" />;
+  if (state === "wrong") return <Icon name="circle-x" />;
+  return (
+    <span className="matrix-box" aria-hidden="true">
+      {state === "selected" ? <Icon name="check" /> : null}
+    </span>
+  );
 }
 
 function ClozePassage({

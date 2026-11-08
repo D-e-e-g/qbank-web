@@ -25,6 +25,7 @@ export type Question =
   | ({ type: "order" } & Schemas["OrderBody"])
   | ({ type: "match" } & Schemas["MatchBody"])
   | ({ type: "matrix" } & Schemas["MatrixBody"])
+  | ({ type: "matrixmulti" } & Schemas["MatrixMultiBody"])
   | ({ type: "cloze" } & Schemas["ClozeBody"]);
 
 export const FORMAT_LABELS: Record<QuestionType, string> = {
@@ -35,6 +36,7 @@ export const FORMAT_LABELS: Record<QuestionType, string> = {
   order: "Ordering",
   match: "Matching",
   matrix: "Matrix",
+  matrixmulti: "Matrix, check all that fit",
   cloze: "Drop-down",
 };
 
@@ -111,6 +113,7 @@ export type Draft =
   | { type: "order"; positions: readonly number[] }
   | { type: "match"; choices: readonly (string | null)[] }
   | { type: "matrix"; choices: readonly (string | null)[] }
+  | { type: "matrixmulti"; choices: readonly (readonly string[])[] }
   | { type: "cloze"; choices: readonly (number | null)[] };
 
 export function readPracticeSet(body: unknown): LoadedSet | null {
@@ -155,6 +158,7 @@ export function makeLayout(question: Question): Layout {
       return { kind: "cloze", blanks: question.cloze.blanks.map((blank) => shuffle(indexes(blank.opts.length))) };
     case "highlight":
     case "matrix":
+    case "matrixmulti":
       return { kind: "plain" };
   }
 }
@@ -175,6 +179,8 @@ export function initialDraft(question: Question, layout: Layout): Draft {
       return { type: "match", choices: question.pairs.map(() => null) };
     case "matrix":
       return { type: "matrix", choices: question.rows.map(() => null) };
+    case "matrixmulti":
+      return { type: "matrixmulti", choices: question.rows.map(() => []) };
     case "cloze":
       return { type: "cloze", choices: question.cloze.blanks.map(() => null) };
   }
@@ -213,6 +219,7 @@ export function readLayout(question: Question, value: unknown): Layout {
     }
     case "highlight":
     case "matrix":
+    case "matrixmulti":
       return { kind: "plain" };
   }
 }
@@ -233,6 +240,10 @@ export function draftFromResponse(question: Question, value: unknown): Draft | n
     case "matrix":
       return Array.isArray(value.choices) && value.choices.every((choice) => choice === null || typeof choice === "string")
         ? { type: question.type, choices: value.choices as (string | null)[] }
+        : null;
+    case "matrixmulti":
+      return isStringLists(value.choices) && value.choices.length === question.rows.length
+        ? { type: "matrixmulti", choices: value.choices.map((row) => [...row]) }
         : null;
     case "cloze":
       return Array.isArray(value.choices) && value.choices.every((choice) => choice === null || typeof choice === "number")
@@ -260,6 +271,9 @@ export function toResponse(draft: Draft): Answer | null {
     case "matrix":
       if (draft.choices.some((choice) => choice === null)) return null;
       return { type: "matrix", choices: [...draft.choices] };
+    case "matrixmulti":
+      if (draft.choices.some((row) => row.length === 0)) return null;
+      return { type: "matrixmulti", choices: draft.choices.map((row) => [...row]) };
     case "cloze":
       if (draft.choices.some((choice) => choice === null)) return null;
       return { type: "cloze", choices: [...draft.choices] };
@@ -268,6 +282,14 @@ export function toResponse(draft: Draft): Answer | null {
 
 export function togglePick(picks: readonly number[], index: number): number[] {
   return picks.includes(index) ? picks.filter((item) => item !== index) : [...picks, index];
+}
+
+/** Checks or unchecks one column of a matrix row. The result stays in column order, and a repeated name counts once. */
+export function toggleMatrixColumn(columns: readonly string[], picked: readonly string[], column: string): string[] {
+  const next = new Set(picked);
+  if (next.has(column)) next.delete(column);
+  else next.add(column);
+  return columns.filter((name) => next.has(name));
 }
 
 /**
@@ -418,6 +440,11 @@ function readQuestion(type: string, body: Record<string, unknown>): Question | n
       const rows = readList(body.rows, readMatrixRow);
       return columns && rows ? { type, columns, rows } : null;
     }
+    case "matrixmulti": {
+      const columns = readStrings(body.columns);
+      const rows = readList(body.rows, readMatrixMultiRow);
+      return columns && rows ? { type, columns, rows } : null;
+    }
     case "cloze": {
       const cloze = readCloze(body.cloze);
       return cloze ? { type, cloze } : null;
@@ -457,6 +484,13 @@ function readMatrixRow(value: unknown): Schemas["MatrixRow"] | null {
   return typeof value.why === "string" ? { t: value.t, ans: value.ans, why: value.why } : { t: value.t, ans: value.ans };
 }
 
+function readMatrixMultiRow(value: unknown): Schemas["MatrixMultiRow"] | null {
+  if (!isRecord(value) || typeof value.t !== "string") return null;
+  const ans = readStrings(value.ans);
+  if (!ans) return null;
+  return typeof value.why === "string" ? { t: value.t, ans, why: value.why } : { t: value.t, ans };
+}
+
 function readCloze(value: unknown): Schemas["ClozeBody"]["cloze"] | null {
   if (!isRecord(value) || typeof value.text !== "string") return null;
   const blanks = readList(value.blanks, readBlank);
@@ -493,6 +527,10 @@ function readList<T>(value: unknown, read: (item: unknown) => T | null): T[] | n
 
 function isNumbers(value: unknown): value is number[] {
   return Array.isArray(value) && value.every((item) => typeof item === "number" && Number.isInteger(item));
+}
+
+function isStringLists(value: unknown): value is string[][] {
+  return Array.isArray(value) && value.every((row) => Array.isArray(row) && row.every((item) => typeof item === "string"));
 }
 
 function isPermutation(value: unknown, length: number): value is number[] {

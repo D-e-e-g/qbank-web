@@ -863,6 +863,7 @@
               "order",
               "match",
               "matrix",
+              "matrixmulti",
               "cloze"
             ]
           },
@@ -964,6 +965,9 @@
           },
           {
             "$ref": "#/components/schemas/MatrixBody"
+          },
+          {
+            "$ref": "#/components/schemas/MatrixMultiBody"
           },
           {
             "$ref": "#/components/schemas/ClozeBody"
@@ -1149,7 +1153,7 @@
           "columns",
           "rows"
         ],
-        "description": "matrix."
+        "description": "matrix. Each row has one right column."
       },
       "MatrixRow": {
         "type": "object",
@@ -1160,6 +1164,51 @@
           "ans": {
             "type": "string",
             "description": "The column name that is right for the row."
+          },
+          "why": {
+            "type": "string",
+            "description": "Why it is right or wrong, shown after she answers."
+          }
+        },
+        "required": [
+          "t",
+          "ans"
+        ]
+      },
+      "MatrixMultiBody": {
+        "type": "object",
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatrixMultiRow"
+            }
+          }
+        },
+        "required": [
+          "columns",
+          "rows"
+        ],
+        "description": "matrixmulti. A row can have more than one right column."
+      },
+      "MatrixMultiRow": {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string"
+          },
+          "ans": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The column names that are right for the row. Each names a column, once."
           },
           "why": {
             "type": "string",
@@ -1380,7 +1429,7 @@
               "string",
               "null"
             ],
-            "description": "How the format is scored, for select all that apply, highlight, and ordering. Null for the others."
+            "description": "How the format is scored, for select all that apply, highlight, a matrix where a row can fit more than one column, and ordering. Null for the others."
           },
           "response": {
             "oneOf": [
@@ -1561,6 +1610,31 @@
                   ]
                 },
                 "description": "choices[i] is the column she picked for row i."
+              }
+            },
+            "required": [
+              "type",
+              "choices"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "matrixmulti"
+                ]
+              },
+              "choices": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "description": "choices[i] is the column names she checked for row i. An empty list is a blank row."
               }
             },
             "required": [
@@ -2384,7 +2458,7 @@
               "string",
               "null"
             ],
-            "description": "How the format is scored, the banner's rule line: for select all that apply and highlight, and for ordering. Null for the other formats."
+            "description": "How the format is scored, the banner's rule line: for select all that apply, highlight, and a matrix where a row can fit more than one column, and for ordering. Null for the other formats."
           },
           "replayed": {
             "type": "boolean"
@@ -3956,6 +4030,7 @@
               "order",
               "match",
               "matrix",
+              "matrixmulti",
               "cloze"
             ]
           },
@@ -5943,6 +6018,7 @@
               "order",
               "match",
               "matrix",
+              "matrixmulti",
               "cloze"
             ]
           },

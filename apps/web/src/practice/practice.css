@@ -831,6 +831,128 @@
   color: var(--text-3);
 }
 
+/* A matrix where one row can fit more than one column. Phone: one card per row, check pills.
+   Wide runner: one grid, column names across the top, a 44px check in each cell. */
+.matrix-multi {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.matrix-multi-head {
+  display: none;
+}
+
+.matrix-multi .answer-card-label,
+.matrix-multi-col,
+.matrix-choice-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.matrix-multi .matrix-choice {
+  min-width: 0;
+  height: auto;
+  white-space: normal;
+}
+
+.matrix-box {
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  box-shadow: inset 0 0 0 1.5px var(--separator-strong);
+  background: var(--surface);
+  color: transparent;
+}
+
+.matrix-box svg {
+  width: 16px;
+  height: 16px;
+}
+
+.matrix-choice-selected .matrix-box {
+  box-shadow: inset 0 0 0 1.5px var(--tint);
+  color: var(--tint);
+}
+
+.runner-wide .matrix-multi {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) repeat(var(--matrix-columns), minmax(0, 1fr));
+  column-gap: 8px;
+  row-gap: 0;
+}
+
+.runner-wide .matrix-multi-head,
+.runner-wide .matrix-multi-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-width: 0;
+}
+
+.runner-wide .matrix-multi-head {
+  align-items: end;
+  padding-bottom: 8px;
+  border-bottom: 0.5px solid var(--separator-strong);
+}
+
+.runner-wide .matrix-multi-col {
+  font: var(--weight-medium) var(--size-subhead) / var(--lh-subhead) var(--font-ui);
+  color: var(--text-2);
+  text-align: center;
+}
+
+.runner-wide .matrix-multi-row.answer-card {
+  padding: 8px 0;
+  gap: 8px 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  border-bottom: 0.5px solid var(--separator);
+}
+
+.runner-wide .matrix-multi .matrix-choices {
+  display: grid;
+  grid-column: 2 / -1;
+  grid-template-columns: subgrid;
+  gap: 0;
+}
+
+.runner-wide .matrix-multi-why {
+  grid-column: 1 / -1;
+}
+
+.runner-wide .matrix-multi .matrix-choice {
+  position: relative;
+  width: min(44px, 100%);
+  height: 44px;
+  min-height: 44px;
+  margin-inline: auto;
+  padding: 0;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+}
+
+.runner-wide .matrix-multi .matrix-choice-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .cloze-line {
   margin: 0;
   line-height: 2.6;
