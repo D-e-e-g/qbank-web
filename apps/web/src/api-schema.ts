@@ -8151,7 +8151,7 @@ export interface components {
             answeredCount: number;
             fullyRightCount: number;
             lastAnsweredAt: string | null;
-            /** @description The sitting she would continue, so the row says Continue. Null when opening the set starts it at question 1: a new set, a finished one, one she answered only on exams, or one she chose Start over on, whose answeredCount above still counts every answer she has given. */
+            /** @description The sitting she would continue, so the row says Continue. Null when opening the set starts it at question 1: a new set, one with every question answered by any route (even with a retake under way), one she answered only on exams, or one she chose Start over on, whose answeredCount above still counts every answer she has given. */
             sitting: components["schemas"]["SetSittingSummary"] | null;
             questionIds: string[];
             /** @description The agent key that imported this version of the set, such as the user's own AI agent (see the Agents tag): show it as "Imported by your agent". Null when it was imported in the app or QBank made it. It stays after the key is revoked. */
@@ -8324,7 +8324,7 @@ export interface components {
         };
         /** @description The fields of the format the question's `type` names, as the import file wrote them. The importer checks what scoring needs: the text of every option, item, pair and row, which options or segments are right (only `ok: true` counts), and each row's or blank's answer; `why` and the rest are kept as written, so read a field of another type as absent. The file's other fields stay here as well; read its table and images from the question's own `table` and `images`, which are checked and ready to draw. */
         QuestionBody: components["schemas"]["ChoiceBody"] | components["schemas"]["HighlightBody"] | components["schemas"]["OrderBody"] | components["schemas"]["MatchBody"] | components["schemas"]["MatrixBody"] | components["schemas"]["MatrixMultiBody"] | components["schemas"]["ClozeBody"];
-        /** @description single, priority, and sata. */
+        /** @description single, priority, and sata. A select-all (`sata`) question needs at least one option with "ok": true, and every option may be correct. */
         ChoiceBody: {
             options: components["schemas"]["QuestionOption"][];
         };

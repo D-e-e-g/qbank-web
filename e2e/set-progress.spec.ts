@@ -256,7 +256,9 @@ test.describe("a set remembers where she left it", () => {
     await expectOnQuestion(page, 2, 3);
     await expect(newRunNotice(page)).toHaveCount(0);
     await page.getByRole("button", { name: "Close" }).click();
-    await expect(setRow(page, set)).toContainText("1 of 3 answered · Continue");
+    // Every question still has an answer, so the row stays Done and opens fresh.
+    await expect(setRow(page, set)).toContainText("Done today · 3 of 3 fully right");
+    await expect(setRow(page, set)).not.toContainText("Continue");
   });
 
   test("on the first day, a set she is midway through continues from the answers already saved", async ({ page }) => {

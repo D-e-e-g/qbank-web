@@ -399,7 +399,7 @@
                 "type": "null"
               }
             ],
-            "description": "The sitting she would continue, so the row says Continue. Null when opening the set starts it at question 1: a new set, a finished one, one she answered only on exams, or one she chose Start over on, whose answeredCount above still counts every answer she has given."
+            "description": "The sitting she would continue, so the row says Continue. Null when opening the set starts it at question 1: a new set, one with every question answered by any route (even with a retake under way), one she answered only on exams, or one she chose Start over on, whose answeredCount above still counts every answer she has given."
           },
           "questionIds": {
             "type": "array",
@@ -988,7 +988,7 @@
         "required": [
           "options"
         ],
-        "description": "single, priority, and sata."
+        "description": "single, priority, and sata. A select-all (`sata`) question needs at least one option with \"ok\": true, and every option may be correct."
       },
       "QuestionOption": {
         "type": "object",
