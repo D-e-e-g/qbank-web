@@ -133,7 +133,7 @@ Any question may also carry a table of readings under its stem and up to 4 image
 - A question that is not an object, or has an unknown `type`.
 - Missing `stem`, `ask`, `rationale`, or `takeaway`.
 - `single` and `priority`: at least 3 options, every option has text `t`, exactly one option with `"ok": true`.
-- `sata` (select all): at least 3 options with text, some but not all `ok`.
+- `sata` (select all): at least 3 options with text, at least one option with `"ok": true`. Every option may be correct.
 - `order`: 3 or more items with text, listed in the correct order.
 - `match`: 2 or more pairs, each with `l` and `r`.
 - `matrix`: 2 or more columns, at least one row, and every row's `ans` names a column.

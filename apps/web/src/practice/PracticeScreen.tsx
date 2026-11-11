@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type Ref } from "react";
 import { ApiError, api, type CourseDetail } from "../api";
 import { Button } from "../components/Button";
 import { ConfirmSheet } from "../components/ConfirmSheet";
@@ -96,8 +96,6 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
 
   const revealed = attempt.score !== null;
   const response = toResponse(attempt.draft);
-  const points = attempt.score?.pointsText ?? null;
-  const rule = attempt.score?.ruleText ?? null;
   const last = nextIndex(session) === -1;
 
   const check = () => {
@@ -200,17 +198,7 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
       <p className="runner-stem">{loaded.stem}</p>
       <StemExhibits loaded={loaded} />
       <p className="runner-ask">{loaded.ask}</p>
-      {attempt.score ? (
-        <div className={`feedback feedback-${attempt.score.status}`} role="status" ref={feedbackRef}>
-          <p className="feedback-label">
-            <Icon name={statusIcon(attempt.score.status)} />
-            {attempt.score.label}
-          </p>
-          {points ? <p className="feedback-detail">{points}</p> : null}
-          {rule ? <p className="feedback-detail">{rule}</p> : null}
-          {attempt.guessed ? <p className="feedback-detail">Flagged as a guess</p> : null}
-        </div>
-      ) : null}
+      {attempt.score ? <FeedbackBanner score={attempt.score} guessed={attempt.guessed} bannerRef={feedbackRef} /> : null}
       <AnswerArea
         loaded={loaded}
         layout={attempt.layout}
@@ -413,6 +401,29 @@ function statusIcon(status: Feedback["status"]): IconName {
   if (status === "correct") return "circle-check";
   if (status === "partial") return "circle-minus";
   return "circle-x";
+}
+
+/** The banner the server's score fills in. The screen never scores the answer itself. */
+export function FeedbackBanner({
+  score,
+  guessed,
+  bannerRef,
+}: {
+  score: Feedback;
+  guessed: boolean;
+  bannerRef?: Ref<HTMLDivElement>;
+}) {
+  return (
+    <div className={`feedback feedback-${score.status}`} role="status" ref={bannerRef}>
+      <p className="feedback-label">
+        <Icon name={statusIcon(score.status)} />
+        {score.label}
+      </p>
+      {score.pointsText ? <p className="feedback-detail">{score.pointsText}</p> : null}
+      {score.ruleText ? <p className="feedback-detail">{score.ruleText}</p> : null}
+      {guessed ? <p className="feedback-detail">Flagged as a guess</p> : null}
+    </div>
+  );
 }
 
 function durationText(ms: number): string {
