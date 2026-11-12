@@ -3,7 +3,7 @@
 // has not answered, with the answers the server kept for it already filled in. A set she has
 // already finished opens at question 1 as a new run.
 
-import { initialDraft, makeLayout, toggleStrike, type Draft, type Layout, type LoadedQuestion, type LoadedSet } from "./model";
+import { initialDraft, makeLayout, toggleStrike, type Draft, type Layout, type LoadedQuestion, type LoadedSet, type Sitting } from "./model";
 import type { Feedback } from "./recordPracticeAnswer";
 import type { PracticeSource } from "./source";
 import { when } from "../when";
@@ -58,7 +58,12 @@ function freshAttempt(question: LoadedQuestion): AttemptState {
   };
 }
 
-/** `finished` is true when the set's row says Done. A sitting that already holds every question is that same opening. */
+/**
+ * Opens the set where the server's `run` puts her: a set she left midway at the first question she
+ * has not answered, a finished one at question 1 as a new run, and any other at question 1.
+ * `finished` is read only when the set came without a `run`, from a server that does not send it yet:
+ * it is true when the set's row says Done, and a sitting that already holds every question is that same opening.
+ */
 export function beginSession(loaded: LoadedSet, kind: PracticeSource["kind"], finished = false): Session {
   const fresh: Session = {
     title: loaded.title,
@@ -73,15 +78,30 @@ export function beginSession(loaded: LoadedSet, kind: PracticeSource["kind"], fi
     attempts: loaded.questions.map(freshAttempt),
   };
   const sitting = loaded.sitting;
-  if (!sitting) return finished ? { ...fresh, newRun: true } : fresh;
+  switch (loaded.run) {
+    case "new":
+    case "restarted":
+      return fresh;
+    case "done":
+      return { ...fresh, newRun: true };
+    case "midway":
+      return (sitting && pickUp(fresh, sitting)) ?? fresh;
+    case null: {
+      if (!sitting) return finished ? { ...fresh, newRun: true } : fresh;
+      const everyQuestion = sitting.answeredQuestionIds.length > 0 && loaded.questions.every((question) => sitting.answeredQuestionIds.includes(question.id));
+      return pickUp(fresh, sitting) ?? (everyQuestion ? { ...fresh, newRun: true } : fresh);
+    }
+  }
+}
+
+/** The opening at the first question her sitting has no answer to, with its answers filled in. Null when there is none to pick up. */
+function pickUp(fresh: Session, sitting: Sitting): Session | null {
   const answered = new Set(sitting.answeredQuestionIds);
   const answers = new Map(sitting.answers.map((answer) => [answer.questionId, answer]));
-  const index = loaded.questions.findIndex((question) => !answered.has(question.id));
-  if (answered.size === 0 || index === -1) {
-    return index === -1 && answered.size > 0 ? { ...fresh, newRun: true } : fresh;
-  }
+  const index = fresh.questions.findIndex((question) => !answered.has(question.id));
+  if (answered.size === 0 || index === -1) return null;
   const attempts = fresh.attempts.map((attempt, position) => {
-    const id = loaded.questions[position]?.id ?? "";
+    const id = fresh.questions[position]?.id ?? "";
     if (!answered.has(id)) return attempt;
     const answer = answers.get(id);
     if (!answer) return { ...attempt, earlier: true };

@@ -214,6 +214,12 @@ describe("readPracticeSet", () => {
     expect(readPracticeSet({ ...set, questions: [{ ...question, terms: undefined }] })).toBeNull();
     expect(readPracticeSet(null)).toBeNull();
   });
+  it("keeps where the server says she stands, and has none from a server that does not send it", () => {
+    for (const run of ["new", "midway", "restarted", "done"] as const) expect(readPracticeSet({ ...set, run })?.run).toBe(run);
+    expect(readPracticeSet(set)?.run).toBeNull();
+    expect(readPracticeSet({ ...set, run: "finished" })?.run).toBeNull();
+    expect(readPracticeSet({ ...set, run: null })?.run).toBeNull();
+  });
 });
 
 describe("toggleStrike", () => {

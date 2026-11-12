@@ -2,6 +2,7 @@
 // layout she sees. Response indexes stay on the stored question; the layout is saved beside the
 // attempt. The server scores every answer.
 
+import type { SetRun } from "../api";
 import type { components } from "../api-schema";
 
 type Schemas = components["schemas"];
@@ -72,6 +73,8 @@ export interface LoadedSet {
   questions: LoadedQuestion[];
   /** How far she got this time through, on any device. Null opens the set at question 1. */
   sitting: Sitting | null;
+  /** Where she stands in the set, as the server says. Null from a server that does not send it yet, and in Review. */
+  run: SetRun | null;
 }
 
 export interface OptionLayout {
@@ -128,7 +131,13 @@ export function readPracticeSet(body: unknown): LoadedSet | null {
     questions.push(question);
   }
   questions.sort((left, right) => left.position - right.position);
-  return { id: body.id, courseId: body.courseId, title: body.title, weekLabel: body.weekLabel, questions, sitting: readSitting(body.sitting) };
+  return { id: body.id, courseId: body.courseId, title: body.title, weekLabel: body.weekLabel, questions, sitting: readSitting(body.sitting), run: readRun(body.run) };
+}
+
+const RUNS: readonly SetRun[] = ["new", "midway", "restarted", "done"];
+
+function readRun(value: unknown): SetRun | null {
+  return RUNS.find((run) => run === value) ?? null;
 }
 
 function readSitting(value: unknown): Sitting | null {

@@ -38,6 +38,8 @@ const openSet: LoadedSet = {
   weekLabel: "Week 1",
   questions,
   sitting: null,
+  // As from a server that does not send `run` yet.
+  run: null,
 };
 
 const score: Feedback = { status: "correct", points: 1, maxPoints: 1, label: "Correct", pointsText: null, ruleText: null };

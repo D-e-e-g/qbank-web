@@ -33,6 +33,8 @@ const set: LoadedSet = {
     loaded("q2", 1, { type: "sata", options: [{ t: "Yes", ok: true }, { t: "No" }, { t: "Yes too", ok: true }] }),
   ],
   sitting: null,
+  // As from a server that does not send `run` yet.
+  run: null,
 };
 
 const score: Feedback = { status: "incorrect", points: 0, maxPoints: 1, label: "Not correct", pointsText: null, ruleText: null };
@@ -174,6 +176,47 @@ describe("a set she left midway", () => {
     expect(again?.finishedAt).toBeNull();
     expect(again && answeredCount(again)).toBe(0);
     expect(again?.attempts[0]?.clientAttemptId).not.toBe("attempt-q1");
+  });
+
+  describe("where the server's run puts her", () => {
+    it("opens a new set at question 1, whatever the course row said", () => {
+      const session = beginSession({ ...set, questions, run: "new" }, "set", true);
+      expect(session.index).toBe(0);
+      expect(session.pickedUp).toBeNull();
+      expect(session.newRun).toBe(false);
+    });
+
+    it("opens a set she began again at question 1, not as a new run, even beside a sitting", () => {
+      const session = beginSession({ ...sitting(["q1", "q2"]), run: "restarted" }, "set", true);
+      expect(session.index).toBe(0);
+      expect(session.pickedUp).toBeNull();
+      expect(session.newRun).toBe(false);
+      expect(answeredCount(session)).toBe(0);
+    });
+
+    it("opens a done set as a new run at question 1 with no course row, even with a retake under way", () => {
+      for (const loaded of [{ ...set, questions, run: "done" as const }, { ...sitting(["q1"]), run: "done" as const }]) {
+        const session = beginSession(loaded, "set");
+        expect(session.index).toBe(0);
+        expect(session.pickedUp).toBeNull();
+        expect(session.newRun).toBe(true);
+        expect(answeredCount(session)).toBe(0);
+      }
+    });
+
+    it("picks a midway set up where she left it, and never calls it a new run", () => {
+      const session = beginSession({ ...sitting(["q1", "q2"]), run: "midway" }, "set", true);
+      expect(session.index).toBe(2);
+      expect(session.pickedUp).toMatchObject({ at: 3, answered: 2 });
+      expect(session.newRun).toBe(false);
+    });
+
+    it("opens a midway set at question 1 when no sitting came with it", () => {
+      const session = beginSession({ ...set, questions, run: "midway" }, "set", true);
+      expect(session.index).toBe(0);
+      expect(session.pickedUp).toBeNull();
+      expect(session.newRun).toBe(false);
+    });
   });
 
   it("says how many she answered earlier today, and the day when it was another day", () => {

@@ -261,6 +261,29 @@ test.describe("a set remembers where she left it", () => {
     await expect(setRow(page, set)).not.toContainText("Continue");
   });
 
+  test("a set the server calls done opens as a new run without reading the course", async ({ page }) => {
+    await signIn(page);
+    const set = await importSet(page, 3);
+    // The set says where she stands in `run`. The pinned API may not send it yet, so it is added here.
+    await page.route(`**/api/practice-sets/${set.setId}`, async (route) => {
+      const response = await route.fetch();
+      const body = (await response.json()) as Record<string, unknown>;
+      await route.fulfill({ response, json: { ...body, run: "done" } });
+    });
+    // Before `run`, a course that could not be read made a finished set read as not finished.
+    const courseReads: string[] = [];
+    await page.route(`**/api/courses/${set.courseId}`, async (route) => {
+      courseReads.push(route.request().url());
+      await route.abort();
+    });
+
+    await page.goto(`/course/${set.courseId}/practice/${set.setId}?folder=${set.folderId}`);
+    await expectOnQuestion(page, 1, 3);
+    await expect(pickedUp(page)).toHaveCount(0);
+    await expect(newRunNotice(page)).toBeVisible();
+    expect(courseReads).toEqual([]);
+  });
+
   test("on the first day, a set she is midway through continues from the answers already saved", async ({ page }) => {
     await signIn(page);
     const set = await importSet(page, 4);
