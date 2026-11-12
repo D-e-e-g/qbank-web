@@ -142,6 +142,25 @@ pnpm test:e2e
 e2e/stack.sh down
 ```
 
+`pnpm lint` also keeps every hand-written source file at or under 1,000 lines
+of code. A code line is a line that is not blank and not only a comment,
+counted the way ESLint's `max-lines` rule counts with blank lines and comments
+skipped. The check covers the JavaScript and TypeScript ESLint already checks,
+tests included. Generated files, the bundled design system, lock files, the
+pinned API contract, snapshots, and build output are named, each with a
+reason, in [`scripts/max-lines.config.json`](scripts/max-lines.config.json).
+
+The `allow` list in that file names files already over the limit, each with
+its code-line count, for reference. Those files are exempt for now: the check
+warns if a listed file grows past its recorded count, if the file is gone, or
+if it is now at or under 1,000, and it still passes. Nothing is over the limit
+today, so the list is empty. A file that is not listed, including any new
+file, fails at over 1,000 lines of code. When a listed file shrinks but stays
+over 1,000, the check prints the lower count; put that number in the entry.
+The no-growth rule for a listed file switches on when that file is split:
+remove its entry in the split, along a real responsibility seam, and the
+files that replace it are ordinary source files under the 1,000-line limit.
+
 ## Who made it
 
 Qbank was built by Dimitry Gallego.
