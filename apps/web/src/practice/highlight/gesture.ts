@@ -78,6 +78,9 @@ export function followPress(event: PointerEvent, root: HTMLElement, segments: re
     const wasDrag = dragging;
     finish();
     if (wasDrag) {
+      // The browser selected the words as they were dragged over. Leaving that selection would make
+      // the next press inside it start a native text drag, which cancels the gesture.
+      window.getSelection()?.removeAllRanges();
       if (range) handlers.commit(range);
       // The drag marked words; it does not also pick the answer they belong to.
       swallowClick(lifted, touch);
