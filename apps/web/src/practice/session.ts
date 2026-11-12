@@ -5,6 +5,8 @@
 
 import { initialDraft, makeLayout, toggleStrike, type Draft, type Layout, type LoadedQuestion, type LoadedSet, type Sitting } from "./model";
 import type { Feedback } from "./recordPracticeAnswer";
+import type { Marks } from "./highlight/marks";
+import type { StripStep } from "./RunnerShell";
 import type { PracticeSource } from "./source";
 import { when } from "../when";
 
@@ -13,6 +15,8 @@ export interface AttemptState {
   draft: Draft;
   /** Choices she has struck out, as original option indexes. Kept for this sitting only, never sent. */
   struck: readonly number[];
+  /** Words she has highlighted. Kept for this sitting only, never sent; they stay after Check answer. */
+  marks: Marks;
   guessed: boolean;
   clientAttemptId: string;
   score: Feedback | null;
@@ -51,6 +55,7 @@ function freshAttempt(question: LoadedQuestion): AttemptState {
     layout,
     draft: initialDraft(question.question, layout),
     struck: [],
+    marks: {},
     guessed: false,
     clientAttemptId: crypto.randomUUID(),
     score: null,
@@ -117,6 +122,15 @@ export function answeredCount(session: Session): number {
   return session.attempts.filter((attempt) => attempt.earlier || attempt.score !== null).length;
 }
 
+/** The progress strip: each checked question's result, the one on screen, and the ones still to come. */
+export function progressStrip(session: Session): StripStep[] {
+  return session.attempts.map((attempt, index) => {
+    if (attempt.score) return attempt.score.status === "correct" ? "right" : attempt.score.status === "partial" ? "partial" : "missed";
+    if (attempt.earlier) return "answered";
+    return index === session.index ? "now" : "todo";
+  });
+}
+
 /** The next question she has not answered, or -1 when this is the last of them. */
 export function nextIndex(session: Session): number {
   return session.attempts.findIndex((attempt, index) => index > session.index && !attempt.earlier);
@@ -150,6 +164,16 @@ export function strike(session: Session | null, index: number, option: number): 
   return updateAttempt(session, index, (attempt) => ({ ...attempt, ...toggleStrike(attempt.draft, attempt.struck, option) }));
 }
 
+/** Replaces her highlights on a question. Unlike her answer, they can still change once it is checked. */
+export function markAttempt(session: Session | null, index: number, marks: Marks): Session | null {
+  if (!session) return session;
+  const attempt = session.attempts[index];
+  if (!attempt || attempt.marks === marks) return session;
+  const attempts = session.attempts.slice();
+  attempts[index] = { ...attempt, marks };
+  return { ...session, attempts };
+}
+
 export function reveal(session: Session | null, index: number, guessed: boolean, score: Feedback): Session | null {
   if (!session) return session;
   const attempt = session.attempts[index];
@@ -159,11 +183,11 @@ export function reveal(session: Session | null, index: number, guessed: boolean,
   return { ...session, attempts };
 }
 
-/** Moves to the next question she has not answered, or past the last one to the results, where every strike is dropped. */
+/** Moves to the next question she has not answered, or past the last one to the results, where every strike and highlight is dropped. */
 export function advance(session: Session | null): Session | null {
   if (!session) return session;
   const next = nextIndex(session);
   if (next !== -1) return { ...session, index: next };
   if (session.finishedAt !== null) return session;
-  return { ...session, finishedAt: Date.now(), attempts: session.attempts.map((attempt) => ({ ...attempt, struck: [] })) };
+  return { ...session, finishedAt: Date.now(), attempts: session.attempts.map((attempt) => ({ ...attempt, struck: [], marks: {} })) };
 }

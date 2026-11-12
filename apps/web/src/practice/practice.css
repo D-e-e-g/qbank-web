@@ -56,7 +56,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font: var(--text-caption);
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .btn-icon {
@@ -72,6 +72,50 @@
 
 .runner-progress-fill {
   height: 100%;
+  background: var(--tint);
+}
+
+.runner-progress:has(.runner-strip) {
+  height: 4px;
+  background: transparent;
+}
+
+.runner-strip {
+  display: flex;
+  gap: var(--strip-gap);
+  height: 100%;
+}
+
+.runner-strip-step {
+  flex: 1;
+  min-width: 0;
+  border-radius: min(2px, var(--strip-gap));
+  background: var(--separator-strong);
+}
+
+.runner-strip-right {
+  background: var(--chart-right);
+}
+
+.runner-strip-partial {
+  background: var(--chart-partial);
+}
+
+.runner-strip-missed {
+  background: var(--chart-missed);
+}
+
+.runner-strip-answered {
+  background: var(--text-2);
+}
+
+/* Skipped for now: an open step, still to come back to. */
+.runner-strip-skipped {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--text-3);
+}
+
+.runner-strip-now {
   background: var(--tint);
 }
 
@@ -166,7 +210,7 @@
   gap: 4px 10px;
   margin: 0;
   font: var(--weight-semibold) var(--size-footnote) / var(--lh-footnote) var(--font-mono);
-  color: var(--text-3);
+  color: var(--text-2);
 }
 
 .runner-format {
@@ -177,7 +221,6 @@
   margin: 0;
   font: var(--text-reading);
   color: var(--text-1);
-  text-wrap: pretty;
 }
 
 .runner-wide .runner-stem {
@@ -188,7 +231,6 @@
   margin: 0;
   font: var(--text-headline);
   color: var(--text-1);
-  text-wrap: pretty;
 }
 
 .runner-wide .runner-ask {
@@ -383,6 +425,26 @@
   color: var(--wrong);
 }
 
+/* An open choice's letter takes the accent; a picked one fills with it. */
+.choice-row:not(.choice-row-struck) > .choice:not(.choice-selected, .choice-correct, .choice-wrong, .choice-missed) .choice-letter {
+  background: var(--tint-soft);
+  box-shadow: none;
+  color: var(--tint);
+}
+
+/* Once checked, the choice she picked shows a filled check or cross in place of its letter. */
+.choice-correct .choice-badge {
+  background: var(--correct);
+  box-shadow: none;
+  color: var(--badge-on-correct);
+}
+
+.choice-wrong .choice-badge {
+  background: var(--wrong);
+  box-shadow: none;
+  color: var(--badge-on-wrong);
+}
+
 .choice-body {
   display: flex;
   flex-direction: column;
@@ -456,7 +518,7 @@
 
 .choice-correct .choice-tag,
 .order-correct .choice-tag {
-  color: var(--correct);
+  color: var(--correct-text);
 }
 
 .choice-wrong .choice-tag,
@@ -465,7 +527,7 @@
 }
 
 .choice-missed .choice-tag {
-  color: var(--correct);
+  color: var(--correct-text);
 }
 
 .choice-reason {
@@ -568,7 +630,7 @@
 
 .segment-note-correct .choice-tag,
 .segment-note-missed .choice-tag {
-  color: var(--correct);
+  color: var(--correct-text);
 }
 
 .segment-note-wrong .choice-tag {
@@ -645,7 +707,6 @@
 .answer-card-label {
   font: var(--text-headline);
   color: var(--text-1);
-  text-wrap: pretty;
 }
 
 .picker {
@@ -899,15 +960,20 @@
 }
 
 .runner-wide .matrix-multi-head {
-  align-items: end;
-  padding-bottom: 8px;
-  border-bottom: 0.5px solid var(--separator-strong);
+  align-items: center;
+  padding: 9px 0;
+  border-radius: var(--radius-sm);
+  background: var(--tint-soft);
 }
 
 .runner-wide .matrix-multi-col {
-  font: var(--weight-medium) var(--size-subhead) / var(--lh-subhead) var(--font-ui);
-  color: var(--text-2);
+  font: var(--weight-semibold) var(--size-subhead) / var(--lh-subhead) var(--font-ui);
+  color: var(--tint);
   text-align: center;
+}
+
+.runner-wide .matrix-multi .answer-card-label {
+  padding-left: 12px;
 }
 
 .runner-wide .matrix-multi-row.answer-card {
@@ -1043,24 +1109,93 @@
   color: var(--text-2);
 }
 
-.result-stats {
+.result-score {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Fully right, partly right, missed and not answered, in the chart colors, as one thin bar. */
+.result-split {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+}
+
+.result-split-part {
+  min-width: 4px;
+}
+
+.result-split-part:first-child {
+  border-radius: 999px 0 0 999px;
+}
+
+.result-split-part:last-child {
+  border-radius: 0 999px 999px 0;
+}
+
+.result-split-part:only-child {
+  border-radius: 999px;
+}
+
+.result-tone-right {
+  background: var(--chart-right);
+}
+
+.result-tone-partial {
+  background: var(--chart-partial);
+}
+
+.result-tone-missed {
+  background: var(--chart-missed);
+}
+
+.result-tone-guess {
+  background: var(--guess);
+}
+
+.result-tone-none {
+  background: var(--separator-strong);
+}
+
+.result-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* Two by two on a phone, a last odd tile across both columns; one row on wider screens. */
+.result-stats li:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.runner-wide .result-stats {
+  grid-template-columns: repeat(var(--tiles), minmax(0, 1fr));
+}
+
+.runner-wide .result-stats li:last-child:nth-child(odd) {
+  grid-column: auto;
+}
+
 .result-stats li {
-  flex: 1 1 90px;
   min-width: 0;
   padding: 12px;
   border-radius: var(--radius-sm);
   background: var(--surface);
   box-shadow: inset 0 0 0 0.5px var(--separator);
   font: var(--text-footnote);
-  color: var(--text-3);
+  color: var(--text-2);
+}
+
+.result-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border-radius: 50%;
 }
 
 .result-stats strong {
@@ -1092,11 +1227,28 @@
 }
 
 .judgment li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 12px;
   padding: 12px 16px;
   font: var(--text-subhead);
+}
+
+/* How much of the step was right, in the accent on its own pale step. */
+.judgment-meter {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--tint-soft-border);
+  overflow: hidden;
+}
+
+.judgment-meter span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--tint);
 }
 
 .judgment li + li {
@@ -1150,7 +1302,7 @@
 }
 
 .result-mark-correct {
-  color: var(--correct);
+  color: var(--correct-text);
 }
 
 .result-mark-partial {
@@ -1206,11 +1358,12 @@
 
 .exhibit-caption {
   font: var(--weight-semibold) var(--size-footnote) / var(--lh-footnote) var(--font-mono);
-  color: var(--text-2);
+  color: var(--exhibit);
 }
 
 .exhibit-image-button + .exhibit-caption {
   text-align: center;
+  color: var(--text-2);
 }
 
 .exhibit-table-scroll {
@@ -1246,11 +1399,17 @@
   overflow-wrap: break-word;
 }
 
+/* The header band is teal; color never flags a reading, only the table's structure. */
 .exhibit-table th {
   font-weight: var(--weight-semibold);
-  color: var(--text-2);
-  background: var(--surface-sunken);
+  color: var(--exhibit);
+  background: var(--exhibit-soft);
   white-space: nowrap;
+}
+
+/* The first column labels the rows. */
+.exhibit-table td:first-child {
+  font-weight: var(--weight-semibold);
 }
 
 .exhibit-table tbody tr + tr td,

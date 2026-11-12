@@ -214,16 +214,6 @@ div.tick-row {
   color: var(--text-3);
 }
 
-/* Four stats sit two by two on a phone and in one row on wider screens, never three and one. */
-.exam-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.runner-wide .exam-stats {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
 /* A twin job's state on Exam setup's Exam twins list, set like an exam's score. */
 .twin-state {
   flex-shrink: 0;

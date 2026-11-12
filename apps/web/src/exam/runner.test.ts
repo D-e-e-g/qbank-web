@@ -16,6 +16,7 @@ function item(over: Partial<ItemState> = {}): ItemState {
     layout: { kind: "options", order: [0, 1, 2] },
     draft: { type: "single", choice: null },
     struck: [],
+    marks: {},
     guessed: false,
     clientAttemptId: "attempt",
     submitted: false,

@@ -6,14 +6,17 @@ import { Icon, type IconName } from "../components/Icon";
 import { useFrozen } from "../frozen";
 import { navigate } from "../router";
 import { AnswerArea } from "./Answers";
+import { Markable, MarkingProvider } from "./highlight/Markable";
+import { QuestionMeta } from "./highlight/QuestionMeta";
 import { RationaleImages, StemExhibits } from "./Exhibits";
 import { FORMAT_LABELS, toResponse } from "./model";
 import { NewRunNotice } from "./NewRunNotice";
 import { openPractice } from "./open";
 import type { PracticeSource } from "./source";
 import { recordPracticeAnswer, type Feedback } from "./recordPracticeAnswer";
+import { MeterList, ScoreSummary } from "./ResultCharts";
 import { RunnerShell } from "./RunnerShell";
-import { advance, answeredCount, nextIndex, pickedUpLine, reveal, startOver, startOverMessage, strike, updateAttempt, type Session } from "./session";
+import { advance, answeredCount, markAttempt, nextIndex, pickedUpLine, progressStrip, reveal, startOver, startOverMessage, strike, updateAttempt, type Session } from "./session";
 
 export function PracticeScreen({ courseId, source, wide }: { courseId: string; source: PracticeSource; wide: boolean }) {
   const { guard } = useFrozen();
@@ -132,6 +135,7 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
       title={session.title}
       count={`${String(session.index + 1)} of ${String(session.questions.length)}`}
       progress={answeredCount(session) / session.questions.length}
+      strip={progressStrip(session)}
       onClose={close}
       footer={
         revealed ? (
@@ -173,32 +177,40 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
           <span>No connection. Your answer is saved as soon as you are back online.</span>
         </p>
       ) : null}
-      <p className="runner-meta">
-        <span className="runner-format">{FORMAT_LABELS[loaded.question.type]}</span>
-        {loaded.topic ? <span>{loaded.topic}</span> : null}
-      </p>
-      <p className="runner-stem">{loaded.stem}</p>
-      <StemExhibits loaded={loaded} />
-      <p className="runner-ask">{loaded.ask}</p>
-      {attempt.score ? <FeedbackBanner score={attempt.score} guessed={attempt.guessed} bannerRef={feedbackRef} /> : null}
-      <AnswerArea
-        loaded={loaded}
-        layout={attempt.layout}
-        draft={attempt.draft}
-        struck={attempt.struck}
-        revealed={revealed}
-        onDraft={(draft) => {
-          if (revealed) return;
-          setSession((current) => updateAttempt(current, session.index, (item) => ({ ...item, draft })));
+      <MarkingProvider
+        marks={attempt.marks}
+        onChange={(marks) => {
+          setSession((current) => markAttempt(current, session.index, marks));
         }}
-        onStrike={
-          revealed
-            ? undefined
-            : (option) => {
-                setSession((current) => strike(current, session.index, option));
-              }
-        }
-      />
+      >
+        <QuestionMeta format={FORMAT_LABELS[loaded.question.type]} topic={loaded.topic} />
+        <p className="runner-stem">
+          <Markable piece="stem" text={loaded.stem} />
+        </p>
+        <StemExhibits loaded={loaded} />
+        <p className="runner-ask">
+          <Markable piece="ask" text={loaded.ask} />
+        </p>
+        {attempt.score ? <FeedbackBanner score={attempt.score} guessed={attempt.guessed} bannerRef={feedbackRef} /> : null}
+        <AnswerArea
+          loaded={loaded}
+          layout={attempt.layout}
+          draft={attempt.draft}
+          struck={attempt.struck}
+          revealed={revealed}
+          onDraft={(draft) => {
+            if (revealed) return;
+            setSession((current) => updateAttempt(current, session.index, (item) => ({ ...item, draft })));
+          }}
+          onStrike={
+            revealed
+              ? undefined
+              : (option) => {
+                  setSession((current) => strike(current, session.index, option));
+                }
+          }
+        />
+      </MarkingProvider>
       {revealed ? null : (
         <label className="guess-row">
           <input
@@ -291,32 +303,10 @@ function Results({ session, wide, closeLabel, onClose }: { session: Session; wid
               {points} of {maxPoints} points{session.pickedUp ? "" : ` · ${durationText(elapsed)}`}
             </p>
           </div>
-          <ul className="result-stats" aria-label="Score summary">
-            <li>
-              <strong>{partial}</strong>
-              Partly right
-            </li>
-            <li>
-              <strong>{missed}</strong>
-              Missed
-            </li>
-            <li>
-              <strong>{guessed}</strong>
-              Guessed
-            </li>
-          </ul>
+          <ScoreSummary right={fullyRight} partial={partial} missed={missed} guessed={guessed} />
           <section className="result-section">
             <h2 className="result-heading">By clinical judgment step</h2>
-            <ul className="judgment" aria-label="By clinical judgment step">
-              {judgmentRows(session).map((row) => (
-                <li key={row.label}>
-                  <span>{row.label}</span>
-                  <span className="judgment-count">
-                    {row.right} of {row.total}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <MeterList label="By clinical judgment step" rows={judgmentRows(session)} />
           </section>
           <section className="result-section">
             <h2 className="result-heading">Questions</h2>

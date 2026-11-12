@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import { Button } from "../components/Button";
 import { Icon } from "../components/Icon";
+import { Markable } from "./highlight/Markable";
 import type { LoadedQuestion, QuestionImage, QuestionTable } from "./model";
 
 /** The table and images that go with the stem. Every screen that shows a stem draws these under it. */
@@ -23,7 +24,11 @@ export function RationaleImages({ loaded }: { loaded: LoadedQuestion }) {
 function ExhibitTable({ table }: { table: QuestionTable }) {
   return (
     <figure className="exhibit">
-      {table.caption ? <figcaption className="exhibit-caption">{table.caption}</figcaption> : null}
+      {table.caption ? (
+        <figcaption className="exhibit-caption">
+          <Markable piece="caption" text={table.caption} />
+        </figcaption>
+      ) : null}
       {/* A wide table scrolls sideways inside its box instead of squeezing on a phone. */}
       <div className="exhibit-table-scroll" role="region" aria-label={table.caption ?? "Table"} tabIndex={0}>
         <table className="exhibit-table">
@@ -32,7 +37,7 @@ function ExhibitTable({ table }: { table: QuestionTable }) {
               <tr>
                 {table.head.map((cell, index) => (
                   <th key={index} scope="col">
-                    {cell}
+                    <Markable piece={`head:${String(index)}`} text={cell} />
                   </th>
                 ))}
               </tr>
@@ -42,7 +47,9 @@ function ExhibitTable({ table }: { table: QuestionTable }) {
             {table.rows.map((row, rowIndex) => (
               <tr key={rowIndex}>
                 {row.map((cell, index) => (
-                  <td key={index}>{cell}</td>
+                  <td key={index}>
+                    <Markable piece={`cell:${String(rowIndex)}:${String(index)}`} text={cell} />
+                  </td>
                 ))}
               </tr>
             ))}

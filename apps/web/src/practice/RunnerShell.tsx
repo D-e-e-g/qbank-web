@@ -1,17 +1,18 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { Button } from "../components/Button";
 import { Icon } from "../components/Icon";
 
 /**
  * The runner's frame: a header with the question count and a progress bar, the scrolling
  * question column, and a pinned footer. Practice closes from the leading X; an exam puts its
- * own controls at both ends of the header.
+ * own controls at both ends of the header. With `strip`, the bar is one step per question.
  */
 export function RunnerShell({
   wide,
   title,
   count,
   progress = 0,
+  strip,
   onClose,
   leading,
   trailing,
@@ -22,6 +23,7 @@ export function RunnerShell({
   title: string;
   count: string;
   progress?: number;
+  strip?: readonly StripStep[] | undefined;
   onClose?: () => void;
   leading?: ReactNode;
   trailing?: ReactNode;
@@ -59,7 +61,15 @@ export function RunnerShell({
           aria-valuenow={Math.round(progress * 100)}
           aria-label="Progress"
         >
-          <div className="runner-progress-fill" style={{ width: `${String(Math.round(progress * 100))}%` }} />
+          {strip ? (
+            <div className="runner-strip" style={{ "--strip-gap": stripGap(strip.length) } as CSSProperties}>
+              {strip.map((step, index) => (
+                <span key={index} className={`runner-strip-step runner-strip-${step}`} />
+              ))}
+            </div>
+          ) : (
+            <div className="runner-progress-fill" style={{ width: `${String(Math.round(progress * 100))}%` }} />
+          )}
         </div>
       </div>
       <div className="runner-scroll" ref={scroller}>
@@ -72,4 +82,17 @@ export function RunnerShell({
       ) : null}
     </div>
   );
+}
+
+/**
+ * One question on the progress strip. In practice a checked question shows its result (right,
+ * partial, missed); a timed exam shows only answered and skipped, never right or wrong.
+ */
+export type StripStep = "right" | "partial" | "missed" | "answered" | "skipped" | "now" | "todo";
+
+/** Steps keep a gap while each stays wide enough to read; a long set becomes one continuous bar. */
+function stripGap(count: number): string {
+  if (count <= 40) return "2px";
+  if (count <= 100) return "1px";
+  return "0px";
 }
