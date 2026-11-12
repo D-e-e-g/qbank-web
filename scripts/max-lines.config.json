@@ -1,0 +1,76 @@
+{
+  "limit": 1000,
+  "include": [
+    "**/*.js",
+    "**/*.mjs",
+    "**/*.cjs",
+    "**/*.jsx",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.mts",
+    "**/*.cts"
+  ],
+  "exclude": [
+    {
+      "glob": "apps/web/src/api-schema.ts",
+      "reason": "Generated from the pinned OpenAPI contract by pnpm openapi."
+    },
+    {
+      "glob": ".agents/skills/qbank-design/**",
+      "reason": "Bundled design-system export, including _ds_bundle.js; not hand-written app source."
+    },
+    {
+      "glob": "**/node_modules/**",
+      "reason": "Vendored third-party packages."
+    },
+    {
+      "glob": "**/dist/**",
+      "reason": "Build output."
+    },
+    {
+      "glob": "**/coverage/**",
+      "reason": "Test coverage output."
+    },
+    {
+      "glob": "**/playwright-report/**",
+      "reason": "Playwright report output."
+    },
+    {
+      "glob": "**/test-results/**",
+      "reason": "Playwright test output."
+    },
+    {
+      "glob": "pnpm-lock.yaml",
+      "reason": "Lock file."
+    },
+    {
+      "glob": "apps/web/contract/openapi.json",
+      "reason": "Pinned OpenAPI snapshot, not hand-written source."
+    },
+    {
+      "glob": "apps/web/contract/pin.json",
+      "reason": "Commit and image pin for that snapshot, not hand-written source."
+    },
+    {
+      "glob": "**/*.snap",
+      "reason": "Test data snapshots."
+    },
+    {
+      "glob": "**/__snapshots__/**",
+      "reason": "Test data snapshots."
+    },
+    {
+      "glob": "**/*.{css,html,md,png,svg,webmanifest,yml,yaml,json}",
+      "reason": "Styles, markup, docs, images, and data. Not source files the language tooling checks."
+    },
+    {
+      "glob": "**/*.sh",
+      "reason": "Shell scripts. Not source files the JavaScript and TypeScript tooling checks."
+    },
+    {
+      "glob": "**/Caddyfile",
+      "reason": "Caddy site config, not a source file the language tooling checks."
+    }
+  ],
+  "allow": []
+}
