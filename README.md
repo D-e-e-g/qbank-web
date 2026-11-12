@@ -18,7 +18,8 @@ sync across her iPhone, iPad, and Mac.
   fit more than one column, and drop-down, scored with
   partial credit. Every option explains why it is right or wrong. While she
   answers a choice question, she can strike out the choices she has ruled
-  out, and restore one with the same tap.
+  out, and restore one with the same tap. She can highlight any words of a
+  question, a case study's table included, in yellow, blue, or pink.
 - **Timed exams** drawn from the folders she picks, in proportion to each
   folder. A folder can have its own exam-only question bank, and an exam can be
   limited to the questions she got wrong.

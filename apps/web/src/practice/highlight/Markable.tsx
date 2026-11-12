@@ -55,8 +55,10 @@ export function MarkingProvider({ marks, onChange, children }: { marks: Marks; o
     };
     abandon.current = followPress(event.nativeEvent, root, segments, {
       live: (range) => {
-        if (range === null) abandon.current = null;
         setLive(range ? { piece, mark: { ...range, color: latest.current.color } } : null);
+      },
+      end: () => {
+        abandon.current = null;
       },
       commit: (range) => {
         change((marks) => paint(marks, range.start, range.end, latest.current.color));

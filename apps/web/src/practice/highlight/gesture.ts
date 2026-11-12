@@ -18,8 +18,10 @@ export interface Range {
 }
 
 export interface PressHandlers {
-  /** The range the drag would mark now, or null once it ends. */
+  /** The range the drag would mark now, or null when it covers no word. */
   live: (range: Range | null) => void;
+  /** The press is over: lifted, cancelled, or abandoned. */
+  end: () => void;
   /** The drag ended on this range. */
   commit: (range: Range) => void;
   /** A tap at this offset. True when it erased a mark, so the tap picks nothing. */
@@ -110,6 +112,7 @@ export function followPress(event: PointerEvent, root: HTMLElement, segments: re
     window.removeEventListener("touchmove", holdPage);
     window.removeEventListener("contextmenu", keepMenu, true);
     handlers.live(null);
+    handlers.end();
   }
 
   window.addEventListener("pointermove", move);
