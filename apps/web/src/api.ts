@@ -26,6 +26,13 @@ export type CatalogRecord = paths["/api/semesters"]["get"]["responses"][200]["co
 export type CourseDetail = Schemas["CourseDetail"];
 /** A study topic is a course with no semester, which the screens call by its title; "course" for every course. */
 export type CourseKind = CourseDetail["kind"];
+/**
+ * Where she stands in a practice set, as the server decides it: nothing answered yet (`new`), a sitting
+ * to continue (`midway`), answers kept but the set opens at question 1 again (`restarted`), or every
+ * current question answered (`done`). The screens take it as it comes and never work it out from counts.
+ */
+export type SetRun = Schemas["SetRun"];
+/** A set's row, with the `run` the server decides. */
 export type SetSummary = Schemas["SetSummary"];
 /** A folder of a course: her name for it, the exam page it is on, its place in its list, and its sets. */
 export type CourseFolder = Schemas["Folder"];

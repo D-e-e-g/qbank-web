@@ -33,6 +33,7 @@ const set: LoadedSet = {
     loaded("q2", 1, { type: "sata", options: [{ t: "Yes", ok: true }, { t: "No" }, { t: "Yes too", ok: true }] }),
   ],
   sitting: null,
+  run: null,
 };
 
 const score: Feedback = { status: "incorrect", points: 0, maxPoints: 1, label: "Not correct", pointsText: null, ruleText: null };
@@ -103,7 +104,7 @@ describe("a set she left midway", () => {
   }
 
   function sitting(answered: string[], answers = answered.map((id) => answer(id))): LoadedSet {
-    return { ...set, questions, sitting: { id: null, startedAt: null, answeredQuestionIds: answered, answers } };
+    return { ...set, questions, run: "midway", sitting: { id: null, startedAt: null, answeredQuestionIds: answered, answers } };
   }
 
   it("opens at question 1 with nothing to pick up when there is no sitting", () => {
@@ -143,26 +144,12 @@ describe("a set she left midway", () => {
     expect(session.attempts[0]).toMatchObject({ earlier: true, score: null });
   });
 
-  it("opens fresh if the sitting has nothing left to answer", () => {
-    const session = beginSession(sitting(["q1", "q2", "q3", "q4"]), "set");
+  it("opens a set with no run, as in Review, at question 1 even beside a sitting", () => {
+    const session = beginSession({ ...sitting(["q1", "q2"]), run: null }, "review");
     expect(session.index).toBe(0);
     expect(session.pickedUp).toBeNull();
-    expect(session.newRun).toBe(true);
-    expect(answeredCount(session)).toBe(0);
-  });
-
-  it("opens a finished set with no sitting as a new run at question 1", () => {
-    const session = beginSession({ ...set, questions }, "set", true);
-    expect(session.index).toBe(0);
-    expect(session.pickedUp).toBeNull();
-    expect(session.newRun).toBe(true);
-    expect(answeredCount(session)).toBe(0);
-  });
-
-  it("does not call a set she left midway a new run", () => {
-    const session = beginSession(sitting(["q1", "q2"]), "set", true);
-    expect(session.index).toBe(2);
     expect(session.newRun).toBe(false);
+    expect(answeredCount(session)).toBe(0);
   });
 
   it("starts over at question 1 with nothing filled in and new attempt ids", () => {
@@ -174,6 +161,47 @@ describe("a set she left midway", () => {
     expect(again?.finishedAt).toBeNull();
     expect(again && answeredCount(again)).toBe(0);
     expect(again?.attempts[0]?.clientAttemptId).not.toBe("attempt-q1");
+  });
+
+  describe("where the server's run puts her", () => {
+    it("opens a new set at question 1", () => {
+      const session = beginSession({ ...set, questions, run: "new" }, "set");
+      expect(session.index).toBe(0);
+      expect(session.pickedUp).toBeNull();
+      expect(session.newRun).toBe(false);
+    });
+
+    it("opens a set she began again at question 1, not as a new run, even beside a sitting", () => {
+      const session = beginSession({ ...sitting(["q1", "q2"]), run: "restarted" }, "set");
+      expect(session.index).toBe(0);
+      expect(session.pickedUp).toBeNull();
+      expect(session.newRun).toBe(false);
+      expect(answeredCount(session)).toBe(0);
+    });
+
+    it("opens a done set as a new run at question 1 even with a retake under way", () => {
+      for (const loaded of [{ ...set, questions, run: "done" as const }, { ...sitting(["q1"]), run: "done" as const }]) {
+        const session = beginSession(loaded, "set");
+        expect(session.index).toBe(0);
+        expect(session.pickedUp).toBeNull();
+        expect(session.newRun).toBe(true);
+        expect(answeredCount(session)).toBe(0);
+      }
+    });
+
+    it("picks a midway set up where she left it, and never calls it a new run", () => {
+      const session = beginSession({ ...sitting(["q1", "q2"]), run: "midway" }, "set");
+      expect(session.index).toBe(2);
+      expect(session.pickedUp).toMatchObject({ at: 3, answered: 2 });
+      expect(session.newRun).toBe(false);
+    });
+
+    it("opens a midway set at question 1 when no sitting came with it", () => {
+      const session = beginSession({ ...set, questions, run: "midway" }, "set");
+      expect(session.index).toBe(0);
+      expect(session.pickedUp).toBeNull();
+      expect(session.newRun).toBe(false);
+    });
   });
 
   it("says how many she answered earlier today, and the day when it was another day", () => {

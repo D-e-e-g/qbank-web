@@ -38,6 +38,7 @@ const openSet: LoadedSet = {
   weekLabel: "Week 1",
   questions,
   sitting: null,
+  run: null,
 };
 
 const score: Feedback = { status: "correct", points: 1, maxPoints: 1, label: "Correct", pointsText: null, ruleText: null };
@@ -61,7 +62,7 @@ function answer(questionId: string): SittingAnswer {
 }
 
 function sitting(answered: string[]): LoadedSet {
-  return { ...openSet, sitting: { id: null, startedAt: null, answeredQuestionIds: answered, answers: answered.map(answer) } };
+  return { ...openSet, run: "midway", sitting: { id: null, startedAt: null, answeredQuestionIds: answered, answers: answered.map(answer) } };
 }
 
 /** The rendered notice, with the text apostrophe put back. An empty string is no notice. */
@@ -75,16 +76,12 @@ describe("NewRunNotice", () => {
   });
 
   it("shows them above question 1 of a finished set, as text with nothing to tap", () => {
-    const html = markup(beginSession(openSet, "set", true));
+    const html = markup(beginSession({ ...openSet, run: "done" }, "set"));
     expect(html).toBe(`<p class="runner-new-run">${NOTICE}</p>`);
   });
 
-  it("shows them when the sitting already holds every question", () => {
-    expect(markup(beginSession(sitting(["q1", "q2"]), "set"))).toBe(`<p class="runner-new-run">${NOTICE}</p>`);
-  });
-
   it("does not show on a set not yet started", () => {
-    expect(markup(beginSession(openSet, "set"))).toBe("");
+    expect(markup(beginSession({ ...openSet, run: "new" }, "set"))).toBe("");
   });
 
   it("does not show while she continues, including when that opens at question 1", () => {
@@ -93,8 +90,8 @@ describe("NewRunNotice", () => {
   });
 
   it("does not show in Review", () => {
-    expect(markup(beginSession(openSet, "review", true))).toBe("");
-    expect(markup(beginSession(sitting(["q1", "q2"]), "review"))).toBe("");
+    expect(markup(beginSession({ ...openSet, run: "done" }, "review"))).toBe("");
+    expect(markup(beginSession({ ...sitting(["q1", "q2"]), run: null }, "review"))).toBe("");
   });
 
   it("does not show after Start over on a set she had not finished", () => {
@@ -103,7 +100,7 @@ describe("NewRunNotice", () => {
   });
 
   it("stays on question 1 after she checks the answer, and leaves once the runner moves on", () => {
-    const opened = beginSession(openSet, "set", true);
+    const opened = beginSession({ ...openSet, run: "done" }, "set");
     const checked = reveal(opened, 0, false, score);
     expect(checked && markup(checked)).toBe(`<p class="runner-new-run">${NOTICE}</p>`);
     const next = checked && advance(checked);

@@ -15,7 +15,7 @@ import { useFrozen } from "../frozen";
 import { examPagePath, importPath, navigate } from "../router";
 import { Screen } from "../shell/Screen";
 import { ShellLink } from "../shell/ShellLink";
-import { statusLine } from "./set-status";
+import { offersContinue, statusLine } from "./set-status";
 
 type Sheet = "rename" | "page" | "move" | "delete" | "delete-sets" | null;
 
@@ -315,7 +315,7 @@ function SetCopy({ set, opens = false }: { set: SetSummary; opens?: boolean }) {
       <span className="list-title list-title-strong">{set.title}</span>
       <span className="list-meta">
         {statusLine(set)}
-        {opens && set.sitting ? (
+        {opens && offersContinue(set) ? (
           <>
             {" "}
             <span className="list-meta-sep">·</span> <span className="list-continue">Continue</span>
