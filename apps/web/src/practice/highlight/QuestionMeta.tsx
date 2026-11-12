@@ -23,7 +23,7 @@ export function QuestionMeta({ format, topic, children }: { format: string; topi
       {marking && !marking.used ? (
         <p className="runner-hint">
           <span className="runner-hint-mouse">Drag across words to highlight them. Click a highlight to erase it.</span>
-          <span className="runner-hint-touch">Touch and hold words, then drag to highlight them. Tap a highlight to erase it.</span>
+          <span className="runner-hint-touch">Hold a word and drag to highlight. Tap one to erase it.</span>
         </p>
       ) : null}
     </>

@@ -29,6 +29,14 @@ mark.hl {
   box-decoration-break: clone;
 }
 
+/* A drag with a mouse marks and selects at once, so Copy still works; the marked words keep
+   their color under the selection instead of the selection's. */
+mark.hl::selection,
+mark.hl ::selection {
+  background: var(--hl);
+  color: var(--hl-text);
+}
+
 /* The words a drag is painting, before it lets go. */
 mark.hl-live {
   box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--hl-text) 45%, transparent);

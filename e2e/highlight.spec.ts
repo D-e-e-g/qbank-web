@@ -85,13 +85,7 @@ async function touchDrag(page: Page, from: Locator, to: Locator, holdMs: number)
   const start = await from.boundingBox();
   const end = await to.boundingBox();
   if (!start || !end) throw new Error("the words are not on screen");
-  const target = await from.elementHandle();
-  await page.evaluate(
-    ({ element, x, y }) => {
-      element?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, pointerId: 7, pointerType: "touch", isPrimary: true, clientX: x, clientY: y, button: 0 }));
-    },
-    { element: target, x: start.x + 2, y: start.y + start.height / 2 },
-  );
+  await from.dispatchEvent("pointerdown", { pointerId: 7, pointerType: "touch", isPrimary: true, clientX: start.x + 2, clientY: start.y + start.height / 2, button: 0 });
   await page.waitForTimeout(holdMs);
   await page.evaluate(
     ({ x, y }) => {
