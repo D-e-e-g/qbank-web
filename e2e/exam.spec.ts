@@ -232,6 +232,46 @@ test.describe("exam", () => {
     await expect(past).toContainText("1 of 3");
   });
 
+  test("a finish that does not land offers one Finish exam that retries, also after a reload, and records the exam as finished", async ({ page }) => {
+    await signIn(page);
+    const courseId = await importCourse(page, { "Week 1": 2 });
+    await page.goto(`/course/${courseId}/exam`);
+    await tickFolder(page, "Week 1");
+    await page.getByRole("button", { name: "Start exam" }).click();
+    await expect(page.getByText("1 of 2", { exact: true })).toBeVisible();
+    const examId = new URL(page.url()).pathname.split("/").at(-1) ?? "";
+
+    // The connection drops for the finish call only: both answers are in.
+    const finish = `**/api/exams/${examId}/finish`;
+    await page.route(finish, (route) => route.abort("internetdisconnected"));
+    await answerWith(page, RIGHT);
+    await page.getByRole("button", { name: "Submit and continue" }).click();
+    await expect(page.getByText("2 of 2", { exact: true })).toBeVisible();
+    await answerWith(page, RIGHT);
+    await page.getByRole("button", { name: "Finish exam" }).click();
+
+    // Not back on a submitted question with Submit and continue: one Finish exam, and why it has not ended.
+    await expect(page.getByText("Every question is answered.")).toBeVisible();
+    await expect(page.getByRole("status")).toHaveText("No connection. The exam ends as soon as you are back online.");
+    await expect(page.getByText("2 of 2 answered", { exact: true })).toBeVisible();
+    await expect(page.getByRole("radio")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Submit and continue" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "End exam" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Finish exam" })).toHaveCount(1);
+
+    // A reload opens it asking to finish, not on question 1.
+    await page.reload();
+    await expect(page.getByText("Every question is answered.")).toBeVisible();
+    await expect(page.getByText("1 of 2", { exact: true })).toHaveCount(0);
+
+    await page.unroute(finish);
+    await page.getByRole("button", { name: "Finish exam" }).click();
+    await expect(page.getByRole("heading", { name: "2 of 2 fully right" })).toBeVisible();
+    await expect(page.getByText(/Time ran out|Ended early/)).toHaveCount(0);
+    const ended = (await (await page.request.get(`/api/exams/${examId}`)).json()) as { endReason: string | null };
+    expect(ended.endReason).toBe("finished");
+  });
+
   test("wrong questions only draws what she last got wrong, and a folder's exam bank stands in for its practice questions", async ({ page }) => {
     await signIn(page);
     const courseId = await importCourse(page, { "Week 1": 4, "Week 2": 3 });

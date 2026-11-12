@@ -6,13 +6,11 @@ import {
   type ExamSetup,
   type ExamSetupFolder,
   type ExamSummary,
-  type ExamView,
   type QuestionMakerStatus,
   type TwinJob,
 } from "../api";
 import { useCatalogCourse } from "../catalog";
 import { Button } from "../components/Button";
-import { ConfirmSheet } from "../components/ConfirmSheet";
 import { EmptyState } from "../components/EmptyState";
 import { Icon } from "../components/Icon";
 import { Switch } from "../components/Switch";
@@ -26,8 +24,11 @@ import { useCourseVersion } from "../course/deletion";
 import { useCourse, useCourseNaming } from "../course/useCourse";
 import { when } from "../when";
 import { PastExamList } from "./PastExamList";
+import { ReplaceExamSheet } from "./ReplaceExamSheet";
+import { NOT_KNOWN, type RunningExam } from "./start";
 import { foldersText, minutesText, practiceFoldersText } from "./names";
 import { canTwin, courseTwinJobs, listsTwinJobs, twinJobMeta, twinJobPath, twinJobState, twinJobTitle } from "./twins";
+import { useExamStart } from "./useExamStart";
 
 /** How long the plan for new ticks may take before the last one is dimmed. */
 const SLOW_PLAN_MS = 300;
@@ -42,24 +43,30 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
   const [loaded, setLoaded] = useState<{ path: string; setup: ExamSetup; at: number } | null>(null);
   const [slowPath, setSlowPath] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [startError, setStartError] = useState<string | null>(null);
   const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set(preset?.folderIds ?? []));
   const [wrongOnly, setWrongOnly] = useState(false);
-  const [starting, setStarting] = useState(false);
-  const [replacing, setReplacing] = useState(false);
+  // Read again when starting finds an exam running that this setup did not show, so it shows.
+  const [reread, setReread] = useState(0);
+  const learnRunning = useCallback(() => {
+    setReread((count) => count + 1);
+  }, []);
+  const examStart = useExamStart(learnRunning);
+  const starting = examStart.starting;
   // The Twin option and her twin jobs over this course, for the one account that may make questions.
   const [maker, setMaker] = useState<QuestionMakerStatus | null>(null);
   const [twinJobs, setTwinJobs] = useState<TwinJob[] | null>(null);
   const [twinning, setTwinning] = useState(false);
   // A refusal is about the folders and pool it was asked for, so it shows only until she changes them.
   const [twinError, setTwinError] = useState<{ path: string; message: string } | null>(null);
-  const error = startError ?? loadError;
+  const error = examStart.error ?? loadError;
   // A deleted past exam, or one brought back, changes the list and her Wrong questions, so the setup is read again.
   const version = useCourseVersion(courseId);
   // The server works out the exam over the ticked folders, so the setup is read again as she ticks.
   // The first read already asks for the folders the exam page ticked.
   const path = setupPath(courseId, ticked, wrongOnly);
   const setup = loaded?.setup ?? null;
+  // Whether an exam is running is known once a setup was read, from that read.
+  const running: RunningExam = setup === null ? NOT_KNOWN : { known: true, exam: setup.inProgress };
   // The last plan stays on screen until the next one arrives. When that takes a moment, it is
   // dimmed, so it is not read as the plan for the folders ticked now.
   const updating = slowPath === path && loaded?.path !== path;
@@ -86,7 +93,7 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
       cancel = true;
       clearTimeout(slow);
     };
-  }, [path, version]);
+  }, [path, version, reread]);
 
   useEffect(() => {
     let cancel = false;
@@ -125,18 +132,7 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
   const label = (id: string, name: string) => (detail ? folderLabel(detail, id, name) : name);
 
   const start = () => {
-    setReplacing(false);
-    setStarting(true);
-    setStartError(null);
-    const json = { folderIds: picked.map((folder) => folder.id), pool: wrongOnly ? "wrong" : "all" };
-    void api<ExamView>(`/api/courses/${courseId}/exams`, { method: "POST", json })
-      .then((exam) => {
-        navigate(`/course/${courseId}/exam/${exam.id}`);
-      })
-      .catch((caught: unknown) => {
-        setStarting(false);
-        setStartError(caught instanceof ApiError ? caught.message : "Could not start the exam.");
-      });
+    examStart.start(courseId, { folderIds: picked.map((folder) => folder.id), pool: wrongOnly ? "wrong" : "all" }, running);
   };
 
   // Instead of an exam on these questions, QBank writes exam twins of them; its page follows the job.
@@ -153,10 +149,6 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
         setTwinError({ path, message: caught instanceof ApiError ? caught.message : "Could not start the exam twins." });
       });
   };
-
-  const dismiss = useCallback(() => {
-    setReplacing(false);
-  }, []);
 
   return (
     <Screen title="Exam">
@@ -267,11 +259,8 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
           <Button
             fullWidth
             className="btn-lg"
-            disabled={picked.length === 0 || starting || twinning}
-            onClick={guard(() => {
-              if (setup?.inProgress) setReplacing(true);
-              else start();
-            })}
+            disabled={picked.length === 0 || starting || twinning || !running.known}
+            onClick={guard(start)}
           >
             Start exam
           </Button>
@@ -291,15 +280,7 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
       ) : null}
       {twinJobs !== null && twinJobs.length > 0 ? <TwinJobs courseId={courseId} jobs={twinJobs} /> : null}
       {setup !== null && folders.length > 0 ? <PastExams courseId={courseId} exams={setup.exams} /> : null}
-      {replacing ? (
-        <ConfirmSheet
-          title="Start a new exam?"
-          message="The exam in progress ends now. What you answered on it is scored, and the rest score 0."
-          confirmLabel="Start new exam"
-          onConfirm={start}
-          onCancel={dismiss}
-        />
-      ) : null}
+      {examStart.asking ? <ReplaceExamSheet onConfirm={examStart.confirm} onCancel={examStart.dismiss} /> : null}
     </Screen>
   );
 }

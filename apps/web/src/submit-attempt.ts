@@ -53,7 +53,7 @@ export async function submitAttempt(input: AttemptSubmission, options: SubmitOpt
 }
 
 /** A failed fetch, a cut-off response, or a server that is restarting. A refusal is final. */
-function isTransient(error: unknown): boolean {
+export function isTransient(error: unknown): boolean {
   if (error instanceof ApiError) {
     if (error.status === 502 || error.status === 504) return true;
     // The API answers 503 on its own only when sign-in is not set up, which a retry cannot fix.
