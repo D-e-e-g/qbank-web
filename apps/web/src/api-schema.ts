@@ -4686,7 +4686,7 @@ export interface paths {
         put?: never;
         /**
          * Start an exam over the folders she ticked
-         * @description Draws up to 40 questions only from the sets in the ticked folders, in proportion to each folder's size, with 60 minutes for 40 or 1.5 minutes per question when the folders hold fewer. A folder with an exam bank gives its exam-bank questions; a folder without one gives its practice questions, and once the course has any exam bank the exam lists such folders in practiceWeeks. With pool `wrong`, only the questions she last answered not fully right are drawn: practice questions, exam-bank questions, and the exam twins of practice questions she got wrong (the one practice question of the same folder whose id the exam question names in twinOf) until she answers the twin fully right; a ticked folder with none is refused with `no_wrong_questions`. Send `folderIds`, or legacy `weeks` (folder names, each meaning every folder of that name), not both; with neither, it is refused with `no_folders`. A folder the course does not have is refused with `folder_not_found`, one with no questions with `folder_empty`, and a name no folder with questions has with `week_not_found`. A running exam of hers ends first. Answers go to POST /api/attempts with this exam's id as studySessionId. The admin's session is refused with 403 `admin_read_only`.
+         * @description Draws up to 40 questions only from the sets in the ticked folders, in proportion to each folder's size, with 60 minutes for 40 or 1.5 minutes per question when the folders hold fewer. A folder with an exam bank gives its exam-bank questions; a folder without one gives its practice questions, and once the course has any exam bank the exam lists such folders in practiceWeeks. With pool `wrong`, only the questions she last answered not fully right are drawn: practice questions, exam-bank questions, and the exam twins of practice questions she got wrong (the one practice question of the same folder whose id the exam question names in twinOf) until she answers the twin fully right; a ticked folder with none is refused with `no_wrong_questions`. Send `folderIds`, or legacy `weeks` (folder names, each meaning every folder of that name), not both; with neither, it is refused with `no_folders`. A folder the course does not have is refused with `folder_not_found`, one with no questions with `folder_empty`, and a name no folder with questions has with `week_not_found`. A running exam of hers ends first, recorded as `left`, as `replaces` allows: send the running exam's id once she has confirmed ending it, or null when the screen read that none is running. When an exam is running that `replaces` does not name (null names none), it is refused with 409 `exam_in_progress` naming the running exam in `inProgress`, and nothing changes: ask her ("Start a new exam?") and send its id. Without `replaces`, as from an app from before it, the running exam ends unasked. An exam whose time has run out is not running: it ends as a timeout whatever `replaces` says. Answers go to POST /api/attempts with this exam's id as studySessionId. The admin's session is refused with 403 `admin_read_only`.
          */
         post: {
             parameters: {
@@ -4746,6 +4746,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ExamError"];
+                    };
+                };
+                /** @description `exam_in_progress`: an exam she did not confirm ending is running. Nothing changed. Ask her, then send its id as `replaces`. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ExamInProgress"];
                     };
                 };
                 /** @description Sign-in is not configured. */
@@ -8153,6 +8162,7 @@ export interface components {
             lastAnsweredAt: string | null;
             /** @description The sitting she would continue, so the row says Continue. Null when opening the set starts it at question 1: a new set, one with every question answered by any route (even with a retake under way), one she answered only on exams, or one she chose Start over on, whose answeredCount above still counts every answer she has given. */
             sitting: components["schemas"]["SetSittingSummary"] | null;
+            run: components["schemas"]["SetRun"];
             questionIds: string[];
             /** @description The agent key that imported this version of the set, such as the user's own AI agent (see the Agents tag): show it as "Imported by your agent". Null when it was imported in the app or QBank made it. It stays after the key is revoked. */
             importedByAgent: components["schemas"]["ImportingAgent"] | null;
@@ -8161,6 +8171,11 @@ export interface components {
             /** @description Questions of the set answered in this sitting: the row's "7 of 12 answered · Continue". */
             answeredCount: number;
         };
+        /**
+         * @description Where the user is in a practice set, on SetSummary and PracticeSet alike, worked out once here so every app reads the same and needs no other request: `new`, nothing answered; `midway`, a sitting to continue (exactly when `sitting` is not null), so the set says Continue; `restarted`, answers given, yet the set opens at question 1, after Start over or when answered only on exams; `done`, every question answered by any route, even with a retake under way, so opening it begins a new run. Only `midway` continues; every other run opens the set at question 1. Always `new` where there is no user's study to read: a Review list, an exam set, and an agent key. A client reading a response without it (an older server, or a copy saved before) works it out from `sitting`, `answeredCount` and `questionCount` as before.
+         * @enum {string}
+         */
+        SetRun: "new" | "midway" | "restarted" | "done";
         ImportingAgent: {
             /**
              * Format: uuid
@@ -8297,6 +8312,7 @@ export interface components {
             questions: components["schemas"]["PracticeQuestion"][];
             /** @description Where she left this set: open it at the first question not in `answeredQuestionIds`, with the answers counted in the result. Null opens it at question 1; so it is for a Review list, an exam set, and an agent key. */
             sitting: components["schemas"]["SetSitting"] | null;
+            run: components["schemas"]["SetRun"];
         };
         PracticeQuestion: {
             /** Format: uuid */
@@ -9291,6 +9307,12 @@ export interface components {
                 shuffle?: unknown;
             }[];
         };
+        ExamInProgress: {
+            /** @enum {string} */
+            error: "exam_in_progress";
+            message: string;
+            inProgress: components["schemas"]["ExamSummary"] & unknown;
+        };
         StartExam: {
             /** @description The folders to draw from (CourseDetail.folders). */
             folderIds?: string[];
@@ -9302,6 +9324,11 @@ export interface components {
              * @enum {string}
              */
             pool: "all" | "wrong";
+            /**
+             * Format: uuid
+             * @description The running exam she confirmed ending (ExamSetup.inProgress.id), or null when the screen read that none is running. Either way, an exam running that she did not confirm is refused with 409 `exam_in_progress` and nothing changes. Leave it out only as an app from before it does: then the running exam ends unasked.
+             */
+            replaces?: string | null;
         };
         FinishExam: {
             /** @enum {string} */

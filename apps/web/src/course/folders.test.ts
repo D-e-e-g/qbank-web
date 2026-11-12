@@ -30,6 +30,7 @@ function set(questionCount: number, answeredCount: number, fullyRightCount = ans
     questionIds: [],
     importedByAgent: null,
     sitting: null,
+    run: "new",
   };
 }
 

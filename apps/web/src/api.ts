@@ -31,9 +31,9 @@ export type CourseKind = CourseDetail["kind"];
  * to continue (`midway`), answers kept but the set opens at question 1 again (`restarted`), or every
  * current question answered (`done`). The screens take it as it comes and never work it out from counts.
  */
-export type SetRun = "new" | "midway" | "restarted" | "done";
+export type SetRun = Schemas["SetRun"];
 /** A set's row, with the `run` the server decides. */
-export type SetSummary = Schemas["SetSummary"] & { run: SetRun };
+export type SetSummary = Schemas["SetSummary"];
 /** A folder of a course: her name for it, the exam page it is on, its place in its list, and its sets. */
 export type CourseFolder = Schemas["Folder"];
 /** What a page is for, which she sets in its editor: Exam, Concept or Study. A page has one or none (null). */
