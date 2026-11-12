@@ -9,5 +9,6 @@
 @import "./login/login.css";
 @import "./content.css";
 @import "./practice/practice.css";
+@import "./practice/highlight/highlight.css";
 @import "./exam/exam.css";
 @import "./make/make.css";

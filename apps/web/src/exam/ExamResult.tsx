@@ -7,6 +7,7 @@ import { navigate } from "../router";
 import { AnswerArea } from "../practice/Answers";
 import { RationaleImages, StemExhibits } from "../practice/Exhibits";
 import { FORMAT_LABELS, draftFromResponse, initialDraft, readLayout, type LoadedQuestion } from "../practice/model";
+import { MeterList, ScoreSummary } from "../practice/ResultCharts";
 import type { LoadedExam } from "./ExamScreen";
 import { foldersText, practiceFoldersText } from "./names";
 
@@ -48,24 +49,7 @@ export function ExamResultView({ exam, wide }: { exam: LoadedExam; wide: boolean
             </p>
             {practiceFolders.length > 0 ? <p className="note">{practiceFoldersText(practiceFolders, "after")}</p> : null}
           </div>
-          <ul className="result-stats exam-stats" aria-label="Score summary">
-            <li>
-              <strong>{result.partial}</strong>
-              Partly right
-            </li>
-            <li>
-              <strong>{result.missed}</strong>
-              Missed
-            </li>
-            <li>
-              <strong>{result.guessed}</strong>
-              Guessed
-            </li>
-            <li>
-              <strong>{result.unanswered}</strong>
-              Not answered
-            </li>
-          </ul>
+          <ScoreSummary right={result.fullyRight} partial={result.partial} missed={result.missed} guessed={result.guessed} unanswered={result.unanswered} />
           {result.reviewCount > 0 ? (
             <Button
               fullWidth
@@ -111,16 +95,7 @@ function Breakdown({ title, rows }: { title: string; rows: ExamBreakdownRow[] })
   return (
     <section className="result-section">
       <h2 className="result-heading">{title}</h2>
-      <ul className="judgment" aria-label={title}>
-        {rows.map((row) => (
-          <li key={row.label}>
-            <span>{row.label}</span>
-            <span className="judgment-count">
-              {row.right} of {row.total}
-            </span>
-          </li>
-        ))}
-      </ul>
+      <MeterList label={title} rows={rows} />
     </section>
   );
 }

@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { Icon } from "../components/Icon";
+import { Markable } from "./highlight/Markable";
 import {
   choiceLetter,
   clozeParts,
@@ -207,11 +208,11 @@ function OptionList({
                   : undefined
               }
             >
-              <span className="choice-letter" aria-hidden="true">
-                {letter}
-              </span>
+              <ChoiceLetter letter={letter} badge={revealed && selected ? (correct ? "check" : "x") : null} />
               <span className="choice-body">
-                <span className="choice-text">{option.t}</span>
+                <span className="choice-text">
+                  <Markable piece={`option:${String(original)}`} text={option.t} />
+                </span>
                 {revealed ? <ChoiceMark selected={selected} correct={correct} /> : null}
                 {revealed && option.why ? <span className="choice-reason">{option.why}</span> : null}
               </span>
@@ -311,7 +312,9 @@ function OrderList({
           <li key={original} className={["order-row", state].filter(Boolean).join(" ")}>
             <span className="order-pos">{index + 1}</span>
             <span className="order-copy">
-              <span className="order-text">{item.t}</span>
+              <span className="order-text">
+                <Markable piece={`order:${String(original)}`} text={item.t} />
+              </span>
               {revealed ? (
                 <span className="choice-tag">{right ? "Right position" : `Belongs in position ${String(original + 1)}`}</span>
               ) : null}
@@ -370,7 +373,9 @@ function MatchList({
         const state = revealed ? (value === pair.r ? "correct" : "wrong") : null;
         return (
           <div key={row} className="answer-card">
-            <span className="answer-card-label">{pair.l}</span>
+            <span className="answer-card-label">
+              <Markable piece={`match:${String(row)}`} text={pair.l} />
+            </span>
             <Picker
               label={`Match for ${pair.l}`}
               placeholder="Choose a match"
@@ -410,7 +415,7 @@ function MatrixList({
         return (
           <div key={rowIndex} className="answer-card">
             <span className="answer-card-label" id={`matrix-row-${String(rowIndex)}`}>
-              {row.t}
+              <Markable piece={`matrix:${String(rowIndex)}`} text={row.t} />
             </span>
             <div className="matrix-choices" role="radiogroup" aria-labelledby={`matrix-row-${String(rowIndex)}`}>
               {columns.map((column) => {
@@ -481,7 +486,7 @@ function MatrixMultiList({
         return (
           <div key={rowIndex} className="matrix-multi-row answer-card">
             <span className="answer-card-label" id={rowId}>
-              {row.t}
+              <Markable piece={`matrix:${String(rowIndex)}`} text={row.t} />
             </span>
             <div className="matrix-choices" role="group" aria-labelledby={rowId}>
               {columns.map((column) => {
@@ -543,7 +548,12 @@ function ClozePassage({
     <div className="passage cloze">
       <p className="cloze-line">
         {clozeParts(text).map((part, index) => {
-          if (typeof part === "string") return <span key={index}>{part}</span>;
+          if (typeof part === "string")
+            return (
+              <span key={index}>
+                <Markable piece={`cloze:${String(index)}`} text={part} />
+              </span>
+            );
           const blank = blanks[part];
           const order = orders[part];
           if (!blank || !order) return null;
@@ -631,6 +641,22 @@ function Picker({
         <Icon name={state === "correct" ? "circle-check" : state === "wrong" ? "circle-x" : "chevron-down"} />
       </span>
       {state ? <span className="sr-only">{state === "correct" ? "Correct" : "Not correct"}</span> : null}
+    </span>
+  );
+}
+
+/** A choice's letter, or once it is checked, a filled check or cross on the one she picked. */
+function ChoiceLetter({ letter, badge }: { letter: string; badge: "check" | "x" | null }) {
+  if (badge) {
+    return (
+      <span className="choice-letter choice-badge" aria-hidden="true">
+        <Icon name={badge} size={14} strokeWidth={3} />
+      </span>
+    );
+  }
+  return (
+    <span className="choice-letter" aria-hidden="true">
+      {letter}
     </span>
   );
 }

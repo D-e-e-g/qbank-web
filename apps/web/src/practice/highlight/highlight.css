@@ -1,0 +1,175 @@
+/* The highlighter: marks behind words, the pen at the end of the format line, and its colors. */
+
+.hl-yellow {
+  --hl: var(--highlight);
+  --hl-text: var(--highlight-text);
+}
+
+.hl-blue {
+  --hl: var(--highlight-blue);
+  --hl-text: var(--highlight-blue-text);
+}
+
+.hl-pink {
+  --hl: var(--highlight-pink);
+  --hl-text: var(--highlight-pink-text);
+}
+
+/* Markable text wraps plainly. Balanced wrapping (text-wrap: pretty) breaks the lines again once
+   a mark is drawn, so words would jump from under the pointer in the middle of a drag. */
+
+/* Color behind the words only, never a whole card: answer states stay bordered blocks. */
+mark.hl {
+  margin: 0 -1px;
+  padding: 2px 1px;
+  border-radius: 3px;
+  background: var(--hl);
+  color: var(--hl-text);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* The words a drag is painting, before it lets go. */
+mark.hl-live {
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--hl-text) 45%, transparent);
+}
+
+/* A struck-out choice dims its marks with it. */
+.choice-row-struck mark.hl {
+  opacity: 0.55;
+  color: var(--text-3);
+}
+
+/* On a touch screen, touch and hold belongs to the highlighter, not the system's selection and callout. */
+@media (hover: none) {
+  .markable {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+
+/* The pen: a square of the current color at the end of the format line, as tall as a tap needs
+   without making the line taller. */
+.pen-wrap {
+  position: relative;
+  margin-left: auto;
+  display: inline-flex;
+}
+
+.pen {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -13px -6px -13px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--hl-text);
+  cursor: pointer;
+}
+
+.pen::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 9px;
+  background: var(--hl);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hl-text) 14%, transparent);
+}
+
+.pen .icon {
+  position: relative;
+}
+
+.pen:focus-visible,
+.pen-dot:focus-visible,
+.pen-clear:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* The colors open beside the pen, over the format line, so the question stays in view. */
+.pen-menu {
+  position: absolute;
+  z-index: 5;
+  top: 50%;
+  right: 46px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 16px;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-popover), inset 0 0 0 0.5px var(--separator-strong);
+  white-space: nowrap;
+}
+
+.pen-dot {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--hl);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hl-text) 14%, transparent);
+  color: color-mix(in srgb, var(--hl-text) 62%, transparent);
+  font: var(--weight-semibold) 12px / 1 var(--font-mono);
+  cursor: pointer;
+}
+
+.pen-dot-current {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--hl-text) 14%, transparent),
+    0 0 0 2px var(--surface-raised),
+    0 0 0 4px var(--text-1);
+}
+
+.pen-clear {
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 2px;
+  padding: 0 6px 0 12px;
+  border: 0;
+  border-left: 0.5px solid var(--separator-strong);
+  background: transparent;
+  color: var(--tint);
+  font: var(--weight-semibold) var(--size-subhead) / var(--lh-subhead) var(--font-ui);
+  cursor: pointer;
+}
+
+/* The keys 1, 2 and 3 mean nothing without a keyboard. */
+@media (hover: none) {
+  .pen-dot-key {
+    display: none;
+  }
+}
+
+/* One line under the format line until the user has highlighted on this device. */
+.runner-hint {
+  margin: -10px 0 0;
+  font: var(--weight-regular) var(--size-footnote) / var(--lh-footnote) var(--font-ui);
+  color: var(--text-2);
+}
+
+.runner-hint-touch {
+  display: none;
+}
+
+@media (hover: none) {
+  .runner-hint-mouse {
+    display: none;
+  }
+
+  .runner-hint-touch {
+    display: inline;
+  }
+}

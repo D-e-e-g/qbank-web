@@ -1,5 +1,7 @@
 import type { ExamEndReason } from "../api";
+import type { Marks } from "../practice/highlight/marks";
 import { toResponse, type Draft, type Layout } from "../practice/model";
+import type { StripStep } from "../practice/RunnerShell";
 
 /** One question of a running exam, as this sitting has it. */
 export interface ItemState {
@@ -7,6 +9,8 @@ export interface ItemState {
   draft: Draft;
   /** Choices the user has struck out, as original option indexes. Kept for this sitting only, never sent. */
   struck: readonly number[];
+  /** Words the user has highlighted. Kept for this sitting only, never sent. */
+  marks: Marks;
   guessed: boolean;
   clientAttemptId: string;
   submitted: boolean;
@@ -44,7 +48,7 @@ export type RunnerEvent =
   | { type: "examClosed" }
   | { type: "skip" }
   /** Change the question on screen. Refused on a submitted question and while anything is on its way. */
-  | { type: "edit"; change: (item: ItemState) => Partial<Pick<ItemState, "draft" | "struck" | "guessed">> }
+  | { type: "edit"; change: (item: ItemState) => Partial<Pick<ItemState, "draft" | "struck" | "marks" | "guessed">> }
   | { type: "end"; reason: ExamEndReason }
   | { type: "endFailed"; problem: EndProblem }
   /** Ask the server to end it again, from the button or the retry timer. */
@@ -166,4 +170,13 @@ function moveOn(state: { index: number; returning: boolean }, items: readonly It
     wrappedTo: stop.wrapped ? stop.index : null,
     error: null,
   };
+}
+
+/** The progress strip of a timed exam: answered and skipped only, never right or wrong. */
+export function examStrip(items: readonly ItemState[], current: number | null): StripStep[] {
+  return items.map((item, index) => {
+    if (item.submitted) return "answered";
+    if (index === current) return "now";
+    return item.skipped ? "skipped" : "todo";
+  });
 }

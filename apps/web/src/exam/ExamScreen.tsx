@@ -9,6 +9,8 @@ import { useFrozen } from "../frozen";
 import { navigate } from "../router";
 import { AnswerArea } from "../practice/Answers";
 import { StemExhibits } from "../practice/Exhibits";
+import { Markable, MarkingProvider } from "../practice/highlight/Markable";
+import { QuestionMeta } from "../practice/highlight/QuestionMeta";
 import {
   FORMAT_LABELS,
   initialDraft,
@@ -22,7 +24,7 @@ import { RunnerShell } from "../practice/RunnerShell";
 import { isTransient, submitAttempt } from "../submit-attempt";
 import { ExamResultView } from "./ExamResult";
 import { foldersText } from "./names";
-import { initialPhase, runnerReduce, type EndProblem, type ItemState, type RunnerPhase, type RunnerState } from "./runner";
+import { examStrip, initialPhase, runnerReduce, type EndProblem, type ItemState, type RunnerPhase, type RunnerState } from "./runner";
 
 /** An exam from the server with its questions read the way the runner reads a practice set. */
 export interface LoadedExam {
@@ -218,6 +220,7 @@ function ExamRunner({ exam, wide, onEnded }: { exam: LoadedExam; wide: boolean; 
         title={title}
         count={`${String(submittedCount)} of ${String(total)} answered`}
         progress={submittedCount / total}
+        strip={examStrip(items, null)}
         trailing={timer}
         footer={
           <div className="exam-actions">
@@ -255,6 +258,7 @@ function ExamRunner({ exam, wide, onEnded }: { exam: LoadedExam; wide: boolean; 
       title={title}
       count={`${String(index + 1)} of ${String(total)}`}
       progress={submittedCount / total}
+      strip={examStrip(items, index)}
       leading={endButton}
       trailing={timer}
       footer={
@@ -307,27 +311,36 @@ function ExamRunner({ exam, wide, onEnded }: { exam: LoadedExam; wide: boolean; 
           </Button>
         </div>
       ) : null}
-      <p className="runner-meta">
-        <span className="runner-format">{FORMAT_LABELS[loaded.question.type]}</span>
-        {loaded.topic ? <span>{loaded.topic}</span> : null}
-        {item.skipped ? <span className="exam-skipped">Skipped earlier</span> : null}
-      </p>
-      <p className="runner-stem">{loaded.stem}</p>
-      <StemExhibits loaded={loaded} />
-      <p className="runner-ask">{loaded.ask}</p>
-      <AnswerArea
-        loaded={loaded}
-        layout={item.layout}
-        draft={item.draft}
-        struck={item.struck}
-        revealed={false}
-        onDraft={(draft) => {
-          dispatch({ type: "edit", change: () => ({ draft }) });
+      <MarkingProvider
+        marks={item.marks}
+        onChange={(marks) => {
+          dispatch({ type: "edit", change: () => ({ marks }) });
         }}
-        onStrike={(option) => {
-          dispatch({ type: "edit", change: (entry) => toggleStrike(entry.draft, entry.struck, option) });
-        }}
-      />
+      >
+        <QuestionMeta format={FORMAT_LABELS[loaded.question.type]} topic={loaded.topic}>
+          {item.skipped ? <span className="exam-skipped">Skipped earlier</span> : null}
+        </QuestionMeta>
+        <p className="runner-stem">
+          <Markable piece="stem" text={loaded.stem} />
+        </p>
+        <StemExhibits loaded={loaded} />
+        <p className="runner-ask">
+          <Markable piece="ask" text={loaded.ask} />
+        </p>
+        <AnswerArea
+          loaded={loaded}
+          layout={item.layout}
+          draft={item.draft}
+          struck={item.struck}
+          revealed={false}
+          onDraft={(draft) => {
+            dispatch({ type: "edit", change: () => ({ draft }) });
+          }}
+          onStrike={(option) => {
+            dispatch({ type: "edit", change: (entry) => toggleStrike(entry.draft, entry.struck, option) });
+          }}
+        />
+      </MarkingProvider>
       <label className="guess-row">
         <input
           type="checkbox"
@@ -394,6 +407,7 @@ function openRunner(exam: LoadedExam): RunnerState {
       layout,
       draft: initialDraft(question.question, layout),
       struck: [],
+      marks: {},
       guessed: false,
       clientAttemptId: crypto.randomUUID(),
       submitted: answered.has(question.id),
