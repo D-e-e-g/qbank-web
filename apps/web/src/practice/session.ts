@@ -61,10 +61,8 @@ function freshAttempt(question: LoadedQuestion): AttemptState {
 /**
  * Opens the set where the server's `run` puts her: a set she left midway at the first question she
  * has not answered, a finished one at question 1 as a new run, and any other at question 1.
- * `finished` is read only when the set came without a `run`, from a server that does not send it yet:
- * it is true when the set's row says Done, and a sitting that already holds every question is that same opening.
  */
-export function beginSession(loaded: LoadedSet, kind: PracticeSource["kind"], finished = false): Session {
+export function beginSession(loaded: LoadedSet, kind: PracticeSource["kind"]): Session {
   const fresh: Session = {
     title: loaded.title,
     kind,
@@ -81,16 +79,12 @@ export function beginSession(loaded: LoadedSet, kind: PracticeSource["kind"], fi
   switch (loaded.run) {
     case "new":
     case "restarted":
+    case null:
       return fresh;
     case "done":
       return { ...fresh, newRun: true };
     case "midway":
       return (sitting && pickUp(fresh, sitting)) ?? fresh;
-    case null: {
-      if (!sitting) return finished ? { ...fresh, newRun: true } : fresh;
-      const everyQuestion = sitting.answeredQuestionIds.length > 0 && loaded.questions.every((question) => sitting.answeredQuestionIds.includes(question.id));
-      return pickUp(fresh, sitting) ?? (everyQuestion ? { ...fresh, newRun: true } : fresh);
-    }
   }
 }
 

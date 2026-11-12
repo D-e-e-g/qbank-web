@@ -38,8 +38,8 @@ function practiceSet(run?: string) {
   return { id: SET, courseId: COURSE, title: "Week 1", weekLabel: "Week 1", questions: [question], sitting: null, ...(run === undefined ? {} : { run }) };
 }
 
-/** The course with the set's row on it, as a server that does not send `run` describes a finished set. */
-const finishedCourse = { folders: [{ sets: [{ id: SET, sitting: null, questionCount: 1, answeredCount: 1 }] }] };
+/** A course that would read the set as finished, to show it is never asked for. */
+const finishedCourse = { folders: [{ sets: [{ id: SET, run: "done" }] }] };
 
 /** Answers each path with its body, or a 500 when it has none, and keeps the paths asked for. */
 function fakeApi(bodies: Record<string, unknown>) {
@@ -72,26 +72,12 @@ describe("opening a practice set", () => {
     }
   });
 
-  it("opens a done set as a new run when the course cannot be read", async () => {
-    fakeApi({ [SET_PATH]: practiceSet("done") });
-    expect(newRun(await openPractice(COURSE, setSource))).toBe(true);
-  });
-
-  it("reads the course row for a set from a server that does not send run", async () => {
-    const asked = fakeApi({ [SET_PATH]: practiceSet(), [COURSE_PATH]: finishedCourse });
-    expect(newRun(await openPractice(COURSE, setSource))).toBe(true);
-    expect(asked).toEqual([SET_PATH, COURSE_PATH]);
-  });
-
-  it("treats a run it does not know as no run", async () => {
-    const asked = fakeApi({ [SET_PATH]: practiceSet("finished"), [COURSE_PATH]: finishedCourse });
-    expect(newRun(await openPractice(COURSE, setSource))).toBe(true);
-    expect(asked).toEqual([SET_PATH, COURSE_PATH]);
-  });
-
-  it("leaves a set without a run not finished when the course cannot be read, as before", async () => {
-    fakeApi({ [SET_PATH]: practiceSet() });
-    expect(newRun(await openPractice(COURSE, setSource))).toBe(false);
+  it("opens a set that came without a known run at question 1, not as a new run", async () => {
+    for (const run of [undefined, "finished"]) {
+      const asked = fakeApi({ [SET_PATH]: practiceSet(run), [COURSE_PATH]: finishedCourse });
+      expect(newRun(await openPractice(COURSE, setSource))).toBe(false);
+      expect(asked).toEqual([SET_PATH]);
+    }
   });
 
   it("never reads the course for Review", async () => {

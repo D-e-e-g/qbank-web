@@ -73,7 +73,7 @@ export interface LoadedSet {
   questions: LoadedQuestion[];
   /** How far she got this time through, on any device. Null opens the set at question 1. */
   sitting: Sitting | null;
-  /** Where she stands in the set, as the server says. Null from a server that does not send it yet, and in Review. */
+  /** Where she stands in the set, as the server says. Null in Review, which has none. */
   run: SetRun | null;
 }
 

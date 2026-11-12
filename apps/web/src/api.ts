@@ -32,8 +32,8 @@ export type CourseKind = CourseDetail["kind"];
  * current question answered (`done`). The screens take it as it comes and never work it out from counts.
  */
 export type SetRun = "new" | "midway" | "restarted" | "done";
-/** A set's row. `run` is absent from a server that does not send it yet; the screens then read the counts as before. */
-export type SetSummary = Schemas["SetSummary"] & { run?: SetRun };
+/** A set's row, with the `run` the server decides. */
+export type SetSummary = Schemas["SetSummary"] & { run: SetRun };
 /** A folder of a course: her name for it, the exam page it is on, its place in its list, and its sets. */
 export type CourseFolder = Schemas["Folder"];
 /** What a page is for, which she sets in its editor: Exam, Concept or Study. A page has one or none (null). */
