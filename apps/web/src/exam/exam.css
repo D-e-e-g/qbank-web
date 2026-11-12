@@ -195,6 +195,17 @@ div.tick-row {
   font: var(--weight-semibold) var(--size-subhead) / var(--lh-subhead) var(--font-ui);
 }
 
+/* Asked to end, in place of the question: what is answered, and why it has not ended yet. */
+.exam-ending {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.exam-ending > p {
+  margin: 0;
+}
+
 .exam-skipped {
   color: var(--partial);
 }

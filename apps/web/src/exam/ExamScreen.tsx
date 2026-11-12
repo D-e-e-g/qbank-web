@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, api, type ExamEndReason, type ExamView } from "../api";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { ApiError, api, type ExamView } from "../api";
 import { refreshCatalog } from "../catalog";
 import { Button } from "../components/Button";
 import { ConfirmSheet } from "../components/ConfirmSheet";
@@ -16,14 +16,13 @@ import {
   readPracticeSet,
   toggleStrike,
   toResponse,
-  type Draft,
-  type Layout,
   type LoadedQuestion,
 } from "../practice/model";
 import { RunnerShell } from "../practice/RunnerShell";
-import { submitAttempt } from "../submit-attempt";
+import { isTransient, submitAttempt } from "../submit-attempt";
 import { ExamResultView } from "./ExamResult";
 import { foldersText } from "./names";
+import { initialPhase, runnerReduce, type EndProblem, type ItemState, type RunnerPhase, type RunnerState } from "./runner";
 
 /** An exam from the server with its questions read the way the runner reads a practice set. */
 export interface LoadedExam {
@@ -83,110 +82,112 @@ export function ExamScreen({ courseId, examId, wide }: { courseId: string; examI
   return <ExamRunner exam={exam} wide={wide} onEnded={ended} />;
 }
 
-interface ItemState {
-  layout: Layout;
-  draft: Draft;
-  /** Choices she has struck out, as original option indexes. Kept for this sitting only, never sent. */
-  struck: readonly number[];
-  guessed: boolean;
-  clientAttemptId: string;
-  submitted: boolean;
-  skipped: boolean;
-}
-
-/** Where to go after a question: the next one not yet submitted, wrapping back to skipped ones. */
-function nextStop(items: readonly ItemState[], from: number): { index: number; wrapped: boolean } | null {
-  for (let index = from + 1; index < items.length; index += 1) {
-    if (!items[index]?.submitted) return { index, wrapped: false };
-  }
-  for (let index = 0; index <= from && index < items.length; index += 1) {
-    if (!items[index]?.submitted) return { index, wrapped: true };
-  }
-  return null;
-}
-
 function ExamRunner({ exam, wide, onEnded }: { exam: LoadedExam; wide: boolean; onEnded: (view: ExamView) => void }) {
   const { frozen, guard } = useFrozen();
   const view = exam.view;
-  const [items, setItems] = useState<ItemState[]>(() => {
-    const answered = new Set(view.answeredQuestionIds);
-    return exam.questions.map((question) => {
-      const layout = makeLayout(question.question);
-      return {
-        layout,
-        draft: initialDraft(question.question, layout),
-        struck: [],
-        guessed: false,
-        clientAttemptId: crypto.randomUUID(),
-        submitted: answered.has(question.id),
-        skipped: false,
-      };
-    });
-  });
-  const [index, setIndex] = useState(() => {
-    const first = nextStop(items, -1);
-    return first?.index ?? 0;
-  });
-  // Every question has been reached once: she is working back through the skipped ones.
-  const [returning, setReturning] = useState(false);
-  const [wrappedTo, setWrappedTo] = useState<number | null>(null);
+  const [state, dispatch] = useReducer(runnerReduce, exam, openRunner);
+  const { items, phase } = state;
   const [confirming, setConfirming] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [waiting, setWaiting] = useState(false);
-  const [ending, setEnding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Counted from the server's clock, so a device whose clock is off still ends on time.
   const msLeftAtLoad = Date.parse(view.endsAt) - Date.parse(view.serverNow);
   const [secondsLeft, setSecondsLeft] = useState(msLeftAtLoad / 1000);
   const deadline = useRef<number | null>(null);
-  const inFlight = useRef<AbortController | null>(null);
-  const endingRef = useRef(false);
-
-  const end = useCallback(
-    (reason: ExamEndReason) => {
-      // Only the user's own app ends an exam, on time too. The frozen view shows the clock at 0:00.
-      if (endingRef.current || frozen) return;
-      endingRef.current = true;
-      inFlight.current?.abort();
-      setConfirming(false);
-      setEnding(true);
-      setError(null);
-      void api<ExamView>(`/api/exams/${view.id}/finish`, { method: "POST", json: { reason } })
-        .then(onEnded)
-        .catch((caught: unknown) => {
-          endingRef.current = false;
-          setEnding(false);
-          setError(caught instanceof ApiError ? caught.message : "Could not end the exam. Check the connection and try again.");
-        });
-    },
-    [frozen, onEnded, view.id],
-  );
 
   useEffect(() => {
     deadline.current ??= Date.now() + msLeftAtLoad;
     const tick = () => {
       const left = ((deadline.current ?? Date.now()) - Date.now()) / 1000;
       setSecondsLeft(left);
-      if (left <= 0) end("timeout");
+      // Only the user's own app ends an exam, on time too. The frozen view shows the clock at 0:00.
+      if (!frozen) dispatch({ type: "tick", secondsLeft: left });
     };
     tick();
     const timer = setInterval(tick, 1000);
     return () => {
       clearInterval(timer);
     };
-  }, [end, msLeftAtLoad]);
+  }, [frozen, msLeftAtLoad]);
 
-  useEffect(
-    () => () => {
-      inFlight.current?.abort();
-    },
-    [],
-  );
+  // The answer on its way. Leaving the saving phase (the clock ran out, she ended the exam, or the
+  // runner closed) stops its retries; a late reply then changes nothing.
+  const savingIndex = phase.phase === "saving" ? phase.index : null;
+  const savingItem = savingIndex === null ? undefined : items[savingIndex];
+  useEffect(() => {
+    const question = savingIndex === null ? undefined : exam.questions[savingIndex];
+    const response = savingItem ? toResponse(savingItem.draft) : null;
+    if (!question || !savingItem || !response) return;
+    const controller = new AbortController();
+    void submitAttempt(
+      {
+        clientAttemptId: savingItem.clientAttemptId,
+        questionId: question.id,
+        response,
+        guessed: savingItem.guessed,
+        shuffle: savingItem.layout,
+        studySessionId: view.id,
+      },
+      {
+        signal: controller.signal,
+        onRetry: () => {
+          dispatch({ type: "saveRetrying" });
+        },
+      },
+    ).then(
+      () => {
+        dispatch({ type: "saved" });
+      },
+      (caught: unknown) => {
+        if (controller.signal.aborted) return;
+        if (caught instanceof ApiError && isErrorCode(caught.body, "already_answered")) dispatch({ type: "saved" });
+        else if (caught instanceof ApiError && isErrorCode(caught.body, "exam_finished")) dispatch({ type: "examClosed" });
+        else dispatch({ type: "saveFailed", message: caught instanceof ApiError ? caught.message : "Could not save that answer." });
+      },
+    );
+    return () => {
+      controller.abort();
+    };
+  }, [exam.questions, savingIndex, savingItem, view.id]);
 
-  const loaded = exam.questions[index];
-  const item = items[index];
-  if (!loaded || !item) {
+  // Asking the server to end the exam. Ending one that has already ended returns it as it ended.
+  const ending = phase.phase === "ending" ? phase : null;
+  useEffect(() => {
+    if (ending === null || frozen) return;
+    let live = true;
+    void api<ExamView>(`/api/exams/${view.id}/finish`, { method: "POST", json: { reason: ending.reason } }).then(
+      (ended) => {
+        if (live) onEnded(ended);
+      },
+      (caught: unknown) => {
+        if (!live) return;
+        const problem: EndProblem = isTransient(caught)
+          ? { kind: "offline" }
+          : { kind: "refused", message: caught instanceof ApiError ? caught.message : "Could not end the exam." };
+        dispatch({ type: "endFailed", problem });
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [ending, frozen, onEnded, view.id]);
+
+  // Asked to end and not confirmed: ask again after the backoff, or as soon as the device is back online.
+  const pending = phase.phase === "endPending" ? phase : null;
+  useEffect(() => {
+    if (pending?.retryInMs == null || frozen) return;
+    const retry = () => {
+      dispatch({ type: "retryEnd" });
+    };
+    const timer = setTimeout(retry, pending.retryInMs);
+    window.addEventListener("online", retry);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("online", retry);
+    };
+  }, [frozen, pending]);
+
+  const total = exam.questions.length;
+  if (total === 0) {
     return (
       <RunnerShell wide={wide} title="Exam" count="">
         <p className="note">This exam has no questions.</p>
@@ -194,117 +195,94 @@ function ExamRunner({ exam, wide, onEnded }: { exam: LoadedExam; wide: boolean; 
     );
   }
 
-  const total = exam.questions.length;
   const submittedCount = items.filter((entry) => entry.submitted).length;
-  const pending = items.filter((entry) => !entry.submitted).length;
-  const response = toResponse(item.draft);
-  const lastPending = pending === 1 && !item.submitted;
-  const busy = saving || ending;
+  const running = phase.phase === "answering" || phase.phase === "saving";
+  const title = `Exam · ${foldersText(view.weeks)}`;
+  const endButton = (
+    <Button
+      variant="plain"
+      className="runner-end"
+      onClick={guard(() => {
+        setConfirming(true);
+      })}
+    >
+      End exam
+    </Button>
+  );
+  const timer = <CountdownTimer seconds={secondsLeft} compact={!wide} />;
 
-  const go = (from: number, next: ItemState[]) => {
-    const stop = nextStop(next, from);
-    if (stop === null) {
-      end("finished");
-      return;
-    }
-    if (stop.wrapped) setReturning(true);
-    setWrappedTo(stop.wrapped ? stop.index : null);
-    setIndex(stop.index);
-  };
-
-  const submit = () => {
-    if (busy || !response) return;
-    setError(null);
-    setSaving(true);
-    const controller = new AbortController();
-    inFlight.current = controller;
-    const at = index;
-    void submitAttempt(
-      {
-        clientAttemptId: item.clientAttemptId,
-        questionId: loaded.id,
-        response,
-        guessed: item.guessed,
-        shuffle: item.layout,
-        studySessionId: view.id,
-      },
-      {
-        signal: controller.signal,
-        onRetry: () => {
-          setWaiting(true);
-        },
-      },
-    ).then(
-      () => {
-        setSaving(false);
-        setWaiting(false);
-        const next = items.map((entry, position) => (position === at ? { ...entry, submitted: true, skipped: false } : entry));
-        setItems(next);
-        go(at, next);
-      },
-      (caught: unknown) => {
-        setSaving(false);
-        setWaiting(false);
-        if (controller.signal.aborted) return;
-        if (caught instanceof ApiError && isErrorCode(caught.body, "already_answered")) {
-          const next = items.map((entry, position) => (position === at ? { ...entry, submitted: true, skipped: false } : entry));
-          setItems(next);
-          go(at, next);
-          return;
+  if (!running) {
+    return (
+      <RunnerShell
+        wide={wide}
+        title={title}
+        count={`${String(submittedCount)} of ${String(total)} answered`}
+        progress={submittedCount / total}
+        trailing={timer}
+        footer={
+          <div className="exam-actions">
+            <Button
+              className="btn-lg"
+              disabled={phase.phase === "ending"}
+              onClick={guard(() => {
+                dispatch({ type: "retryEnd" });
+              })}
+            >
+              {phase.reason === "left" ? "End exam" : "Finish exam"}
+            </Button>
+          </div>
         }
-        if (caught instanceof ApiError && isErrorCode(caught.body, "exam_finished")) {
-          void api<ExamView>(`/api/exams/${view.id}`).then(onEnded, () => {
-            setError(caught.message);
-          });
-          return;
-        }
-        setError(caught instanceof ApiError ? caught.message : "Could not save that answer.");
-      },
+      >
+        <EndingNotice phase={phase} submittedCount={submittedCount} total={total} />
+      </RunnerShell>
     );
-  };
+  }
 
-  const skip = () => {
-    if (busy) return;
-    setError(null);
-    const next = items.map((entry, position) => (position === index ? { ...entry, skipped: true } : entry));
-    setItems(next);
-    go(index, next);
-  };
-
-  const skippedLeft = returning ? pending : 0;
+  const index = phase.index;
+  const loaded = exam.questions[index];
+  const item = items[index];
+  if (!loaded || !item) return null;
+  const unsubmitted = items.filter((entry) => !entry.submitted).length;
+  const response = toResponse(item.draft);
+  const lastPending = unsubmitted === 1 && !item.submitted;
+  const saving = phase.phase === "saving";
+  const skippedLeft = phase.returning ? unsubmitted : 0;
+  const error = phase.phase === "answering" ? phase.error : null;
 
   return (
     <RunnerShell
       wide={wide}
-      title={`Exam · ${foldersText(view.weeks)}`}
+      title={title}
       count={`${String(index + 1)} of ${String(total)}`}
       progress={submittedCount / total}
-      leading={
-        <Button
-          variant="plain"
-          className="runner-end"
-          disabled={ending}
-          onClick={guard(() => {
-            setConfirming(true);
-          })}
-        >
-          End exam
-        </Button>
-      }
-      trailing={<CountdownTimer seconds={secondsLeft} compact={!wide} />}
+      leading={endButton}
+      trailing={timer}
       footer={
         <div className="exam-actions">
-          <Button variant="quiet" className="btn-lg exam-skip" disabled={busy} onClick={skip}>
+          <Button
+            variant="quiet"
+            className="btn-lg exam-skip"
+            disabled={saving}
+            onClick={() => {
+              dispatch({ type: "skip" });
+            }}
+          >
             Skip for now
           </Button>
-          <Button className="btn-lg" disabled={response === null || busy} onClick={() => { guard(submit)(); }}>
+          <Button
+            className="btn-lg"
+            disabled={response === null || saving}
+            onClick={guard(() => {
+              dispatch({ type: "submit" });
+            })}
+          >
             {lastPending ? "Finish exam" : "Submit and continue"}
           </Button>
         </div>
       }
     >
       {error ? <p className="form-error">{error}</p> : null}
-      {waiting ? (
+      {phase.phase === "saving" && phase.retrying ? (
         <p className="status-banner" role="status">
           <Icon name="clock" size={16} />
           <span>No connection. Your answer is saved as soon as you are back online.</span>
@@ -315,9 +293,16 @@ function ExamRunner({ exam, wide, onEnded }: { exam: LoadedExam; wide: boolean; 
           <Icon name="info" size={16} />
           <span className="exam-notice-copy">
             {skippedLeft} skipped {skippedLeft === 1 ? "question" : "questions"} left.
-            {wrappedTo === index ? " This is the first one." : ""}
+            {phase.wrappedTo === index ? " This is the first one." : ""}
           </span>
-          <Button variant="plain" className="exam-finish" disabled={busy} onClick={() => { guard(end)("finished"); }}>
+          <Button
+            variant="plain"
+            className="exam-finish"
+            disabled={saving}
+            onClick={guard(() => {
+              dispatch({ type: "end", reason: "finished" });
+            })}
+          >
             Finish exam
           </Button>
         </div>
@@ -337,24 +322,20 @@ function ExamRunner({ exam, wide, onEnded }: { exam: LoadedExam; wide: boolean; 
         struck={item.struck}
         revealed={false}
         onDraft={(draft) => {
-          if (busy) return;
-          setItems((current) => current.map((entry, position) => (position === index ? { ...entry, draft } : entry)));
+          dispatch({ type: "edit", change: () => ({ draft }) });
         }}
         onStrike={(option) => {
-          if (busy) return;
-          setItems((current) =>
-            current.map((entry, position) => (position === index ? { ...entry, ...toggleStrike(entry.draft, entry.struck, option) } : entry)),
-          );
+          dispatch({ type: "edit", change: (entry) => toggleStrike(entry.draft, entry.struck, option) });
         }}
       />
       <label className="guess-row">
         <input
           type="checkbox"
           checked={item.guessed}
-          disabled={busy}
+          disabled={saving}
           onChange={(event) => {
             const guessed = event.target.checked;
-            setItems((current) => current.map((entry, position) => (position === index ? { ...entry, guessed } : entry)));
+            dispatch({ type: "edit", change: () => ({ guessed }) });
           }}
         />
         <span>
@@ -370,7 +351,8 @@ function ExamRunner({ exam, wide, onEnded }: { exam: LoadedExam; wide: boolean; 
           confirmVariant="destructive"
           cancelLabel="Keep going"
           onConfirm={() => {
-            end("left");
+            setConfirming(false);
+            dispatch({ type: "end", reason: "left" });
           }}
           onCancel={() => {
             setConfirming(false);
@@ -379,6 +361,46 @@ function ExamRunner({ exam, wide, onEnded }: { exam: LoadedExam; wide: boolean; 
       ) : null}
     </RunnerShell>
   );
+}
+
+/**
+ * What the runner shows once the exam was asked to end, in place of a question: how much is
+ * answered, that it is ending, and why it has not ended yet. The footer's one button asks again.
+ */
+function EndingNotice({ phase, submittedCount, total }: { phase: Extract<RunnerPhase, { phase: "ending" | "endPending" }>; submittedCount: number; total: number }) {
+  const problem = phase.problem;
+  const doing = phase.reason === "left" ? "Ending the exam." : phase.reason === "timeout" ? "Time is up. Ending the exam." : "Finishing the exam.";
+  return (
+    <div className="exam-ending" aria-live="polite">
+      <p className="runner-ask">{submittedCount === total ? "Every question is answered." : `${String(submittedCount)} of ${String(total)} questions answered.`}</p>
+      {problem === null ? <p className="note">{doing}</p> : null}
+      {problem?.kind === "offline" ? (
+        <p className="status-banner" role="status">
+          <Icon name="clock" size={16} />
+          <span>No connection. The exam ends as soon as you are back online.</span>
+        </p>
+      ) : null}
+      {problem?.kind === "refused" ? <p className="form-error">{problem.message}</p> : null}
+    </div>
+  );
+}
+
+/** The runner as the exam opens: questions answered on any device stay submitted. */
+function openRunner(exam: LoadedExam): RunnerState {
+  const answered = new Set(exam.view.answeredQuestionIds);
+  const items = exam.questions.map((question): ItemState => {
+    const layout = makeLayout(question.question);
+    return {
+      layout,
+      draft: initialDraft(question.question, layout),
+      struck: [],
+      guessed: false,
+      clientAttemptId: crypto.randomUUID(),
+      submitted: answered.has(question.id),
+      skipped: false,
+    };
+  });
+  return { items, phase: initialPhase(items) };
 }
 
 function readExam(view: ExamView): LoadedExam | null {

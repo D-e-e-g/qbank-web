@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, api, type ExamSetup, type ExamSummary, type ExamView, type TwinJob, type TwinJobStep, type TwinSet } from "../api";
+import { ApiError, api, type ExamSetup, type ExamSummary, type TwinJob, type TwinJobStep, type TwinSet } from "../api";
 import { useCatalogCourse } from "../catalog";
 import { Button } from "../components/Button";
 import { ConfirmSheet } from "../components/ConfirmSheet";
 import { Icon } from "../components/Icon";
 import { courseLine, courseName } from "../course/pages";
-import { navigate } from "../router";
 import { Screen } from "../shell/Screen";
 import { ShellLink } from "../shell/ShellLink";
+import { ReplaceExamSheet } from "./ReplaceExamSheet";
+import { NOT_KNOWN, type RunningExam } from "./start";
 import { isRunning, stepIcon, stepProgress, TWIN_POLL_MS, twinCountText, twinJobTitle } from "./twins";
+import { useExamStart } from "./useExamStart";
 
 /**
  * A twin job: QBank writing exam twins of the folders and pool she picked on Exam setup. It shows
@@ -18,12 +20,16 @@ export function TwinJobScreen({ courseId, jobId }: { courseId: string; jobId: st
   const [job, setJob] = useState<TwinJob | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  // Her exam in progress, read once the twins are ready: starting the exam on them ends it.
-  const [inProgress, setInProgress] = useState<ExamSummary | null>(null);
+  // The user's exam in progress, read once the twins are ready: starting the exam on them ends it.
+  // Start waits until it is known, so a read that failed or has not returned never ends it unasked.
+  const [running, setRunning] = useState<RunningExam>(NOT_KNOWN);
+  const [runningError, setRunningError] = useState<string | null>(null);
   const [stopping, setStopping] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
-  const [starting, setStarting] = useState(false);
-  const [replacing, setReplacing] = useState(false);
+  const learnRunning = useCallback((exam: ExamSummary | null) => {
+    setRunning({ known: true, exam });
+  }, []);
+  const examStart = useExamStart(learnRunning);
   const done = job?.status === "done";
   // Home's card says whether it is a course or a topic, which the job does not.
   const course = useCatalogCourse(courseId);
@@ -58,18 +64,28 @@ export function TwinJobScreen({ courseId, jobId }: { courseId: string; jobId: st
     };
   }, [jobId]);
 
+  // Read like the job: a dropped connection is tried again; a refusal is not.
   useEffect(() => {
     if (!done) return;
     let cancel = false;
-    void api<ExamSetup>(`/api/courses/${courseId}/exams`)
-      .then((setup) => {
-        if (!cancel) setInProgress(setup.inProgress);
-      })
-      .catch((caught: unknown) => {
-        console.error(caught);
-      });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const read = () => {
+      void api<ExamSetup>(`/api/courses/${courseId}/exams`)
+        .then((setup) => {
+          if (cancel) return;
+          setRunningError(null);
+          setRunning({ known: true, exam: setup.inProgress });
+        })
+        .catch((caught: unknown) => {
+          if (cancel) return;
+          setRunningError(caught instanceof ApiError ? caught.message : "Could not check for an exam in progress. Trying again.");
+          if (!(caught instanceof ApiError && caught.status < 500)) timer = setTimeout(read, TWIN_POLL_MS);
+        });
+    };
+    read();
     return () => {
       cancel = true;
+      clearTimeout(timer);
     };
   }, [courseId, done]);
 
@@ -89,25 +105,13 @@ export function TwinJobScreen({ courseId, jobId }: { courseId: string; jobId: st
 
   const start = () => {
     if (job?.exam == null) return;
-    setReplacing(false);
-    setStarting(true);
     setActionError(null);
-    // The job's exam goes as it is: the folders the twins are in, and the pool she picked.
-    void api<ExamView>(`/api/courses/${job.course.id}/exams`, { method: "POST", json: job.exam })
-      .then((exam) => {
-        navigate(`/course/${exam.courseId}/exam/${exam.id}`);
-      })
-      .catch((caught: unknown) => {
-        setStarting(false);
-        setActionError(caught instanceof ApiError ? caught.message : "Could not start the exam.");
-      });
+    // The job's exam goes as it is: the folders the twins are in, and the pool the user picked.
+    examStart.start(job.course.id, job.exam, running);
   };
 
   const keepGoing = useCallback(() => {
     setConfirmStop(false);
-  }, []);
-  const dismiss = useCallback(() => {
-    setReplacing(false);
   }, []);
 
   return (
@@ -131,15 +135,14 @@ export function TwinJobScreen({ courseId, jobId }: { courseId: string; jobId: st
           {job.failure ? <p className="form-error">{job.failure}</p> : null}
           {job.status === "cancelled" && !job.failure ? <p className="exam-summary-note">Stopped. Your questions stay as they are.</p> : null}
           {actionError ? <p className="form-error">{actionError}</p> : null}
+          {examStart.error ? <p className="form-error">{examStart.error}</p> : null}
+          {done && runningError ? <p className="form-error">{runningError}</p> : null}
           {done ? (
             <Button
               fullWidth
               className="btn-lg"
-              disabled={starting || job.exam === null}
-              onClick={() => {
-                if (inProgress) setReplacing(true);
-                else start();
-              }}
+              disabled={examStart.starting || job.exam === null || !running.known}
+              onClick={start}
             >
               Start exam on the twins
             </Button>
@@ -173,15 +176,7 @@ export function TwinJobScreen({ courseId, jobId }: { courseId: string; jobId: st
           onCancel={keepGoing}
         />
       ) : null}
-      {replacing ? (
-        <ConfirmSheet
-          title="Start a new exam?"
-          message="The exam in progress ends now. What you answered on it is scored, and the rest score 0."
-          confirmLabel="Start new exam"
-          onConfirm={start}
-          onCancel={dismiss}
-        />
-      ) : null}
+      {examStart.asking ? <ReplaceExamSheet onConfirm={examStart.confirm} onCancel={examStart.dismiss} /> : null}
     </Screen>
   );
 }

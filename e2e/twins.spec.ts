@@ -243,7 +243,37 @@ test.describe("exam twins", () => {
 
     const started = page.waitForRequest((request) => request.url().endsWith(`/api/courses/${course.id}/exams`) && request.method() === "POST");
     await page.getByRole("button", { name: "Start exam on the twins" }).click();
-    expect((await started).postDataJSON()).toEqual({ folderIds: [course.folders["Week 5"]], pool: "all" });
+    // No exam was running, and the request says so.
+    expect((await started).postDataJSON()).toEqual({ folderIds: [course.folders["Week 5"]], pool: "all", replaces: null });
+    await expect(page).toHaveURL(new RegExp(`/course/${course.id}/exam/[0-9a-f-]{36}$`));
+    await expect(page.getByRole("button", { name: "End exam" })).toBeVisible();
+  });
+
+  test("Start on the twins waits until it is known whether an exam is running, then asks before ending it", async ({ page }) => {
+    const course = await importCourse(page);
+    await twinRoutes(page, course, [twinJob(course, "done", "done")]);
+    const running = await page.request.post(`/api/courses/${course.id}/exams`, { data: { folderIds: [course.folders["Week 5"]], pool: "all" } });
+    expect(running.status()).toBe(201);
+    const runningId = ((await running.json()) as { id: string }).id;
+
+    // The read of the running exam fails: Start stays off instead of ending it unasked.
+    const setupPath = `**/api/courses/${course.id}/exams`;
+    await page.route(setupPath, (route) => (route.request().method() === "GET" ? route.abort("internetdisconnected") : route.fallback()));
+    await page.goto(`/course/${course.id}/twins/${JOB_ID}`);
+    const start = page.getByRole("button", { name: "Start exam on the twins" });
+    await expect(page.getByText("Could not check for an exam in progress. Trying again.")).toBeVisible();
+    await expect(start).toBeDisabled();
+
+    // Back online: it is read again, and Start asks first.
+    await page.unroute(setupPath);
+    await expect(start).toBeEnabled();
+    await expect(page.getByText("Could not check for an exam in progress. Trying again.")).toHaveCount(0);
+    await start.click();
+    const sheet = page.getByRole("dialog", { name: "Start a new exam?" });
+    await expect(sheet).toContainText("The exam in progress ends now.");
+    const started = page.waitForRequest((request) => request.url().endsWith(`/api/courses/${course.id}/exams`) && request.method() === "POST");
+    await sheet.getByRole("button", { name: "Start new exam" }).click();
+    expect((await started).postDataJSON()).toEqual({ folderIds: [course.folders["Week 5"]], pool: "all", replaces: runningId });
     await expect(page).toHaveURL(new RegExp(`/course/${course.id}/exam/[0-9a-f-]{36}$`));
     await expect(page.getByRole("button", { name: "End exam" })).toBeVisible();
   });
