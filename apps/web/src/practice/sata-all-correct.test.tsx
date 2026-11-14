@@ -4,7 +4,6 @@ import { AnswerArea } from "./Answers";
 import { initialDraft, readPracticeSet, togglePick, toResponse, type Draft, type Layout, type LoadedQuestion, type LoadedSet } from "./model";
 import type { Feedback } from "./recordPracticeAnswer";
 import { FeedbackBanner } from "./PracticeScreen";
-import { beginSession, reveal, updateAttempt, type Session } from "./session";
 
 const RULE = "+1 for each correct choice, -1 for each wrong one";
 
@@ -72,22 +71,10 @@ function score(status: Feedback["status"], points: number, label: string): Feedb
 
 function shown(set: LoadedSet, draft: Draft, feedback: Feedback | null): string {
   const loaded = question(set);
-  let session: Session | null = beginSession(set, "set");
-  session = updateAttempt(session, 0, (attempt) => ({ ...attempt, draft, layout }));
-  if (feedback) session = reveal(session, 0, false, feedback);
-  const attempt = session?.attempts[0];
-  if (!session || !attempt) throw new Error("the sitting did not open");
   return renderToStaticMarkup(
     <>
-      {attempt.score ? <FeedbackBanner score={attempt.score} guessed={attempt.guessed} /> : null}
-      <AnswerArea
-        loaded={loaded}
-        layout={attempt.layout}
-        draft={attempt.draft}
-        struck={attempt.struck}
-        revealed={attempt.score !== null}
-        onDraft={() => undefined}
-      />
+      {feedback ? <FeedbackBanner score={feedback} guessed={false} /> : null}
+      <AnswerArea loaded={loaded} layout={layout} draft={draft} struck={[]} revealed={feedback !== null} onDraft={() => undefined} />
     </>,
   );
 }

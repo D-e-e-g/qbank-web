@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest";
 import { initialPhase, runnerReduce, type ItemState, type RunnerEvent, type RunnerState } from "../../exam/runner";
 import type { LoadedQuestion, LoadedSet, Question } from "../model";
 import type { Feedback } from "../recordPracticeAnswer";
-import { advance, beginSession, markAttempt, reveal, startOver, type Session } from "../session";
+import { scoreOf } from "../attempt";
+import { beginSession, practiceStep, type PracticeEvent, type Session } from "../session";
 import type { Marks } from "./marks";
 
 function loaded(id: string, position: number, question: Question): LoadedQuestion {
@@ -43,10 +44,18 @@ const score: Feedback = { status: "correct", points: 1, maxPoints: 1, label: "Co
 const STEM_MARK: Marks = { stem: [{ start: 13, end: 34, color: "yellow" }] };
 const OPTION_MARK: Marks = { ...STEM_MARK, "option:1": [{ start: 0, end: 5, color: "pink" }] };
 
+function go(session: Session, ...events: PracticeEvent[]): Session {
+  return events.reduce(practiceStep, session);
+}
+
 function marked(): Session {
-  const session = markAttempt(beginSession(set, "set"), 0, STEM_MARK);
-  if (!session) throw new Error("the sitting did not open");
-  return session;
+  return go(beginSession(set, "set"), { type: "mark", marks: STEM_MARK });
+}
+
+/** Answers the question on screen and takes the server's score for it. */
+function check(session: Session): Session {
+  const clientAttemptId = session.attempts[session.index]?.clientAttemptId ?? "";
+  return go(session, { type: "edit", change: () => ({ draft: { type: "single", choice: 0 } }) }, { type: "check" }, { type: "checked", clientAttemptId, score });
 }
 
 describe("highlights in a practice sitting", () => {
@@ -61,25 +70,27 @@ describe("highlights in a practice sitting", () => {
   });
 
   it("keeps the marks after Check answer, and still lets the user mark the checked question", () => {
-    const checked = reveal(marked(), 0, false, score);
-    expect(checked?.attempts[0]?.marks).toEqual(STEM_MARK);
-    const more = markAttempt(checked, 0, OPTION_MARK);
-    expect(more?.attempts[0]?.marks).toEqual(OPTION_MARK);
+    const checked = check(marked());
+    expect(checked.attempts[0]?.marks).toEqual(STEM_MARK);
+    const more = go(checked, { type: "mark", marks: OPTION_MARK });
+    expect(more.attempts[0]?.marks).toEqual(OPTION_MARK);
     // The answer itself stays as it was checked.
-    expect(more?.attempts[0]?.score).toEqual(score);
+    expect(more.attempts[0] && scoreOf(more.attempts[0])).toEqual(score);
+    expect(more.attempts[0]?.draft).toEqual(checked.attempts[0]?.draft);
   });
 
   it("keeps the marks while the user moves on, and drops every one when the set ends", () => {
-    const moved = advance(reveal(marked(), 0, false, score));
-    expect(moved?.index).toBe(1);
-    expect(moved?.attempts[0]?.marks).toEqual(STEM_MARK);
-    const finished = advance(reveal(markAttempt(moved, 1, OPTION_MARK), 1, false, score));
-    expect(finished?.finishedAt).not.toBeNull();
-    expect(finished?.attempts.map((attempt) => attempt.marks)).toEqual([{}, {}]);
+    const moved = go(check(marked()), { type: "next" });
+    expect(moved.index).toBe(1);
+    expect(moved.attempts[0]?.marks).toEqual(STEM_MARK);
+    const finished = go(check(go(moved, { type: "mark", marks: OPTION_MARK })), { type: "next" });
+    expect(finished.finishedAt).not.toBeNull();
+    expect(finished.attempts.map((attempt) => attempt.marks)).toEqual([{}, {}]);
   });
 
   it("starts clean after Start over", () => {
-    expect(startOver(marked())?.attempts.map((attempt) => attempt.marks)).toEqual([{}, {}]);
+    const again = go(marked(), { type: "startOver" }, { type: "startedOver" });
+    expect(again.attempts.map((attempt) => attempt.marks)).toEqual([{}, {}]);
   });
 });
 

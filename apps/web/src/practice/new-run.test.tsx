@@ -4,7 +4,7 @@ import type { LoadedQuestion, LoadedSet, Question, Sitting } from "./model";
 import { NewRunNotice } from "./NewRunNotice";
 import { NEW_RUN_NOTICE } from "./new-run";
 import type { Feedback } from "./recordPracticeAnswer";
-import { advance, beginSession, reveal, startOver, type Session } from "./session";
+import { beginSession, practiceStep, type PracticeEvent, type Session } from "./session";
 
 type SittingAnswer = Sitting["answers"][number];
 
@@ -65,6 +65,16 @@ function sitting(answered: string[]): LoadedSet {
   return { ...openSet, run: "midway", sitting: { id: null, startedAt: null, answeredQuestionIds: answered, answers: answered.map(answer) } };
 }
 
+function run(session: Session, ...events: PracticeEvent[]): Session {
+  return events.reduce(practiceStep, session);
+}
+
+/** Answers the question on screen and takes the server's score for it. */
+function check(session: Session): Session {
+  const clientAttemptId = session.attempts[session.index]?.clientAttemptId ?? "";
+  return run(session, { type: "edit", change: () => ({ draft: { type: "single", choice: 0 } }) }, { type: "check" }, { type: "checked", clientAttemptId, score });
+}
+
 /** The rendered notice, with the text apostrophe put back. An empty string is no notice. */
 function markup(session: Session): string {
   return renderToStaticMarkup(<NewRunNotice session={session} />).replaceAll("&#x27;", "'");
@@ -95,20 +105,22 @@ describe("NewRunNotice", () => {
   });
 
   it("does not show after Start over on a set she had not finished", () => {
-    const again = startOver(beginSession(sitting(["q1"]), "set"));
-    expect(again && markup(again)).toBe("");
+    const again = run(beginSession(sitting(["q1"]), "set"), { type: "startOver" }, { type: "startedOver" });
+    expect(again.index).toBe(0);
+    expect(again.pickedUp).toBeNull();
+    expect(markup(again)).toBe("");
   });
 
   it("stays on question 1 after she checks the answer, and leaves once the runner moves on", () => {
     const opened = beginSession({ ...openSet, run: "done" }, "set");
-    const checked = reveal(opened, 0, false, score);
-    expect(checked && markup(checked)).toBe(`<p class="runner-new-run">${NOTICE}</p>`);
-    const next = checked && advance(checked);
-    expect(next?.index).toBe(1);
-    expect(next?.finishedAt).toBeNull();
-    expect(next && markup(next)).toBe("");
-    const done = next && advance(reveal(next, 1, false, score));
-    expect(done?.finishedAt).not.toBeNull();
-    expect(done && markup(done)).toBe("");
+    const checked = check(opened);
+    expect(markup(checked)).toBe(`<p class="runner-new-run">${NOTICE}</p>`);
+    const next = run(checked, { type: "next" });
+    expect(next.index).toBe(1);
+    expect(next.finishedAt).toBeNull();
+    expect(markup(next)).toBe("");
+    const done = run(check(next), { type: "next" });
+    expect(done.finishedAt).not.toBeNull();
+    expect(markup(done)).toBe("");
   });
 });

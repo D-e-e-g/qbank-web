@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type Ref } from "react";
+import { useEffect, useReducer, useRef, useState, type Ref } from "react";
 import { ApiError, api } from "../api";
 import { Button } from "../components/Button";
 import { ConfirmSheet } from "../components/ConfirmSheet";
@@ -9,22 +9,19 @@ import { AnswerArea } from "./Answers";
 import { Markable, MarkingProvider } from "./highlight/Markable";
 import { QuestionMeta } from "./highlight/QuestionMeta";
 import { RationaleImages, StemExhibits } from "./Exhibits";
-import { FORMAT_LABELS, toResponse } from "./model";
+import { scoreOf } from "./attempt";
+import { FORMAT_LABELS, toggleStrike, toResponse } from "./model";
 import { NewRunNotice } from "./NewRunNotice";
 import { openPractice } from "./open";
 import type { PracticeSource } from "./source";
 import { recordPracticeAnswer, type Feedback } from "./recordPracticeAnswer";
 import { MeterList, ScoreSummary } from "./ResultCharts";
 import { RunnerShell } from "./RunnerShell";
-import { advance, answeredCount, markAttempt, nextIndex, pickedUpLine, progressStrip, reveal, startOver, startOverMessage, strike, updateAttempt, type Session } from "./session";
+import { answeredCount, nextIndex, pickedUpLine, progressStrip, practiceStep, startOverMessage, type Session } from "./session";
 
 export function PracticeScreen({ courseId, source, wide }: { courseId: string; source: PracticeSource; wide: boolean }) {
-  const { guard } = useFrozen();
-  const [session, setSession] = useState<Session | null>(null);
+  const [opened, setOpened] = useState<{ session: Session; nth: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [waiting, setWaiting] = useState(false);
-  const [askingStartOver, setAskingStartOver] = useState(false);
 
   useEffect(() => {
     let cancel = false;
@@ -35,42 +32,98 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
         return;
       }
       setError(null);
-      setSession(opening.session);
+      setOpened((last) => ({ session: opening.session, nth: (last?.nth ?? 0) + 1 }));
     });
     return () => {
       cancel = true;
     };
   }, [courseId, source]);
 
-  useEffect(() => {
-    if (session) document.title = `${session.title} · Qbank`;
-  }, [session]);
-
-  const feedbackRef = useRef<HTMLDivElement>(null);
-  const revealedKey = session?.attempts[session.index]?.score ? String(session.index) : "";
-  useEffect(() => {
-    if (revealedKey === "") return;
-    feedbackRef.current?.scrollIntoView({ block: "nearest" });
-  }, [revealedKey]);
-
-  const close = () => {
-    navigate(source.closeTo);
-  };
-
-  if (!session) {
+  if (!opened) {
     return (
-      <RunnerShell wide={wide} title="Practice" count="" onClose={close}>
+      <RunnerShell
+        wide={wide}
+        title="Practice"
+        count=""
+        onClose={() => {
+          navigate(source.closeTo);
+        }}
+      >
         <p className="note">{error ?? (source.kind === "review" ? "Loading Review." : "Loading the set.")}</p>
       </RunnerShell>
     );
   }
 
+  // Keyed, so a set read again begins a new runner, and a reply meant for the one before lands nowhere.
+  return <PracticeRunner key={opened.nth} opened={opened.session} source={source} wide={wide} />;
+}
+
+function PracticeRunner({ opened, source, wide }: { opened: Session; source: PracticeSource; wide: boolean }) {
+  const { guard } = useFrozen();
+  const [session, dispatch] = useReducer(practiceStep, opened);
+  const [askingStartOver, setAskingStartOver] = useState(false);
+
+  useEffect(() => {
+    document.title = `${session.title} · Qbank`;
+  }, [session.title]);
+
+  const loaded = session.questions[session.index];
+  const attempt = session.attempts[session.index];
+  const score = attempt ? scoreOf(attempt) : null;
+
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  const revealedKey = score ? String(session.index) : "";
+  useEffect(() => {
+    if (revealedKey === "") return;
+    feedbackRef.current?.scrollIntoView({ block: "nearest" });
+  }, [revealedKey]);
+
+  // The answer on its way: what was sent, never the answer area as it is now. Each of these stays the
+  // same value for as long as the question is being checked, so the answer is posted once. Leaving
+  // the runner does not stop its retries: the answer is still saved once the connection is back.
+  const sent = attempt?.phase.phase === "checking" ? attempt.phase.sent : null;
+  const questionId = loaded?.id;
+  const clientAttemptId = attempt?.clientAttemptId;
+  const guessed = attempt?.guessed;
+  const layout = attempt?.layout;
+  const fromReview = session.kind === "review";
+  useEffect(() => {
+    if (sent === null || questionId === undefined || clientAttemptId === undefined || guessed === undefined || layout === undefined) return;
+    void recordPracticeAnswer({ clientAttemptId, questionId, response: sent, guessed, layout, fromReview }, () => {
+      dispatch({ type: "checkRetrying", clientAttemptId });
+    }).then(
+      (saved) => {
+        dispatch({ type: "checked", clientAttemptId, score: saved });
+      },
+      (caught: unknown) => {
+        dispatch({ type: "checkFailed", clientAttemptId, message: caught instanceof ApiError ? caught.message : "Could not save that answer." });
+      },
+    );
+  }, [sent, questionId, clientAttemptId, guessed, layout, fromReview]);
+
+  // Asking the server to begin the set again.
+  const { startingOver } = session;
+  const startOverPath = `${source.loadPath}/start-over`;
+  useEffect(() => {
+    if (!startingOver) return;
+    void api(startOverPath, { method: "POST" }).then(
+      () => {
+        dispatch({ type: "startedOver" });
+      },
+      (caught: unknown) => {
+        dispatch({ type: "startOverFailed", message: caught instanceof ApiError ? caught.message : "Could not start over. Check your connection and try again." });
+      },
+    );
+  }, [startingOver, startOverPath]);
+
+  const close = () => {
+    navigate(source.closeTo);
+  };
+
   if (session.finishedAt !== null) {
     return <Results session={session} wide={wide} closeLabel={source.closeLabel} onClose={close} />;
   }
 
-  const loaded = session.questions[session.index];
-  const attempt = session.attempts[session.index];
   if (!loaded || !attempt) {
     return (
       <RunnerShell wide={wide} title={session.title} count="" onClose={close}>
@@ -79,55 +132,12 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
     );
   }
 
-  const revealed = attempt.score !== null;
+  const { phase } = attempt;
+  const revealed = phase.phase === "revealed";
+  // The answer is taken only while the question is open and the set is not beginning again.
+  const answering = phase.phase === "open" && !startingOver;
   const response = toResponse(attempt.draft);
   const last = nextIndex(session) === -1;
-
-  const check = () => {
-    if (checking || attempt.score || !response) return;
-    setError(null);
-    setChecking(true);
-    void recordPracticeAnswer(
-      {
-        clientAttemptId: attempt.clientAttemptId,
-        questionId: loaded.id,
-        response,
-        guessed: attempt.guessed,
-        layout: attempt.layout,
-        fromReview: session.kind === "review",
-      },
-      () => {
-        setWaiting(true);
-      },
-    ).then(
-      (score) => {
-        setChecking(false);
-        setWaiting(false);
-        setSession((current) => reveal(current, session.index, attempt.guessed, score));
-      },
-      (caught: unknown) => {
-        setChecking(false);
-        setWaiting(false);
-        setError(caught instanceof ApiError ? caught.message : "Could not save that answer.");
-      },
-    );
-  };
-
-  const confirmStartOver = () => {
-    setAskingStartOver(false);
-    setError(null);
-    setChecking(true);
-    void api(`${source.loadPath}/start-over`, { method: "POST" }).then(
-      () => {
-        setChecking(false);
-        setSession(startOver);
-      },
-      (caught: unknown) => {
-        setChecking(false);
-        setError(caught instanceof ApiError ? caught.message : "Could not start over. Check your connection and try again.");
-      },
-    );
-  };
 
   return (
     <RunnerShell
@@ -141,14 +151,21 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
         revealed ? (
           <Button
             fullWidth
+            disabled={startingOver}
             onClick={() => {
-              setSession((current) => advance(current));
+              dispatch({ type: "next" });
             }}
           >
             {last ? "See results" : "Next question"}
           </Button>
         ) : (
-          <Button fullWidth disabled={response === null || checking} onClick={guard(check)}>
+          <Button
+            fullWidth
+            disabled={response === null || !answering}
+            onClick={guard(() => {
+              dispatch({ type: "check" });
+            })}
+          >
             Check answer
           </Button>
         )
@@ -160,7 +177,7 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
           <button
             type="button"
             className="runner-pickup-action"
-            disabled={checking}
+            disabled={phase.phase === "checking" || startingOver}
             onClick={guard(() => {
               setAskingStartOver(true);
             })}
@@ -170,8 +187,8 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
         </div>
       ) : null}
       <NewRunNotice session={session} />
-      {error ? <p className="form-error">{error}</p> : null}
-      {waiting ? (
+      {session.error ? <p className="form-error">{session.error}</p> : null}
+      {phase.phase === "checking" && phase.retrying ? (
         <p className="status-banner" role="status">
           <Icon name="clock" size={16} />
           <span>No connection. Your answer is saved as soon as you are back online.</span>
@@ -180,7 +197,7 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
       <MarkingProvider
         marks={attempt.marks}
         onChange={(marks) => {
-          setSession((current) => markAttempt(current, session.index, marks));
+          dispatch({ type: "mark", marks });
         }}
       >
         <QuestionMeta format={FORMAT_LABELS[loaded.question.type]} topic={loaded.topic} />
@@ -191,7 +208,7 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
         <p className="runner-ask">
           <Markable piece="ask" text={loaded.ask} />
         </p>
-        {attempt.score ? <FeedbackBanner score={attempt.score} guessed={attempt.guessed} bannerRef={feedbackRef} /> : null}
+        {score ? <FeedbackBanner score={score} guessed={attempt.guessed} bannerRef={feedbackRef} /> : null}
         <AnswerArea
           loaded={loaded}
           layout={attempt.layout}
@@ -199,14 +216,13 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
           struck={attempt.struck}
           revealed={revealed}
           onDraft={(draft) => {
-            if (revealed) return;
-            setSession((current) => updateAttempt(current, session.index, (item) => ({ ...item, draft })));
+            dispatch({ type: "edit", change: () => ({ draft }) });
           }}
           onStrike={
             revealed
               ? undefined
               : (option) => {
-                  setSession((current) => strike(current, session.index, option));
+                  dispatch({ type: "edit", change: (entry) => toggleStrike(entry.draft, entry.struck, option) });
                 }
           }
         />
@@ -216,10 +232,10 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
           <input
             type="checkbox"
             checked={attempt.guessed}
-            disabled={checking}
+            disabled={!answering}
             onChange={(event) => {
-              const guessed = event.target.checked;
-              setSession((current) => updateAttempt(current, session.index, (item) => ({ ...item, guessed })));
+              const flagged = event.target.checked;
+              dispatch({ type: "edit", change: () => ({ guessed: flagged }) });
             }}
           />
           <span>
@@ -258,7 +274,10 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
           message={startOverMessage(answeredCount(session))}
           confirmLabel="Start over"
           confirmVariant="destructive"
-          onConfirm={confirmStartOver}
+          onConfirm={() => {
+            setAskingStartOver(false);
+            dispatch({ type: "startOver" });
+          }}
           onCancel={() => {
             setAskingStartOver(false);
           }}
@@ -269,16 +288,17 @@ export function PracticeScreen({ courseId, source, wide }: { courseId: string; s
 }
 
 function Results({ session, wide, closeLabel, onClose }: { session: Session; wide: boolean; closeLabel: string; onClose: () => void }) {
-  const fullyRight = session.attempts.filter((attempt) => attempt.score?.status === "correct").length;
-  const partial = session.attempts.filter((attempt) => attempt.score?.status === "partial").length;
-  const missed = session.attempts.filter((attempt) => attempt.score?.status === "incorrect").length;
-  const guessed = session.attempts.filter((attempt) => attempt.guessed && attempt.score).length;
+  const scores = session.attempts.map(scoreOf);
+  const fullyRight = scores.filter((score) => score?.status === "correct").length;
+  const partial = scores.filter((score) => score?.status === "partial").length;
+  const missed = scores.filter((score) => score?.status === "incorrect").length;
+  const guessed = session.attempts.filter((attempt, index) => attempt.guessed && scores[index]).length;
   let points = 0;
   let maxPoints = 0;
-  for (const attempt of session.attempts) {
-    if (!attempt.score) continue;
-    points += attempt.score.points;
-    maxPoints += attempt.score.maxPoints;
+  for (const score of scores) {
+    if (!score) continue;
+    points += score.points;
+    maxPoints += score.maxPoints;
   }
   const elapsed = (session.finishedAt ?? session.startedAt) - session.startedAt;
 
@@ -312,8 +332,7 @@ function Results({ session, wide, closeLabel, onClose }: { session: Session; wid
             <h2 className="result-heading">Questions</h2>
             <div className="result-list">
               {session.questions.map((question, index) => {
-                const attempt = session.attempts[index];
-                const score = attempt?.score;
+                const score = scores[index];
                 return (
                   <details key={question.id} className="result-question">
                     <summary>
@@ -326,7 +345,7 @@ function Results({ session, wide, closeLabel, onClose }: { session: Session; wid
                         </span>
                       </span>
                       <span className={score ? `result-mark result-mark-${score.status}` : "result-mark"}>
-                        {score ? markText(score, attempt.guessed) : "Not answered"}
+                        {score ? markText(score, session.attempts[index]?.guessed === true) : "Not answered"}
                       </span>
                     </summary>
                     <div className="result-detail">
@@ -359,7 +378,8 @@ function judgmentRows(session: Session): { label: string; right: number; total: 
     const label = question.cj && question.cj.length > 0 ? question.cj : "Not labeled";
     const group = groups.get(label) ?? { right: 0, total: 0 };
     group.total += 1;
-    if (session.attempts[index]?.score?.status === "correct") group.right += 1;
+    const attempt = session.attempts[index];
+    if (attempt && scoreOf(attempt)?.status === "correct") group.right += 1;
     groups.set(label, group);
   });
   return [...groups.entries()].map(([label, group]) => ({ label, right: group.right, total: group.total }));
