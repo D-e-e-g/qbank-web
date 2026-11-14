@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError, type ExamSummary } from "../api";
 import { NOT_KNOWN, startExam, startTap } from "./start";
+import { EXAM_ANSWER_GRACE_MS } from "./status";
 
 const COURSE = "8d3c56f1-5f43-4c62-9d0e-7a3b1f2e4c55";
 const FOLDER = "1b2c3d4e-5f60-4718-8a9b-0c1d2e3f4a5b";
@@ -17,6 +18,7 @@ const running: ExamSummary = {
   timeLimitSeconds: 450,
   startedAt: "2026-11-11T10:00:00.000Z",
   endsAt: "2026-11-11T10:07:30.000Z",
+  status: "running",
   finishedAt: null,
   endReason: null,
   answeredCount: 2,
@@ -43,14 +45,27 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** A moment while `running` runs. */
+const DURING = Date.parse("2026-11-11T10:05:00.000Z");
+const END = Date.parse(running.endsAt);
+
 describe("startTap", () => {
   it("waits while it is not known whether an exam is running", () => {
-    expect(startTap(NOT_KNOWN)).toEqual({ kind: "wait" });
+    expect(startTap(NOT_KNOWN, DURING)).toEqual({ kind: "wait" });
   });
 
   it("asks before ending a running exam, and starts when none runs", () => {
-    expect(startTap({ known: true, exam: running })).toEqual({ kind: "ask", exam: running });
-    expect(startTap({ known: true, exam: null })).toEqual({ kind: "start" });
+    expect(startTap({ known: true, exam: running }, DURING)).toEqual({ kind: "ask", exam: running });
+    expect(startTap({ known: true, exam: null }, DURING)).toEqual({ kind: "start" });
+  });
+
+  it("asks about an exam in its grace, as the server does", () => {
+    expect(startTap({ known: true, exam: running }, END + 1_000)).toEqual({ kind: "ask", exam: running });
+    expect(startTap({ known: true, exam: { ...running, status: "grace" } }, END + 1_000)).toEqual({ kind: "ask", exam: { ...running, status: "grace" } });
+  });
+
+  it("starts without asking once the time of the exam read as running is up, on a screen left open", () => {
+    expect(startTap({ known: true, exam: running }, END + EXAM_ANSWER_GRACE_MS + 1)).toEqual({ kind: "start" });
   });
 });
 

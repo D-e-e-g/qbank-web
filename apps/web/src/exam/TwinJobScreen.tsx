@@ -9,6 +9,7 @@ import { Screen } from "../shell/Screen";
 import { ShellLink } from "../shell/ShellLink";
 import { ReplaceExamSheet } from "./ReplaceExamSheet";
 import { NOT_KNOWN, type RunningExam } from "./start";
+import { openExam } from "./status";
 import { isRunning, stepIcon, stepProgress, TWIN_POLL_MS, twinCountText, twinJobTitle } from "./twins";
 import { useExamStart } from "./useExamStart";
 
@@ -74,7 +75,7 @@ export function TwinJobScreen({ courseId, jobId }: { courseId: string; jobId: st
         .then((setup) => {
           if (cancel) return;
           setRunningError(null);
-          setRunning({ known: true, exam: setup.inProgress });
+          setRunning({ known: true, exam: openExam(setup.inProgress, Date.now()) });
         })
         .catch((caught: unknown) => {
           if (cancel) return;

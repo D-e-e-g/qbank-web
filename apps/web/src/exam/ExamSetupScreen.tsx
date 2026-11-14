@@ -27,8 +27,10 @@ import { PastExamList } from "./PastExamList";
 import { ReplaceExamSheet } from "./ReplaceExamSheet";
 import { NOT_KNOWN, type RunningExam } from "./start";
 import { foldersText, minutesText, practiceFoldersText } from "./names";
+import { minutesLeft, openExam } from "./status";
 import { canTwin, courseTwinJobs, listsTwinJobs, twinJobMeta, twinJobPath, twinJobState, twinJobTitle } from "./twins";
 import { useExamStart } from "./useExamStart";
+import { useStatusClock } from "./useStatusClock";
 
 /** How long the plan for new ticks may take before the last one is dimmed. */
 const SLOW_PLAN_MS = 300;
@@ -40,7 +42,7 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
   // Her exam pages and folder order, to group the folders as she sees them.
   const { course: detail, error: detailError } = useCourse(courseId);
   const { words } = useCourseNaming(courseId, detail);
-  const [loaded, setLoaded] = useState<{ path: string; setup: ExamSetup; at: number } | null>(null);
+  const [loaded, setLoaded] = useState<{ path: string; setup: ExamSetup } | null>(null);
   const [slowPath, setSlowPath] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set(preset?.folderIds ?? []));
@@ -65,8 +67,12 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
   // The first read already asks for the folders the exam page ticked.
   const path = setupPath(courseId, ticked, wrongOnly);
   const setup = loaded?.setup ?? null;
-  // Whether an exam is running is known once a setup was read, from that read.
-  const running: RunningExam = setup === null ? NOT_KNOWN : { known: true, exam: setup.inProgress };
+  // Whether an exam is running is known once a setup was read, from that read and its status since:
+  // on a screen left open, an exam whose time is up is no longer the one in progress. The setup is
+  // then read again, and the server lists that exam with its score.
+  const now = useStatusClock(setup?.inProgress ?? null, learnRunning);
+  const inProgress = setup === null ? null : openExam(setup.inProgress, now);
+  const running: RunningExam = setup === null ? NOT_KNOWN : { known: true, exam: inProgress };
   // The last plan stays on screen until the next one arrives. When that takes a moment, it is
   // dimmed, so it is not read as the plan for the folders ticked now.
   const updating = slowPath === path && loaded?.path !== path;
@@ -84,7 +90,7 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
       .then((body) => {
         if (cancel) return;
         setLoadError(null);
-        setLoaded({ path, setup: body, at: Date.now() });
+        setLoaded({ path, setup: body });
       })
       .catch((caught: unknown) => {
         if (!cancel) setLoadError(caught instanceof ApiError ? caught.message : "Could not load the exam setup.");
@@ -158,7 +164,7 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
       <p className="note">{course ? courseLine(course) : "A timed exam over the folders you pick"}</p>
       {error ? <p className="form-error">{error}</p> : null}
       {setup === null && error === null ? <p className="note">Loading the exam setup.</p> : null}
-      {setup?.inProgress ? <RunningExam exam={setup.inProgress} loadedAt={loaded?.at ?? 0} /> : null}
+      {inProgress ? <RunningExam exam={inProgress} now={now} /> : null}
       {setup !== null && folders.length === 0 ? (
         <div className="empty-card">
           <EmptyState icon="timer" message={`This ${words.container} has no questions yet. An exam draws from the folders your sets are in.`} />
@@ -285,8 +291,8 @@ export function ExamSetupScreen({ courseId, preset }: { courseId: string; preset
   );
 }
 
-function RunningExam({ exam, loadedAt }: { exam: ExamSummary; loadedAt: number }) {
-  const minutesLeft = Math.max(1, Math.ceil((new Date(exam.endsAt).getTime() - loadedAt) / 60_000));
+/** The user's open exam: running, or in its grace once its time has run out, when no time is left. */
+function RunningExam({ exam, now }: { exam: ExamSummary; now: number }) {
   const answered = `${String(exam.answeredCount)} of ${String(exam.questionCount)} answered`;
   return (
     <ul className="review-list">
@@ -305,7 +311,7 @@ function RunningExam({ exam, loadedAt }: { exam: ExamSummary; loadedAt: number }
             <span className="review-topic">Exam in progress</span>
             <span className="review-meta">
               {foldersText(exam.weeks)}
-              {exam.pool === "wrong" ? " · Wrong questions only" : ""} · {answered} · {minutesLeft} min left
+              {exam.pool === "wrong" ? " · Wrong questions only" : ""} · {answered} · {minutesLeft(exam, now)} min left
             </span>
           </span>
           <span className="exam-resume">Resume</span>
