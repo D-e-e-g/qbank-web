@@ -4,7 +4,7 @@ import { currentCatalog, findCourse, forgetCatalog, refreshCatalog } from "./cat
 import { currentUndoOffer, forgetUndo, offerUndo, type DeletionPreview } from "./course/deletion";
 import { changePassword, signInWithPassword, signUp, type Account } from "./login/api";
 import { requestDeletion } from "./login/delete-account";
-import { requestSignOutEverywhere } from "./login/sign-out-everywhere";
+import { requestSignOut } from "./login/sign-out";
 import { applySessionNotice, type Gate } from "./session-end";
 
 const account: Account = {
@@ -241,20 +241,35 @@ describe("choosing a new password", () => {
   });
 });
 
-describe("signing out everywhere", () => {
-  it("signs out to the sign-in screen and drops this account on this device when this session had already ended", async () => {
+describe("signing out", () => {
+  it.each(["here", "everywhere"] as const)("%s: shows sign-in and drops this account on this device when this session had already ended", async (scope) => {
     await showHerCatalog();
     fake({ status: 401, body: SIGN_IN });
-    await expect(requestSignOutEverywhere()).resolves.toEqual({ kind: "signed-out" });
+    await expect(requestSignOut(scope)).resolves.toEqual({ kind: "signed-out" });
     expect(readGate()).toEqual({ status: "signed-out" });
     expect(pathname).toBe("/");
     expect(findCourse(currentCatalog(), "nurs420")).toBeUndefined();
   });
 
-  it("keeps her signed in, on the same screen, when the server ends nothing", async () => {
+  it.each([
+    ["here", 503, { error: "auth_unavailable", message: "Sign-in is not available right now." }],
+    ["everywhere", 502, { error: "auth_failed", message: "Signing out everywhere did not work. Try again." }],
+  ] as const)("%s: keeps the account signed in, on the same screen, when the server ends nothing", async (scope, status, body) => {
     await showHerCatalog();
-    fake({ status: 502, body: { error: "auth_failed", message: "Signing out everywhere did not work. Try again." } });
-    await expect(requestSignOutEverywhere()).resolves.toEqual({ kind: "refused", message: "Signing out everywhere did not work. Try again." });
+    fake({ status, body });
+    await expect(requestSignOut(scope)).resolves.toEqual({ kind: "refused", message: body.message });
+    expect(readGate()).toEqual(signedIn);
+    expect(pathname).toBe("/course/nurs420");
+    expect(findCourse(currentCatalog(), "nurs420")?.title).toBe("Health assessment");
+  });
+
+  it.each([
+    ["here", "Signing out did not work. Try again."],
+    ["everywhere", "Signing out everywhere did not work. Try again."],
+  ] as const)("%s: keeps the account signed in, on the same screen, when the request never reaches the server", async (scope, message) => {
+    await showHerCatalog();
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))));
+    await expect(requestSignOut(scope)).resolves.toEqual({ kind: "refused", message });
     expect(readGate()).toEqual(signedIn);
     expect(pathname).toBe("/course/nurs420");
     expect(findCourse(currentCatalog(), "nurs420")?.title).toBe("Health assessment");

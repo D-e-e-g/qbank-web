@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { AGENTS_PATH } from "../agents/agents";
-import { ConfirmSheet } from "../components/ConfirmSheet";
 import { Icon } from "../components/Icon";
 import { ShellLink } from "../shell/ShellLink";
-import { ApiError, changePassword, setTemporaryPassword, signOut, type Account } from "./api";
+import { ApiError, changePassword, setTemporaryPassword, type Account } from "./api";
 import { DeleteAccountSheet } from "./DeleteAccountSheet";
 import { isDeleteOffered } from "./delete-account";
-import { requestSignOutEverywhere, SIGN_OUT_EVERYWHERE, SIGN_OUT_EVERYWHERE_QUESTION } from "./sign-out-everywhere";
+import { requestSignOut } from "./sign-out";
+import { SignOutRow } from "./SignOutRow";
 import { Button, TextField } from "./ui";
 
 export function AccountSection({ user, onUser, onSignedOut }: { user: Account; onUser: (user: Account) => void; onSignedOut: () => void }) {
@@ -82,17 +82,8 @@ export function AccountSection({ user, onUser, onSignedOut }: { user: Account; o
             <Icon name="chevron-right" size={18} strokeWidth={2} />
           </span>
         </ShellLink>
-        <Button
-          variant="quiet"
-          size="md"
-          icon="log-out"
-          onClick={() => {
-            void signOut().finally(onSignedOut);
-          }}
-        >
-          Sign out
-        </Button>
-        <SignOutEverywhere onSignedOut={onSignedOut} />
+        <SignOutRow scope="here" onSignedOut={onSignedOut} />
+        <SignOutRow scope="everywhere" onSignedOut={onSignedOut} />
         {isDeleteOffered(user) ? (
           <Button
             variant="destructive"
@@ -114,7 +105,11 @@ export function AccountSection({ user, onUser, onSignedOut }: { user: Account; o
               // The server ended its sessions and cleared this device's cookie; the rest goes as a sign-out's does.
               onSignedOut();
             } else if (outcome.kind === "signed-out") {
-              void signOut().finally(onSignedOut);
+              // The server has just said this session is over, so sign-in shows either way: the
+              // request only clears the dead cookie, and a refusal leaves no session behind.
+              void requestSignOut("here").then(() => {
+                onSignedOut();
+              });
             } else {
               onUser({ ...user, mustChangePassword: true });
             }
@@ -125,61 +120,6 @@ export function AccountSection({ user, onUser, onSignedOut }: { user: Account; o
         />
       ) : null}
     </section>
-  );
-}
-
-/**
- * Ends every session of the account, on every device, this one included, after asking once. Once
- * they have ended, sign-in shows, as after Sign out. A refusal ends nothing and keeps her signed in,
- * in the server's words.
- */
-function SignOutEverywhere({ onSignedOut }: { onSignedOut: () => void }) {
-  const [asking, setAsking] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | undefined>();
-
-  return (
-    <>
-      <Button
-        variant="quiet"
-        size="md"
-        icon="log-out"
-        disabled={busy}
-        onClick={() => {
-          setAsking(true);
-        }}
-      >
-        {SIGN_OUT_EVERYWHERE}
-      </Button>
-      {error !== undefined ? (
-        <p className="form-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {asking ? (
-        <ConfirmSheet
-          title={SIGN_OUT_EVERYWHERE_QUESTION}
-          confirmLabel={SIGN_OUT_EVERYWHERE}
-          confirmVariant="destructive"
-          onConfirm={() => {
-            setAsking(false);
-            setBusy(true);
-            setError(undefined);
-            void requestSignOutEverywhere().then((outcome) => {
-              if (outcome.kind === "signed-out") {
-                onSignedOut();
-                return;
-              }
-              setBusy(false);
-              setError(outcome.message);
-            });
-          }}
-          onCancel={() => {
-            setAsking(false);
-          }}
-        />
-      ) : null}
-    </>
   );
 }
 

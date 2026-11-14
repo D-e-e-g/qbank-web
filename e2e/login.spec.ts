@@ -51,6 +51,58 @@ test("signing out leaves none of her courses on screen for the next account", as
   await expect(page.getByText(code)).toHaveCount(0);
 });
 
+test("a Sign out that fails keeps the account signed in and says why, until one gets through", async ({ browser, page }) => {
+  const account = await newAccount(browser, "refused");
+  await signIn(page, account.email, account.password);
+  await page.getByRole("link", { name: "Settings" }).click();
+  const signedInAs = page.getByText(`Signed in as ${account.email}.`);
+  const signOut = page.getByRole("button", { name: "Sign out", exact: true });
+  const signInScreen = page.getByRole("button", { name: "Sign in", exact: true });
+
+  // No connection: the request never reaches the server, so the session cookie is still good.
+  await page.route("**/api/sign-out", (route) => route.abort("internetdisconnected"));
+  await signOut.click();
+  await expect(page.getByRole("alert")).toHaveText("Signing out did not work. Try again.");
+  await expect(signedInAs).toBeVisible();
+  await expect(signInScreen).toHaveCount(0);
+  expect((await page.request.get("/api/session")).status()).toBe(200);
+  await page.unroute("**/api/sign-out");
+
+  // The server refuses: its own sentence, and still signed in.
+  await page.route("**/api/sign-out", (route) =>
+    route.fulfill({ status: 503, json: { error: "auth_unavailable", message: "Sign-in is not available right now." } }),
+  );
+  await signOut.click();
+  await expect(page.getByRole("alert")).toHaveText("Sign-in is not available right now.");
+  await expect(signedInAs).toBeVisible();
+  expect((await page.request.get("/api/session")).status()).toBe(200);
+  await page.unroute("**/api/sign-out");
+
+  // Sign out everywhere is refused the same way, under its own button.
+  await page.route("**/api/sign-out/everywhere", (route) => route.abort("internetdisconnected"));
+  await page.getByRole("button", { name: "Sign out everywhere" }).click();
+  await page
+    .getByRole("dialog", { name: "Sign out of QBank on every device, including this one?" })
+    .getByRole("button", { name: "Sign out everywhere" })
+    .click();
+  await expect(page.getByRole("alert")).toHaveText(["Sign-in is not available right now.", "Signing out everywhere did not work. Try again."]);
+  await expect(signedInAs).toBeVisible();
+  expect((await page.request.get("/api/session")).status()).toBe(200);
+  await page.unroute("**/api/sign-out/everywhere");
+
+  // Opened again, the tab is as signed in as the screen said it was.
+  await page.reload();
+  await expect(signedInAs).toBeVisible();
+
+  // Once the request gets through, sign-in shows, and opening the tab again stays there.
+  await signOut.click();
+  await expect(signInScreen).toBeVisible();
+  expect((await page.request.get("/api/session")).status()).toBe(401);
+  await page.reload();
+  await expect(signInScreen).toBeVisible();
+  await expect(signedInAs).toHaveCount(0);
+});
+
 test("Sign out everywhere asks once, then signs out this browser and every other one of the account", async ({ browser, page }) => {
   const account = await newAccount(browser, "everywhere");
   // The same user account in another browser, and the admin in a third.
