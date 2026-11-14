@@ -174,7 +174,7 @@ The clickable wireframes from the planning phase are the reference for every sta
 
 ### Home
 
-- Semesters as groups; each lists its courses. The numbers are 1, 2, and 3, and they belong to her account. Once the server has answered, an account with no semesters sees none. Until the list loads, and when it cannot be loaded, three empty semesters still show.
+- Semesters as groups; each lists its courses. The numbers are 1, 2, and 3, and they belong to her account. Once the server has answered, an account with no semesters sees none. Until the list loads, Home says "Loading your courses." and lists nothing. When the list cannot be loaded, Home says so, in the server's sentence or "Could not load your courses.", with **Try again**, and tries again by itself when the device is back online; it never shows empty semesters in place of courses it could not read, and the sidebar lists none. Once the courses are on screen, a later read that fails leaves them there.
 - **Study topics**, after the semesters: the same cards, called by the topic's name (see [Study topics](#study-topics)).
 - **+**, at the right of the title, is the one place Home adds anything. Its menu, **Add**: **New course in Semester N** for each semester she is in (not archived), which asks for a course code and name and then opens the course, empty; **New study topic**, which asks for a name and then opens the topic; and **Add Semester N** for the lowest of 1, 2 and 3 she does not have yet, shown only while one is missing. No group header has a New.
 - A course card shows its question count, folder count, "N to review", and a progress bar. A topic card is the same, without a code.
@@ -316,7 +316,7 @@ Courses, study topics, exam and study pages, sets, folders, and past exams can b
 ### Import
 
 - Paste the JSON or choose the file.
-- Course: an existing course, an existing study topic (under **Study topics**, once she has one), **New course** (code, name, semester), or **New topic** (a name only: no code, no semester). With no topics yet, the menu is her courses, as before, plus those two new choices. A set with no folder goes to **Unsorted** in a topic the same way it does in a course. The done line and the replace warning name a topic by its name.
+- Course: an existing course, an existing study topic (under **Study topics**, once she has one), **New course** (code, name, semester), or **New topic** (a name only: no code, no semester). With no topics yet, the menu is her courses, as before, plus those two new choices. Until her courses are loaded, the Course field says "Loading your courses" in place of the menu, and when they cannot be loaded it says so with **Try again**; Import waits for the menu, so a course that is not known yet is never offered as a new one. Make questions' Course field does the same. A set with no folder goes to **Unsorted** in a topic the same way it does in a course. The done line and the replace warning name a topic by its name.
 - Folder: **Unsorted**, picked every time unless she picks another; her folders, grouped by exam page; or **New folder** with a name. **Import here** on a folder arrives with that folder picked. A course's or exam page's + arrives with the course picked, and from an exam page that page's folders are listed first.
 - Set name: filled from the file's `title`, editable.
 - **Check file:** shows "Ready: N questions, M terms" with the format breakdown, or the errors with a **"Copy these for your agent"** button, plus any warnings. An exam set says so: its questions are asked only on exams over its folder.

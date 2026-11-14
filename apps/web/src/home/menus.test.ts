@@ -20,7 +20,7 @@ function card(id: string, kind: CourseLink["kind"], archivedAt: string | null = 
   };
 }
 
-function semester(number: number, courses: CourseLink[], options: { archivedAt?: string; label?: string; placeholder?: boolean } = {}): SemesterGroup {
+function semester(number: number, courses: CourseLink[], options: { archivedAt?: string; label?: string } = {}): SemesterGroup {
   const label = options.label ?? `Semester ${String(number)}`;
   return {
     id: `s${String(number)}`,
@@ -31,7 +31,6 @@ function semester(number: number, courses: CourseLink[], options: { archivedAt?:
     endsOn: null,
     archivedAt: options.archivedAt ?? null,
     courses,
-    placeholder: options.placeholder ?? false,
   };
 }
 
@@ -52,10 +51,6 @@ describe("Home's + menu", () => {
   it("offers the lowest missing number, so a gap is filled first", () => {
     expect(homeAdds({ semesters: [semester(1, []), semester(3, [])] }).at(-1)).toEqual({ kind: "semester", number: 2, label: "Add Semester 2" });
     expect(homeAdds({ semesters: [] }).map((add) => add.label)).toEqual(["New study topic", "Add Semester 1"]);
-  });
-
-  it("does not count the shell's placeholders as her semesters", () => {
-    expect(homeAdds({ semesters: [semester(1, [], { placeholder: true })] }).map((add) => add.label)).toEqual(["New study topic", "Add Semester 1"]);
   });
 });
 

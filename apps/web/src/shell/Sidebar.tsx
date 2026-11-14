@@ -4,7 +4,9 @@ import { inSection, type AppRoute } from "../routes";
 import { ShellLink } from "./ShellLink";
 
 export function Sidebar({ items, pathname }: { items: readonly AppRoute[]; pathname: string }) {
-  const { semesters, topics } = homeLayout(useCatalog());
+  const catalog = useCatalog();
+  // No semester and no topic is listed until they are known: a load that failed is not an empty account.
+  const layout = catalog.status === "ready" ? homeLayout(catalog) : null;
   return (
     <aside className="sidebar" aria-label="Sidebar">
       <div className="sidebar-title">Qbank</div>
@@ -19,7 +21,7 @@ export function Sidebar({ items, pathname }: { items: readonly AppRoute[]; pathn
           );
         })}
       </nav>
-      {semesters.map(({ semester, courses }) => (
+      {layout?.semesters.map(({ semester, courses }) => (
         <div key={semester.id} className="sidebar-semester">
           <div className="sidebar-semester-label">{semester.label}</div>
           {courses.length === 0 ? <div className="sidebar-empty">No courses yet</div> : null}
@@ -28,13 +30,15 @@ export function Sidebar({ items, pathname }: { items: readonly AppRoute[]; pathn
           ))}
         </div>
       ))}
-      <div className="sidebar-semester">
-        <div className="sidebar-semester-label">Study topics</div>
-        {topics.length === 0 ? <div className="sidebar-empty">No topics yet</div> : null}
-        {topics.map((topic) => (
-          <SideCourse key={topic.id} course={topic} pathname={pathname} />
-        ))}
-      </div>
+      {layout ? (
+        <div className="sidebar-semester">
+          <div className="sidebar-semester-label">Study topics</div>
+          {layout.topics.length === 0 ? <div className="sidebar-empty">No topics yet</div> : null}
+          {layout.topics.map((topic) => (
+            <SideCourse key={topic.id} course={topic} pathname={pathname} />
+          ))}
+        </div>
+      ) : null}
     </aside>
   );
 }

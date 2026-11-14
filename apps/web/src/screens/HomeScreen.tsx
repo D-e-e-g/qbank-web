@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api } from "../api";
-import type { CourseLink, SemesterGroup } from "../catalog";
+import type { CourseLink, ReadyCatalog, SemesterGroup } from "../catalog";
 import { homeLayout, refreshCatalog, useCatalog } from "../catalog";
+import { Button } from "../components/Button";
 import { NewCourseSheet, RenameCourseSheet } from "../components/CourseSheets";
 import { DeleteSheet } from "../components/DeleteSheet";
 import { EmptyState } from "../components/EmptyState";
@@ -35,15 +36,51 @@ const ACTION_ICONS: Record<CardAction["kind"], IconName> = {
 };
 
 /**
+ * Home, once the courses are known. Until then it says they are loading, and when the read failed
+ * it says so and offers Try again: a load that failed is never shown as an account with no courses.
+ */
+export function HomeScreen() {
+  const catalog = useCatalog();
+  if (catalog.status === "loading") {
+    return (
+      <Screen title="Home">
+        <p className="note">Loading your courses.</p>
+      </Screen>
+    );
+  }
+  if (catalog.status === "failed") {
+    return (
+      <Screen title="Home">
+        <div className="empty-card">
+          <EmptyState
+            icon="circle-alert"
+            message={catalog.message}
+            action={
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  void refreshCatalog();
+                }}
+              >
+                Try again
+              </Button>
+            }
+          />
+        </div>
+      </Screen>
+    );
+  }
+  return <HomeCourses catalog={catalog} />;
+}
+
+/**
  * Her semesters with their courses, her study topics, and what she archived. One + at the top adds
  * a course to a semester, a topic, or the next semester; each card's "…" (or a right-click) opens,
  * renames, moves, archives or deletes it. Recently deleted, last, brings a deleted course or topic
  * back for 30 days.
  */
-export function HomeScreen() {
+function HomeCourses({ catalog }: { catalog: ReadyCatalog }) {
   const { guard } = useFrozen();
-  const catalog = useCatalog();
-  const editable = catalog.fromServer;
   const [sheet, setSheet] = useState<Sheet>(null);
   const [notice, setNotice] = useState<NoticeMessage | null>(null);
   const notices = useRef(0);
@@ -117,20 +154,18 @@ export function HomeScreen() {
     }
   };
 
-  const actionsFor = editable
-    ? (course: CourseLink): MenuItem[] =>
-        cardActions(course, catalog).map((action) => ({
-          key: action.kind === "move" ? `move-${action.semester.id}` : action.kind,
-          label: cardActionLabel(action),
-          icon: ACTION_ICONS[action.kind],
-          destructive: action.kind === "delete",
-          onSelect: () => {
-            // Open only reads, so it opens in the frozen view too.
-            if (action.kind === "open") act(course, action);
-            else guard(act)(course, action);
-          },
-        }))
-    : undefined;
+  const actionsFor = (course: CourseLink): MenuItem[] =>
+    cardActions(course, catalog).map((action) => ({
+      key: action.kind === "move" ? `move-${action.semester.id}` : action.kind,
+      label: cardActionLabel(action),
+      icon: ACTION_ICONS[action.kind],
+      destructive: action.kind === "delete",
+      onSelect: () => {
+        // Open only reads, so it opens in the frozen view too.
+        if (action.kind === "open") act(course, action);
+        else guard(act)(course, action);
+      },
+    }));
 
   const addItems: MenuItem[] = homeAdds(catalog).map((item) => ({
     key: item.kind === "course" ? `course-${item.semester.id}` : item.kind,
@@ -142,13 +177,13 @@ export function HomeScreen() {
   }));
 
   return (
-    <Screen title="Home" action={editable ? <AddMenu label="Add" items={addItems} /> : undefined}>
+    <Screen title="Home" action={<AddMenu label="Add" items={addItems} />}>
       {semesters.map(({ semester, courses }) => (
         <section key={semester.id} className="semester">
           <h2 className="semester-label">{semester.label}</h2>
           {courses.length === 0 ? (
             <div className="empty-card">
-              <EmptyState icon="layers" message={editable ? "No courses yet. Tap + to add one, or import its first question file." : "No courses yet."} />
+              <EmptyState icon="layers" message="No courses yet. Tap + to add one, or import its first question file." />
             </div>
           ) : (
             <CourseCards courses={courses} actionsFor={actionsFor} />
@@ -256,9 +291,9 @@ function plural(count: number, noun: string): string {
 
 /**
  * Course cards; a topic's card is called by its name alone, as a course's is by its code and name.
- * With `actionsFor`, each card has a "…" and a right-click menu.
+ * Each card has a "…" and a right-click menu of what `actionsFor` offers for it.
  */
-function CourseCards({ courses, actionsFor }: { courses: readonly CourseLink[]; actionsFor: ((course: CourseLink) => MenuItem[]) | undefined }) {
+function CourseCards({ courses, actionsFor }: { courses: readonly CourseLink[]; actionsFor: (course: CourseLink) => MenuItem[] }) {
   return (
     <ul className="course-list">
       {courses.map((course) => (
@@ -268,7 +303,7 @@ function CourseCards({ courses, actionsFor }: { courses: readonly CourseLink[]; 
   );
 }
 
-function CourseCard({ course, actionsFor }: { course: CourseLink; actionsFor: ((course: CourseLink) => MenuItem[]) | undefined }) {
+function CourseCard({ course, actionsFor }: { course: CourseLink; actionsFor: (course: CourseLink) => MenuItem[] }) {
   const [anchor, setAnchor] = useState<MenuAnchor | null>(null);
   const closeMenu = useCallback(() => {
     setAnchor(null);
@@ -276,15 +311,11 @@ function CourseCard({ course, actionsFor }: { course: CourseLink; actionsFor: ((
   const name = courseName(course);
   return (
     <li
-      className={actionsFor === undefined ? undefined : anchor === null ? "course-item" : "course-item course-item-open"}
-      onContextMenu={
-        actionsFor === undefined
-          ? undefined
-          : (event) => {
-              event.preventDefault();
-              setAnchor({ x: event.clientX, y: event.clientY });
-            }
-      }
+      className={anchor === null ? "course-item" : "course-item course-item-open"}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        setAnchor({ x: event.clientX, y: event.clientY });
+      }}
     >
       <ShellLink to={`/course/${course.id}`} className="course-card" current={false}>
         {course.kind === "topic" ? null : <span className="course-code">{course.code}</span>}
@@ -303,23 +334,19 @@ function CourseCard({ course, actionsFor }: { course: CourseLink; actionsFor: ((
         </span>
         <CourseProgress course={course} />
       </ShellLink>
-      {actionsFor === undefined ? null : (
-        <>
-          <button
-            type="button"
-            className="card-more"
-            aria-label={`Actions for ${name}`}
-            aria-haspopup="menu"
-            aria-expanded={anchor !== null}
-            onClick={(event) => {
-              setAnchor(anchor === null ? { element: event.currentTarget } : null);
-            }}
-          >
-            <Icon name="ellipsis" size={20} strokeWidth={2} />
-          </button>
-          {anchor === null ? null : <Menu label={name} anchor={anchor} items={actionsFor(course)} onClose={closeMenu} />}
-        </>
-      )}
+      <button
+        type="button"
+        className="card-more"
+        aria-label={`Actions for ${name}`}
+        aria-haspopup="menu"
+        aria-expanded={anchor !== null}
+        onClick={(event) => {
+          setAnchor(anchor === null ? { element: event.currentTarget } : null);
+        }}
+      >
+        <Icon name="ellipsis" size={20} strokeWidth={2} />
+      </button>
+      {anchor === null ? null : <Menu label={name} anchor={anchor} items={actionsFor(course)} onClose={closeMenu} />}
     </li>
   );
 }

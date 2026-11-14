@@ -289,6 +289,13 @@ body,
   max-width: 280px;
 }
 
+/* The next step under the sentence, as Try again under a load that failed. login.css gives every
+   .btn full width; this one is as wide as its words. */
+.empty .btn {
+  width: auto;
+  margin-top: 4px;
+}
+
 .group {
   display: flex;
   flex-direction: column;

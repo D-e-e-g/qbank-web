@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { api, type CatalogRecord, type CourseKind, type SemesterRecord } from "./api";
+import { ApiError, api, type CatalogRecord, type CourseKind, type SemesterRecord } from "./api";
 
 export interface CourseLink {
   id: string;
@@ -28,36 +28,34 @@ export interface SemesterGroup {
   /** Set when she archived the semester by hand; Home shows it in Archived. */
   archivedAt: string | null;
   courses: readonly CourseLink[];
-  /** Shown before the server has answered, so the shell still has its three semesters. */
-  placeholder: boolean;
 }
 
-interface CatalogSnapshot {
-  semesters: readonly SemesterGroup[];
-  /** Her study topics in her order, archived ones included. */
-  topics: readonly CourseLink[];
-  fromServer: boolean;
-}
+/**
+ * The user's semesters, courses and study topics, as far as this device knows them. Loading until
+ * the server answers, and again after sign-out. Failed when the first read failed, with the sentence
+ * to show: nothing is known, which is not the same as an account with no courses. Ready once a read
+ * succeeded; a later read that fails leaves it ready, with the courses it had.
+ */
+export type Catalog =
+  | { status: "loading" }
+  | { status: "failed"; message: string }
+  | {
+      status: "ready";
+      semesters: readonly SemesterGroup[];
+      /** The study topics in the user's order, archived ones included. */
+      topics: readonly CourseLink[];
+    };
+
+export type ReadyCatalog = Extract<Catalog, { status: "ready" }>;
+
+/** The semesters and topics of a catalog that is ready. */
+type Courses = Pick<ReadyCatalog, "semesters" | "topics">;
 
 const listeners = new Set<() => void>();
 
-function placeholders(): SemesterGroup[] {
-  return [1, 2, 3].map((number) => ({
-    id: `semester-${String(number)}`,
-    number,
-    label: `Semester ${String(number)}`,
-    name: `Semester ${String(number)}`,
-    startsOn: null,
-    endsOn: null,
-    archivedAt: null,
-    courses: [],
-    placeholder: true,
-  }));
-}
+let snapshot: Catalog = { status: "loading" };
 
-let snapshot: CatalogSnapshot = { semesters: placeholders(), topics: [], fromServer: false };
-
-function publish(next: CatalogSnapshot): void {
+function publish(next: Catalog): void {
   snapshot = next;
   for (const listener of listeners) listener();
 }
@@ -69,22 +67,23 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-/** Home's list as it is now. */
-export function currentCatalog(): CatalogSnapshot {
+/** The catalog as it is now. */
+export function currentCatalog(): Catalog {
   return snapshot;
 }
 
-export function useCatalog(): CatalogSnapshot {
+export function useCatalog(): Catalog {
   return useSyncExternalStore(subscribe, currentCatalog, currentCatalog);
 }
 
 /** Her course or topic with this id, from Home's list, so a screen can name it before it loads. */
 export function useCatalogCourse(courseId: string): CourseLink | undefined {
-  const { semesters, topics } = useCatalog();
-  return findCourse({ semesters, topics }, courseId);
+  return findCourse(useCatalog(), courseId);
 }
 
-export function findCourse(catalog: Pick<CatalogSnapshot, "semesters" | "topics">, courseId: string): CourseLink | undefined {
+/** The course or topic with this id, archived ones included; none until the catalog is ready. */
+export function findCourse(catalog: Catalog, courseId: string): CourseLink | undefined {
+  if (catalog.status !== "ready") return undefined;
   return [...catalog.semesters.flatMap((semester) => semester.courses), ...catalog.topics].find((course) => course.id === courseId);
 }
 
@@ -98,7 +97,7 @@ export interface HomeLayout {
 }
 
 /** Home's groups, which the sidebar and Import's menu share: what she studies now, then what she archived. */
-export function homeLayout(catalog: Pick<CatalogSnapshot, "semesters" | "topics">): HomeLayout {
+export function homeLayout(catalog: Courses): HomeLayout {
   const inUse = (course: CourseLink) => course.archivedAt === null;
   const archived: HomeLayout["archived"] = [];
   for (const semester of catalog.semesters) {
@@ -116,28 +115,68 @@ export function homeLayout(catalog: Pick<CatalogSnapshot, "semesters" | "topics"
   };
 }
 
+/** The courses and topics in use, which the course menus of Import and Make questions list. None until the catalog is ready. */
+export function courseMenu(catalog: Catalog): { courses: CourseLink[]; topics: CourseLink[] } {
+  if (catalog.status !== "ready") return { courses: [], topics: [] };
+  const layout = homeLayout(catalog);
+  return { courses: layout.semesters.flatMap(({ courses }) => courses), topics: layout.topics };
+}
+
+/**
+ * Whether an id is a course or topic the user has in use: not known until the catalog is ready, so
+ * a screen neither waits forever nor treats the course as a new one in the meantime.
+ */
+export type CourseStanding = "unknown-yet" | "theirs" | "not-theirs";
+
+/** One answer for "is this id one of the user's courses", for Import and Make questions alike. */
+export function courseStanding(catalog: Catalog, id: string | null): CourseStanding {
+  if (catalog.status !== "ready") return "unknown-yet";
+  const { courses, topics } = courseMenu(catalog);
+  return [...courses, ...topics].some((course) => course.id === id) ? "theirs" : "not-theirs";
+}
+
 // Goes up on sign-out, so an answer asked for by the last account is dropped when it arrives.
 let signOuts = 0;
 
+/**
+ * Reads the catalog from the server. After a failed load it is loading again while this asks, which
+ * is what Try again does. A read that fails once the catalog is ready keeps the courses on screen.
+ */
 export async function refreshCatalog(): Promise<void> {
   const askedFor = signOuts;
+  if (snapshot.status === "failed") publish({ status: "loading" });
   try {
     const record = await api<CatalogRecord>("/api/semesters");
     if (askedFor === signOuts) publish(fromRecord(record));
-  } catch {
-    if (askedFor === signOuts && !snapshot.fromServer) publish({ semesters: placeholders(), topics: [], fromServer: false });
+  } catch (caught) {
+    if (askedFor !== signOuts || snapshot.status === "ready") return;
+    publish({ status: "failed", message: caught instanceof ApiError ? caught.message : "Could not load your courses." });
   }
+}
+
+/**
+ * A failed load is tried again by itself when the device comes back online, the signal a saved
+ * answer retries on (submit-attempt.ts). Returns what stops listening.
+ */
+export function retryCatalogWhenOnline(): () => void {
+  const retry = () => {
+    if (snapshot.status === "failed") void refreshCatalog();
+  };
+  window.addEventListener("online", retry);
+  return () => {
+    window.removeEventListener("online", retry);
+  };
 }
 
 /** Forgets the courses and topics on sign-out, so the next account on this device never sees them. */
 export function forgetCatalog(): void {
   signOuts += 1;
-  publish({ semesters: placeholders(), topics: [], fromServer: false });
+  publish({ status: "loading" });
 }
 
-/** What the server answered. A new account has no semester, so none is shown: no placeholders once the server has said so. */
-export function fromRecord(record: CatalogRecord): CatalogSnapshot {
-  return { semesters: record.semesters.map(toGroup), topics: record.topics, fromServer: true };
+/** What the server answered. A new account has no semester, so none is shown. */
+export function fromRecord(record: CatalogRecord): ReadyCatalog {
+  return { status: "ready", semesters: record.semesters.map(toGroup), topics: record.topics };
 }
 
 function toGroup(semester: SemesterRecord): SemesterGroup {
@@ -149,7 +188,6 @@ function toGroup(semester: SemesterRecord): SemesterGroup {
     startsOn: semester.startsOn,
     endsOn: semester.endsOn,
     archivedAt: semester.archivedAt,
-    placeholder: false,
     courses: [...semester.courses].sort((a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code)),
   };
 }
