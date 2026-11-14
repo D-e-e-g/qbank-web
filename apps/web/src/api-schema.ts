@@ -4616,7 +4616,7 @@ export interface paths {
         };
         /**
          * Exam setup: the course's folders and her exams
-         * @description Every folder with a current question: how many questions an exam over it draws from (its exam bank when it has one, otherwise its practice questions), how many of those she last answered not fully right, and which source it uses. Then her running exam in this course and her ended exams, newest first. An exam whose time has run out is ended first. The admin reads the same, read-only, and ends nothing: an exam whose time ran out stays `inProgress` until her app next opens it. Then what every exam follows (`rules`), what each page would draw (`courseExams`), and, when `folderIds` (or legacy `weeks`) are given, what starting an exam over them would draw (`preview`), worked out as POST does.
+         * @description Every folder with a current question: how many questions an exam over it draws from (its exam bank when it has one, otherwise its practice questions), how many of those she last answered not fully right, and which source it uses. Then the user's exam in this course that has not ended (`inProgress`: `running`, or in its `grace`) and their ended exams, newest first. An exam whose time is up (past `endsAt` and the 30-second grace) is among the ended ones for every reader, as a `timeout` at `endsAt` with its score: the user's own read records that end first; the admin's read writes nothing and works the same end out from the saved answers. Then what every exam follows (`rules`), what each page would draw (`courseExams`), and, when `folderIds` (or legacy `weeks`) are given, what starting an exam over them would draw (`preview`), worked out as POST does.
          */
         get: {
             parameters: {
@@ -4686,7 +4686,7 @@ export interface paths {
         put?: never;
         /**
          * Start an exam over the folders she ticked
-         * @description Draws up to 40 questions only from the sets in the ticked folders, in proportion to each folder's size, with 60 minutes for 40 or 1.5 minutes per question when the folders hold fewer. A folder with an exam bank gives its exam-bank questions; a folder without one gives its practice questions, and once the course has any exam bank the exam lists such folders in practiceWeeks. With pool `wrong`, only the questions she last answered not fully right are drawn: practice questions, exam-bank questions, and the exam twins of practice questions she got wrong (the one practice question of the same folder whose id the exam question names in twinOf) until she answers the twin fully right; a ticked folder with none is refused with `no_wrong_questions`. Send `folderIds`, or legacy `weeks` (folder names, each meaning every folder of that name), not both; with neither, it is refused with `no_folders`. A folder the course does not have is refused with `folder_not_found`, one with no questions with `folder_empty`, and a name no folder with questions has with `week_not_found`. A running exam of hers ends first, recorded as `left`, as `replaces` allows: send the running exam's id once she has confirmed ending it, or null when the screen read that none is running. When an exam is running that `replaces` does not name (null names none), it is refused with 409 `exam_in_progress` naming the running exam in `inProgress`, and nothing changes: ask her ("Start a new exam?") and send its id. Without `replaces`, as from an app from before it, the running exam ends unasked. An exam whose time has run out is not running: it ends as a timeout whatever `replaces` says. Answers go to POST /api/attempts with this exam's id as studySessionId. The admin's session is refused with 403 `admin_read_only`.
+         * @description Draws up to 40 questions only from the sets in the ticked folders, in proportion to each folder's size, with 60 minutes for 40 or 1.5 minutes per question when the folders hold fewer. A folder with an exam bank gives its exam-bank questions; a folder without one gives its practice questions, and once the course has any exam bank the exam lists such folders in practiceWeeks. With pool `wrong`, only the questions she last answered not fully right are drawn: practice questions, exam-bank questions, and the exam twins of practice questions she got wrong (the one practice question of the same folder whose id the exam question names in twinOf) until she answers the twin fully right; a ticked folder with none is refused with `no_wrong_questions`. Send `folderIds`, or legacy `weeks` (folder names, each meaning every folder of that name), not both; with neither, it is refused with `no_folders`. A folder the course does not have is refused with `folder_not_found`, one with no questions with `folder_empty`, and a name no folder with questions has with `week_not_found`. A running exam of hers ends first, recorded as `left`, as `replaces` allows: send the running exam's id once she has confirmed ending it, or null when the screen read that none is running. When an exam is running that `replaces` does not name (null names none), it is refused with 409 `exam_in_progress` naming the running exam in `inProgress`, and nothing changes: ask her ("Start a new exam?") and send its id. Without `replaces`, as from an app from before it, the running exam ends unasked. An exam in its `grace` still counts as running here, and ending it records a `timeout` at its end time. An exam whose time is up (past the grace) is not running: it ends as a timeout whatever `replaces` says. Answers go to POST /api/attempts with this exam's id as studySessionId. The admin's session is refused with 403 `admin_read_only`.
          */
         post: {
             parameters: {
@@ -4783,7 +4783,7 @@ export interface paths {
         };
         /**
          * One of her exams
-         * @description Its questions in the order served and the ones she has answered. Once it has ended, the result: points, fully right, partly right, missed, guessed, not answered, minutes used, the by-folder, by-week and by-clinical-judgment-step breakdowns, each question's mark, how many practice questions went to Review, and how many exam-bank questions she got wrong (they stay out of Review). An exam whose time has run out is ended first. An agent key with `read` reads its own account's exams (their ids are in GET /api/me/export, `studySessions` whose `mode` is `exam`) and never ends one, and neither does the admin's session: an exam whose time ran out reads with `finishedAt` and `result` null until her app next opens it.
+         * @description Its questions in the order served and the ones she has answered. Once it has ended, the result: points, fully right, partly right, missed, guessed, not answered, minutes used, the by-folder, by-week and by-clinical-judgment-step breakdowns, each question's mark, how many practice questions went to Review, and how many exam-bank questions she got wrong (they stay out of Review). An exam whose time is up (past `endsAt` and the 30-second grace) reads as ended for every reader, as a `timeout` at `endsAt` with its result: the user's own read records that end first. An agent key with `read` reads its own account's exams (their ids are in GET /api/me/export, `studySessions` whose `mode` is `exam`) and never records an end, and neither does the admin's session: both write nothing and read the same result, worked out from the saved answers.
          */
         get: {
             parameters: {
@@ -4847,7 +4847,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a past exam
-         * @description Deletes one of her ended exams, as its preview described: it leaves Exam setup and GET /api/exams/{id} (404). Its answers stay saved but count toward nothing while it is deleted: her progress on the questions she answered on it is rebuilt from her other answers, so her Review list, course scores and Wrong questions are as if she had not taken it. A Review clear she made after it still keeps its questions out of Review. An exam still going is refused with 409 `exam_in_progress`. Undo brings it back exactly as it was for 30 days (`undoDays`); after that it stays hidden and Undo is refused with 409 `undo_expired`. Nothing is ever deleted except by this request. Only the user account can do this; the admin is refused with 403.
+         * @description Deletes one of her ended exams, as its preview described: it leaves Exam setup and GET /api/exams/{id} (404). Its answers stay saved but count toward nothing while it is deleted: her progress on the questions she answered on it is rebuilt from her other answers, so her Review list, course scores and Wrong questions are as if she had not taken it. A Review clear she made after it still keeps its questions out of Review. An exam still going (running, or in its grace) is refused with 409 `exam_in_progress`. Undo brings it back exactly as it was for 30 days (`undoDays`); after that it stays hidden and Undo is refused with 409 `undo_expired`. Nothing is ever deleted except by this request. Only the user account can do this; the admin is refused with 403.
          */
         delete: {
             parameters: {
@@ -4942,7 +4942,7 @@ export interface paths {
         put?: never;
         /**
          * End her exam and score it
-         * @description `finished` when she finishes, `left` when she leaves midway, `timeout` when her time runs out. What she answered is scored; skipped and unreached questions score 0 and stay out of Review. After the time limit the end is recorded as a timeout. Ending an ended exam returns it unchanged. The admin's session is refused with 403 `admin_read_only`.
+         * @description `finished` when she finishes, `left` when she leaves midway, `timeout` when her time runs out. What she answered is scored; skipped and unreached questions score 0 and stay out of Review. After the time limit the end is recorded as a timeout at `endsAt`. Ending an ended exam returns it unchanged. The admin's session is refused with 403 `admin_read_only`.
          */
         post: {
             parameters: {
@@ -5591,7 +5591,7 @@ export interface paths {
         };
         /**
          * What deleting a past exam changes
-         * @description For the warning before one of her past exams is deleted: her answers on it, which questions go back to an earlier answer or to not answered, and how her Review list, scores and Wrong questions change. Show her `message` (or your own words from the counts), and send `confirm` with the delete: it deletes exactly what this named. `refusal` is the sentence the delete would be refused with right now (a job or an exam in progress still uses it), or null. An exam whose time ran out is ended first. The admin reads hers and ends nothing: an exam whose time ran out reads as still going, with `refusal` set, until her app next opens it.
+         * @description For the warning before one of her past exams is deleted: her answers on it, which questions go back to an earlier answer or to not answered, and how her Review list, scores and Wrong questions change. Show her `message` (or your own words from the counts), and send `confirm` with the delete: it deletes exactly what this named. `refusal` is the sentence the delete would be refused with right now (a job or an exam in progress still uses it), or null. An exam whose time is up reads as ended, with `finishedAt` its end time and no `refusal`, for the admin too, whose read writes nothing.
          */
         get: {
             parameters: {
@@ -8967,8 +8967,9 @@ export interface components {
             /** @description The time limit, for an exam. */
             timeLimitSeconds: number | null;
             startedAt: string;
+            /** @description When it ended, or null. An exam whose time ran out reads as ended at its end time, whether or not its end is recorded yet (Exam.status). */
             finishedAt: string | null;
-            /** @description The session's score as the app saved it. */
+            /** @description The session's score as its end records it; for an exam whose time ran out, that score whether or not the end is recorded yet. */
             score: {
                 [key: string]: unknown;
             } | null;
@@ -9117,7 +9118,9 @@ export interface components {
                  */
                 source: "exam" | "practice";
             }[];
+            /** @description The user's exam in this course that has not ended: `status` `running`, or `grace` once its time has run out. Null when there is none. */
             inProgress: components["schemas"]["ExamSummary"] | null;
+            /** @description The user's ended exams, newest first (`status` `ended`), one whose time is up among them. */
             exams: components["schemas"]["ExamSummary"][];
             rules: components["schemas"]["ExamRules"];
             /** @description The exam that starting over the `folderIds` (or `weeks`) and `pool` asked for would give. Null when neither was asked for. */
@@ -9151,6 +9154,8 @@ export interface components {
             timeLimitSeconds: number;
             startedAt: string;
             endsAt: string;
+            status: components["schemas"]["ExamStatus"];
+            /** @description When it ended; for an exam whose time ran out, `endsAt`. Null while `status` is `running` or `grace`. */
             finishedAt: string | null;
             /** @enum {string|null} */
             endReason: "finished" | "left" | "timeout" | null;
@@ -9160,6 +9165,11 @@ export interface components {
             maxPoints: number | null;
             minutesUsed: number | null;
         };
+        /**
+         * @description Where the exam stands on the server's clock; read it in place of `finishedAt` being null. `running`: before `endsAt`. `grace`: its time has run out, so no time is left, and for 30 seconds an answer sent before the end is still taken; it ends when the user's app asks (POST /api/exams/{id}/finish) or once the grace is over. `ended`: it has ended, with `finishedAt`, `endReason` and its score. An exam whose time is up (past `endsAt` and the grace) reads as `ended` for every reader, as a `timeout` at `endsAt`, whether or not its end is recorded yet.
+         * @enum {string}
+         */
+        ExamStatus: "running" | "grace" | "ended";
         ExamRules: {
             /** @description The most questions an exam draws (40). */
             maxQuestions: number;
@@ -9225,6 +9235,8 @@ export interface components {
             timeLimitSeconds: number;
             startedAt: string;
             endsAt: string;
+            status: components["schemas"]["ExamStatus"];
+            /** @description When it ended; for an exam whose time ran out, `endsAt`. Null while `status` is `running` or `grace`. */
             finishedAt: string | null;
             /** @enum {string|null} */
             endReason: "finished" | "left" | "timeout" | null;
@@ -9487,7 +9499,7 @@ export interface components {
             /** @description The warning, as a few sentences to show her: her answers, Review and Wrong questions, and Undo. */
             message: string;
             warning: components["schemas"]["DeleteWarning"];
-            /** @description Set while the exam is still going: it is refused with 409 `exam_in_progress` until she finishes or leaves it. */
+            /** @description Set while the exam is still going (Exam.status `running` or `grace`): it is refused with 409 `exam_in_progress` until she finishes or leaves it. */
             refusal: string | null;
             confirm: string;
             undoDays: number;

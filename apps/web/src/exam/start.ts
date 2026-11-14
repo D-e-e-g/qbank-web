@@ -1,4 +1,5 @@
 import { ApiError, api, type ExamPool, type ExamSummary, type ExamView } from "../api";
+import { openExam } from "./status";
 
 /**
  * Whether an exam of the user's is running, as this screen knows it. Not read yet, and a read that
@@ -45,8 +46,13 @@ function isSummary(value: unknown): value is ExamSummary {
   return typeof value === "object" && value !== null && "id" in value && typeof value.id === "string" && "courseId" in value && typeof value.courseId === "string";
 }
 
-/** What tapping Start does: wait while it is not known whether an exam is running, ask when one is, or start. */
-export function startTap(running: RunningExam): { kind: "wait" } | { kind: "ask"; exam: ExamSummary } | { kind: "start" } {
+/**
+ * What tapping Start at `now` does: wait while it is not known whether an exam is running, ask when
+ * one is open (running, or in its grace), or start. An exam read as running whose time is up since
+ * is not asked about: the server ends it as a timeout at its end.
+ */
+export function startTap(running: RunningExam, now: number): { kind: "wait" } | { kind: "ask"; exam: ExamSummary } | { kind: "start" } {
   if (!running.known) return { kind: "wait" };
-  return running.exam === null ? { kind: "start" } : { kind: "ask", exam: running.exam };
+  const exam = openExam(running.exam, now);
+  return exam === null ? { kind: "start" } : { kind: "ask", exam };
 }

@@ -44,7 +44,7 @@ export function useExamStart(onRunning: (exam: ExamSummary | null) => void) {
   };
 
   const start = (courseId: string, choice: ExamChoice, running: RunningExam) => {
-    const tap = startTap(running);
+    const tap = startTap(running, Date.now());
     if (tap.kind === "ask") setAsking({ courseId, choice, exam: tap.exam });
     else if (tap.kind === "start") send(courseId, choice, null);
   };
