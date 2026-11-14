@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CatalogRecord, SemesterCourse, SemesterRecord } from "./api";
-import { currentCatalog, findCourse, forgetCatalog, fromRecord, homeLayout, refreshCatalog } from "./catalog";
+import { courseMenu, courseStanding, currentCatalog, findCourse, forgetCatalog, fromRecord, homeLayout, refreshCatalog, retryCatalogWhenOnline, type Catalog } from "./catalog";
 
 function card(id: string, kind: SemesterCourse["kind"], title: string, archivedAt: string | null = null): SemesterCourse {
   return {
@@ -30,7 +30,7 @@ describe("the catalog from the server", () => {
     const empty = fromRecord({ semesters: [], topics: [] });
     expect(empty.semesters).toEqual([]);
     expect(empty.topics).toEqual([]);
-    expect(empty.fromServer).toBe(true);
+    expect(empty.status).toBe("ready");
   });
 
   it("keeps her topics in the server's order and finds a course or a topic by id", () => {
@@ -110,7 +110,7 @@ describe("signing out", () => {
     const late = refreshCatalog();
     forgetCatalog();
     expect(findCourse(currentCatalog(), "nurs420")).toBeUndefined();
-    expect(currentCatalog().fromServer).toBe(false);
+    expect(currentCatalog()).toEqual({ status: "loading" });
 
     const next = refreshCatalog();
     waiting[1]?.(hers);
@@ -118,7 +118,171 @@ describe("signing out", () => {
     expect(findCourse(currentCatalog(), "nurs420")).toBeUndefined();
     waiting[2]?.(theirs);
     await next;
-    expect(currentCatalog().topics.map((topic) => topic.title)).toEqual(["Spanish"]);
+    expect(courseMenu(currentCatalog()).topics.map((topic) => topic.title)).toEqual(["Spanish"]);
     forgetCatalog();
+  });
+});
+
+describe("a load that fails", () => {
+  afterEach(() => {
+    forgetCatalog();
+    vi.unstubAllGlobals();
+  });
+
+  type Answer = { record: CatalogRecord } | { refusal: { error: string; message: string } } | "dropped";
+
+  /** Each /api/semesters request waits until the test answers it: the catalog, a refusal, or a dropped connection. */
+  function heldApi() {
+    const waiting: ((answer: Answer) => void)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve, reject) => {
+            waiting.push((answer) => {
+              if (answer === "dropped") reject(new TypeError("Failed to fetch"));
+              else if ("refusal" in answer) resolve(new Response(JSON.stringify(answer.refusal), { status: 503 }));
+              else resolve(new Response(JSON.stringify(answer.record), { status: 200 }));
+            });
+          }),
+      ),
+    );
+    return waiting;
+  }
+
+  const hers: CatalogRecord = { semesters: [semester(1, [card("nurs420", "course", "Health assessment")])], topics: [] };
+
+  it("is loading until the server answers", () => {
+    expect(currentCatalog()).toEqual({ status: "loading" });
+  });
+
+  it("says a first load failed, rather than showing an account with no courses", async () => {
+    const waiting = heldApi();
+    const first = refreshCatalog();
+    expect(currentCatalog()).toEqual({ status: "loading" });
+    waiting[0]?.("dropped");
+    await first;
+    expect(currentCatalog()).toEqual({ status: "failed", message: "Could not load your courses." });
+  });
+
+  it("shows the server's own sentence when it refused", async () => {
+    const waiting = heldApi();
+    const first = refreshCatalog();
+    waiting[0]?.({ refusal: { error: "unavailable", message: "QBank is restarting. Try again in a moment." } });
+    await first;
+    expect(currentCatalog()).toEqual({ status: "failed", message: "QBank is restarting. Try again in a moment." });
+  });
+
+  it("is loading again while Try again asks, then shows the courses", async () => {
+    const waiting = heldApi();
+    const first = refreshCatalog();
+    waiting[0]?.("dropped");
+    await first;
+
+    const again = refreshCatalog();
+    expect(currentCatalog()).toEqual({ status: "loading" });
+    waiting[1]?.({ record: hers });
+    await again;
+    expect(findCourse(currentCatalog(), "nurs420")?.title).toBe("Health assessment");
+  });
+
+  it("keeps the courses on screen when a later read fails", async () => {
+    const waiting = heldApi();
+    const first = refreshCatalog();
+    waiting[0]?.({ record: hers });
+    await first;
+    const shown = currentCatalog();
+
+    const refresh = refreshCatalog();
+    expect(currentCatalog()).toBe(shown);
+    waiting[1]?.("dropped");
+    await refresh;
+    expect(currentCatalog()).toBe(shown);
+  });
+
+  it("drops a failure that arrives after sign-out", async () => {
+    const waiting = heldApi();
+    const late = refreshCatalog();
+    forgetCatalog();
+    waiting[0]?.("dropped");
+    await late;
+    expect(currentCatalog()).toEqual({ status: "loading" });
+  });
+
+  it("tries again by itself when the device comes back online, and only after a failure", async () => {
+    const device = new EventTarget();
+    vi.stubGlobal("window", device);
+    const waiting = heldApi();
+    const stop = retryCatalogWhenOnline();
+
+    // Nothing failed yet: coming online asks for nothing.
+    device.dispatchEvent(new Event("online"));
+    expect(waiting).toHaveLength(0);
+
+    const first = refreshCatalog();
+    waiting[0]?.("dropped");
+    await first;
+    expect(currentCatalog().status).toBe("failed");
+
+    device.dispatchEvent(new Event("online"));
+    expect(waiting).toHaveLength(2);
+    expect(currentCatalog()).toEqual({ status: "loading" });
+    waiting[1]?.({ record: hers });
+    await vi.waitFor(() => {
+      expect(findCourse(currentCatalog(), "nurs420")?.title).toBe("Health assessment");
+    });
+
+    // The courses are on screen: coming online again reads nothing.
+    device.dispatchEvent(new Event("online"));
+    expect(waiting).toHaveLength(2);
+
+    // Once the shell is gone, nothing listens.
+    stop();
+    forgetCatalog();
+    const next = refreshCatalog();
+    waiting[2]?.("dropped");
+    await next;
+    device.dispatchEvent(new Event("online"));
+    expect(waiting).toHaveLength(3);
+  });
+});
+
+describe("whether an id is one of the user's courses", () => {
+  const ready = fromRecord({
+    semesters: [
+      semester(1, [card("a", "course", "Fundamentals"), card("b", "course", "Pharm", "2026-10-01T00:00:00Z")]),
+      semester(2, [card("c", "course", "Mental health")], "2026-10-02T00:00:00Z"),
+    ],
+    topics: [card("t1", "topic", "SWE Hire"), card("t2", "topic", "Spanish", "2026-10-03T00:00:00Z")],
+  });
+  const loading: Catalog = { status: "loading" };
+  const failed: Catalog = { status: "failed", message: "Could not load your courses." };
+
+  it("is not known yet while the catalog is loading, or after it failed", () => {
+    for (const catalog of [loading, failed]) {
+      expect(courseStanding(catalog, "a")).toBe("unknown-yet");
+      expect(courseStanding(catalog, "gone")).toBe("unknown-yet");
+      expect(courseStanding(catalog, null)).toBe("unknown-yet");
+    }
+  });
+
+  it("is theirs for a course or a topic in use, as the course menus list them", () => {
+    expect(courseStanding(ready, "a")).toBe("theirs");
+    expect(courseStanding(ready, "t1")).toBe("theirs");
+    expect(courseMenu(ready).courses.map((course) => course.id)).toEqual(["a"]);
+    expect(courseMenu(ready).topics.map((topic) => topic.id)).toEqual(["t1"]);
+  });
+
+  it("is not theirs for an id the catalog does not have, an archived one, or none", () => {
+    expect(courseStanding(ready, "gone")).toBe("not-theirs");
+    expect(courseStanding(ready, "b")).toBe("not-theirs");
+    expect(courseStanding(ready, "c")).toBe("not-theirs");
+    expect(courseStanding(ready, "t2")).toBe("not-theirs");
+    expect(courseStanding(ready, null)).toBe("not-theirs");
+  });
+
+  it("lists no course until the catalog is ready", () => {
+    expect(courseMenu(loading)).toEqual({ courses: [], topics: [] });
+    expect(courseMenu(failed)).toEqual({ courses: [], topics: [] });
   });
 });

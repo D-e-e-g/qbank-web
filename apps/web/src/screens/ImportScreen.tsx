@@ -8,9 +8,10 @@ import {
   type ImportReport,
   type ImportedSet,
 } from "../api";
-import { findCourse, homeLayout, refreshCatalog, useCatalog, type CourseLink } from "../catalog";
+import { courseMenu, courseStanding, findCourse, refreshCatalog, useCatalog, type CourseLink } from "../catalog";
 import { Button } from "../components/Button";
 import { ConfirmSheet } from "../components/ConfirmSheet";
+import { CourseFieldWaiting } from "../components/CourseFieldWaiting";
 import { FolderPicker, UNSORTED } from "../components/FolderPicker";
 import { Icon } from "../components/Icon";
 import { SegmentedControl } from "../components/SegmentedControl";
@@ -60,11 +61,14 @@ export function ImportScreen() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
-  const layout = homeLayout(catalog);
-  const courses = layout.semesters.flatMap(({ semester, courses: inUse }) => (semester.placeholder ? [] : inUse));
-  const topics = layout.topics;
-  const known = courses.some((item) => item.id === courseId) || topics.some((item) => item.id === courseId);
+  const { courses, topics } = courseMenu(catalog);
+  // Until the catalog is ready nothing says whether the picked course is one of the account's, so
+  // the form offers neither the menu nor a new course, and Import waits: a course not known yet is
+  // not a new one.
+  const standing = courseStanding(catalog, courseId);
+  const known = standing === "theirs";
   const newTopic = courseId === NEW_TOPIC;
+  const newCourse = standing === "not-theirs" && !newTopic;
 
   // Her folders in the picked course, for the picker. A new course has none yet.
   useEffect(() => {
@@ -107,6 +111,7 @@ export function ImportScreen() {
   };
 
   const commit = (decision: "import" | "replace" | "separate") => {
+    if (standing === "unknown-yet") return;
     setConflict(null);
     setError(null);
     setBusy(true);
@@ -114,7 +119,7 @@ export function ImportScreen() {
     if (title.trim()) json.title = title.trim();
     if (newTopic) {
       json.newTopic = { title: topicTitle.trim() };
-    } else if (!known) {
+    } else if (newCourse) {
       json.newCourse = { code: code.trim(), title: courseTitle.trim(), semesterNumber: Number(semesterNumber) };
     } else {
       json.courseId = courseId;
@@ -245,38 +250,42 @@ export function ImportScreen() {
       )}
 
       <div className="form-grid">
-        <label className="field">
-          <span className="field-label">Course</span>
-          <select
-            className="control"
-            aria-label="Course"
-            value={known || newTopic ? courseId : NEW_COURSE}
-            onChange={(event) => {
-              chooseCourse(event.target.value);
-            }}
-          >
-            {/* Her courses as they always were; once she has a topic, her courses and topics in two groups. */}
-            {topics.length === 0 ? (
-              <CourseOptions courses={courses} />
-            ) : (
-              <>
-                {courses.length === 0 ? null : (
-                  <optgroup label="Courses">
-                    <CourseOptions courses={courses} />
+        {standing === "unknown-yet" ? (
+          <CourseFieldWaiting catalog={catalog} />
+        ) : (
+          <label className="field">
+            <span className="field-label">Course</span>
+            <select
+              className="control"
+              aria-label="Course"
+              value={known || newTopic ? courseId : NEW_COURSE}
+              onChange={(event) => {
+                chooseCourse(event.target.value);
+              }}
+            >
+              {/* Her courses as they always were; once she has a topic, her courses and topics in two groups. */}
+              {topics.length === 0 ? (
+                <CourseOptions courses={courses} />
+              ) : (
+                <>
+                  {courses.length === 0 ? null : (
+                    <optgroup label="Courses">
+                      <CourseOptions courses={courses} />
+                    </optgroup>
+                  )}
+                  <optgroup label="Study topics">
+                    <CourseOptions courses={topics} />
                   </optgroup>
-                )}
-                <optgroup label="Study topics">
-                  <CourseOptions courses={topics} />
-                </optgroup>
-              </>
-            )}
-            <option value={NEW_COURSE}>New course</option>
-            <option value={NEW_TOPIC}>New topic</option>
-          </select>
-        </label>
+                </>
+              )}
+              <option value={NEW_COURSE}>New course</option>
+              <option value={NEW_TOPIC}>New topic</option>
+            </select>
+          </label>
+        )}
         <FolderPicker course={known ? course : null} firstPageId={courseId === preset?.courseId ? preset.examPageId : null} value={folder} newName={newFolder} onChange={setFolder} onNewName={setNewFolder} />
         {newTopic ? <TextField label="Topic name" value={topicTitle} onChange={setTopicTitle} /> : null}
-        {!known && !newTopic ? (
+        {newCourse ? (
           <>
             <TextField label="Course code" value={code} onChange={setCode} />
             <TextField label="Course name" value={courseTitle} onChange={setCourseTitle} />
@@ -356,7 +365,7 @@ export function ImportScreen() {
       {error ? <p className="form-error">{error}</p> : null}
 
       {report?.ok === true ? (
-        <Button fullWidth disabled={busy} onClick={guard(() => { commit("import"); })}>
+        <Button fullWidth disabled={busy || standing === "unknown-yet"} onClick={guard(() => { commit("import"); })}>
           Import
         </Button>
       ) : (

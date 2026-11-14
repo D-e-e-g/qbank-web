@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { AGENTS_PATH } from "../agents/agents";
 import { api } from "../api";
-import { refreshCatalog } from "../catalog";
+import { refreshCatalog, retryCatalogWhenOnline } from "../catalog";
 import { ExamScreen } from "../exam/ExamScreen";
 import { readExamPreset } from "../course/pages";
 import { ExamSetupScreen } from "../exam/ExamSetupScreen";
@@ -51,8 +51,10 @@ export function AppShell({ role }: { role: Role }) {
   const items = navigationFor(frozenScreen ? "student" : role);
   const width = make ? "reading" : (detail?.width ?? route?.width);
 
+  // The one read every screen shares. If it fails, it is tried again when the device is back online.
   useEffect(() => {
     void refreshCatalog();
+    return retryCatalogWhenOnline();
   }, []);
 
   // She lands on the course she used last. Home stays one tap back.

@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { api, type CourseDetail, type QuestionJob, type QuestionLevel, type QuestionMakerStatus } from "../api";
-import { homeLayout, useCatalog, type CourseLink } from "../catalog";
+import { courseMenu, courseStanding, useCatalog, type Catalog, type CourseLink } from "../catalog";
 import { Button } from "../components/Button";
+import { CourseFieldWaiting } from "../components/CourseFieldWaiting";
 import { FolderPicker } from "../components/FolderPicker";
 import { Icon } from "../components/Icon";
 import { SegmentedControl } from "../components/SegmentedControl";
@@ -91,11 +92,9 @@ export function MakeScreen() {
   }, []);
 
   useEffect(() => {
-    if (!catalog.fromServer) return;
-    const listed = homeLayout(catalog);
-    const courseList = listed.semesters.flatMap(({ semester, courses: inUse }) => (semester.placeholder ? [] : inUse));
-    const topicList = listed.topics;
-    const held = (id: string | null) => id !== null && [...courseList, ...topicList].some((item) => item.id === id);
+    if (catalog.status !== "ready") return;
+    const { courses: courseList, topics: topicList } = courseMenu(catalog);
+    const held = (id: string | null) => courseStanding(catalog, id) === "theirs";
     if (held(draft.courseId) || (courseList.length === 0 && topicList.length === 0)) return;
     let cancel = false;
     void api<{ courseId: string | null }>("/api/me/place")
@@ -130,12 +129,11 @@ export function MakeScreen() {
   }, [draft.courseId]);
 
   useEffect(() => {
-    if (step !== "level" || references !== null || !catalog.fromServer) return;
+    if (step !== "level" || references !== null || catalog.status !== "ready") return;
     let cancel = false;
-    const layout = homeLayout(catalog);
-    const courses = [...layout.semesters.flatMap((semester) => semester.courses), ...layout.topics];
+    const menu = courseMenu(catalog);
     void Promise.all(
-      courses.map(async (item) => {
+      [...menu.courses, ...menu.topics].map(async (item) => {
         const detail = await api<CourseDetail>(`/api/courses/${item.id}`).catch(() => null);
         const sets = detail?.folders.flatMap((folder) => folder.sets).map((set) => ({ id: set.id, title: set.title })) ?? [];
         return sets.length === 0 ? null : { id: item.id, title: courseLine(item), sets };
@@ -153,13 +151,12 @@ export function MakeScreen() {
     setDraft((current) => saveDraft(patch(current)));
   };
 
-  const layout = homeLayout(catalog);
-  const courses = layout.semesters.flatMap(({ semester, courses: inUse }) => (semester.placeholder ? [] : inUse));
-  const topics = layout.topics;
-  const known = courses.some((item) => item.id === draft.courseId) || topics.some((item) => item.id === draft.courseId);
+  const { courses, topics } = courseMenu(catalog);
+  const known = courseStanding(catalog, draft.courseId) === "theirs";
   // A native select shows its first option while the value is empty, which would look picked and
-  // load no folders. Stay on "Loading" until the course is one of hers, or she has none.
-  const catalogReady = catalog.fromServer && (known || (courses.length === 0 && topics.length === 0));
+  // load no folders. Stay on "Loading" until the course is one of hers, or she has none. A catalog
+  // that failed to load says so there instead, with Try again.
+  const menuReady = known || (catalog.status === "ready" && courses.length === 0 && topics.length === 0);
   const maxPhotos = status?.limits.photos ?? 20;
   const copies = isCopies(draft);
   const range = countRange(status, draft.level);
@@ -223,7 +220,8 @@ export function MakeScreen() {
           courses={courses}
           topics={topics}
           known={known}
-          catalogReady={catalogReady}
+          catalog={catalog}
+          menuReady={menuReady}
           course={known ? course : null}
           maxPhotos={maxPhotos}
           copies={copies}
@@ -260,7 +258,8 @@ function MaterialStep({
   courses,
   topics,
   known,
-  catalogReady,
+  catalog,
+  menuReady,
   course,
   maxPhotos,
   copies,
@@ -274,7 +273,9 @@ function MaterialStep({
   courses: CourseLink[];
   topics: CourseLink[];
   known: boolean;
-  catalogReady: boolean;
+  catalog: Catalog;
+  /** False while there is no course to pick yet: the catalog is loading or failed, or the course to open on is still being chosen. */
+  menuReady: boolean;
   course: CourseDetail | null;
   maxPhotos: number;
   copies: boolean;
@@ -420,9 +421,9 @@ function MaterialStep({
         </label>
       ) : null}
       <div className="form-grid">
-        <label className="field">
-          <span className="field-label">Course</span>
-          {catalogReady ? (
+        {menuReady ? (
+          <label className="field">
+            <span className="field-label">Course</span>
             <select
               className="control"
               aria-label="Course"
@@ -448,10 +449,10 @@ function MaterialStep({
                 </>
               )}
             </select>
-          ) : (
-            <p className="note">Loading your courses</p>
-          )}
-        </label>
+          </label>
+        ) : (
+          <CourseFieldWaiting catalog={catalog} />
+        )}
         <FolderPicker
           course={course}
           firstPageId={null}
@@ -474,7 +475,7 @@ function MaterialStep({
           }}
         />
       ) : null}
-      <Button fullWidth className="btn-lg" disabled={!canContinue(draft) || starting} onClick={copies ? onStart : onLevel}>
+      <Button fullWidth className="btn-lg" disabled={!menuReady || !canContinue(draft) || starting} onClick={copies ? onStart : onLevel}>
         {copies ? "Find the questions" : "Next"}
       </Button>
     </>

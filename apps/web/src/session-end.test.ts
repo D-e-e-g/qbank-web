@@ -172,7 +172,7 @@ describe("a 401 from a normal route", () => {
     expect(readGate()).toEqual({ status: "signed-out" });
     expect(pathname).toBe("/");
     expect(findCourse(currentCatalog(), "nurs420")).toBeUndefined();
-    expect(currentCatalog().fromServer).toBe(false);
+    expect(currentCatalog()).toEqual({ status: "loading" });
     expect(currentUndoOffer()).toBeNull();
   });
 

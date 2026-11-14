@@ -30,8 +30,8 @@ function useRun(): { busy: boolean; error: string | null; run: Run } {
  * course or topic is Home's +, and renaming, moving or archiving one is its card's menu on Home.
  */
 export function SemestersEditor() {
-  const { semesters } = useCatalog();
-  const saved = semesters.filter((semester) => !semester.placeholder);
+  const catalog = useCatalog();
+  const saved = catalog.status === "ready" ? catalog.semesters : [];
   const { busy, error, run } = useRun();
 
   return (
@@ -48,6 +48,7 @@ export function SemestersEditor() {
         Name a semester, give it dates, or archive one you finished. Add a semester, course or topic with the + on Home, and rename, move or
         archive a course or topic from its card there.
       </p>
+      {catalog.status === "failed" ? <p className="form-error">{catalog.message}</p> : null}
       {error ? <p className="form-error">{error}</p> : null}
     </section>
   );

@@ -14,13 +14,12 @@ export type HomeAdd =
 const SEMESTER_NUMBERS = [1, 2, 3] as const;
 
 export function homeAdds(catalog: { semesters: readonly SemesterGroup[] }): HomeAdd[] {
-  const saved = catalog.semesters.filter((semester) => !semester.placeholder);
-  const adds: HomeAdd[] = saved
+  const adds: HomeAdd[] = catalog.semesters
     .filter((semester) => semester.archivedAt === null)
     .map((semester) => ({ kind: "course", semester, label: `New course in ${semester.label}` }));
   adds.push({ kind: "topic", label: "New study topic" });
   // Only the lowest missing number, so the menu stays short; the next one shows once it exists.
-  const missing = SEMESTER_NUMBERS.find((number) => !saved.some((semester) => semester.number === number));
+  const missing = SEMESTER_NUMBERS.find((number) => !catalog.semesters.some((semester) => semester.number === number));
   if (missing !== undefined) adds.push({ kind: "semester", number: missing, label: `Add Semester ${String(missing)}` });
   return adds;
 }
@@ -51,7 +50,7 @@ export function cardActions(course: CourseLink, catalog: { semesters: readonly S
   } else {
     const home = semesterOf(course, catalog.semesters);
     for (const semester of catalog.semesters) {
-      if (!semester.placeholder && semester.archivedAt === null && semester.id !== home?.id) actions.push({ kind: "move", semester });
+      if (semester.archivedAt === null && semester.id !== home?.id) actions.push({ kind: "move", semester });
     }
   }
   if (course.archivedAt !== null) {

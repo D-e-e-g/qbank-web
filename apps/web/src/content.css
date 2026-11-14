@@ -27,6 +27,13 @@
   color: var(--text-3);
 }
 
+/* A button that stands in for a field's control, as Try again when the courses did not load. It is
+   as wide as its words, not the field. */
+.field .field-action {
+  align-self: flex-start;
+  width: auto;
+}
+
 .control {
   box-sizing: border-box;
   width: 100%;
