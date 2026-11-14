@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { newAccount, signIn } from "./sign-in";
 
-/** A one-question set in a new course of its own, imported through the API as from the Import screen. */
+/** A one-question set in a new course of its own (and the Semester 1 it needs), imported through the API as from the Import screen. */
 async function importCourse(page: Page): Promise<string> {
   const code = `T${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
   const source = JSON.stringify({
@@ -27,6 +27,7 @@ async function importCourse(page: Page): Promise<string> {
       },
     ],
   });
+  expect((await page.request.post("/api/semesters", { data: { number: 1 } })).status()).toBe(201);
   const imported = await page.request.post("/api/imports", {
     data: { source, folderName: "Week 1", newCourse: { code, title: `${code} exams`, semesterNumber: 1 } },
   });
