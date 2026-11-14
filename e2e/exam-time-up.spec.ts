@@ -20,6 +20,7 @@ async function importCourse(page: Page): Promise<string> {
         options: [
           { t: "The useful action", ok: true, why: "It addresses the finding." },
           { t: "A distractor", why: "It does not change the finding." },
+          { t: "Another distractor", why: "It does not change the finding either." },
         ],
         rationale: "The useful action matches the finding.",
         takeaway: "Match the action to the finding.",
