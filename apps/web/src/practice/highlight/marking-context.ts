@@ -12,8 +12,6 @@ export interface Marking {
   marks: Marks;
   color: HighlightColor;
   live: LiveMark | null;
-  /** The user has highlighted on this device before, so the hint is no longer shown. */
-  used: boolean;
   setColor: (color: HighlightColor) => void;
   clear: () => void;
   /** A press on a piece of text: the start of a drag, a touch and hold, or a tap on a mark. */

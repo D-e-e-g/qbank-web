@@ -160,24 +160,3 @@ mark.hl-live {
     display: none;
   }
 }
-
-/* One line under the format line until the user has highlighted on this device. */
-.runner-hint {
-  margin: -10px 0 0;
-  font: var(--weight-regular) var(--size-footnote) / var(--lh-footnote) var(--font-ui);
-  color: var(--text-2);
-}
-
-.runner-hint-touch {
-  display: none;
-}
-
-@media (hover: none) {
-  .runner-hint-mouse {
-    display: none;
-  }
-
-  .runner-hint-touch {
-    display: inline;
-  }
-}
