@@ -7,15 +7,18 @@ const COLOR_NAMES: Record<HighlightColor, string> = { yellow: "Yellow", blue: "B
 
 /**
  * The line over the stem: the question's format, its topic, anything the screen adds, and at its
- * end the highlighter pen, which is how the user finds that highlighting is there.
+ * end the highlighter pen, which is how the user finds that highlighting is there. The words wrap
+ * among themselves beside the pen, so the pen stays on the first line at any width.
  */
 export function QuestionMeta({ format, topic, children }: { format: string; topic: string; children?: ReactNode }) {
   const marking = useMarking();
   return (
     <p className="runner-meta">
-      <span className="runner-format">{format}</span>
-      {topic ? <span>{topic}</span> : null}
-      {children}
+      <span className="runner-meta-text">
+        <span className="runner-format">{format}</span>
+        {topic ? <span className="runner-topic">{topic}</span> : null}
+        {children}
+      </span>
       {marking ? <HighlightPen /> : null}
     </p>
   );

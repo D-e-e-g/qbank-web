@@ -416,7 +416,7 @@ test.describe("highlighting a question", () => {
     await expect(strip.nth(0)).toHaveClass(/runner-strip-now/);
 
     const stem = page.locator(".runner-stem");
-    const firstTopic = (await page.locator(".runner-meta span").nth(1).textContent()) ?? "";
+    const firstTopic = (await page.locator(".runner-topic").textContent()) ?? "";
     await drag(page, word(stem, "cloudy"), word(stem, "amber"));
     await expect(marks(stem)).toHaveText(["cloudy and dark amber"]);
     await page.getByRole("button", { name: "Skip for now" }).click();
@@ -428,7 +428,7 @@ test.describe("highlighting a question", () => {
     await page.getByRole("button", { name: "Submit and continue" }).click();
 
     await expect(page.getByText("1 of 2", { exact: true })).toBeVisible();
-    expect(await page.locator(".runner-meta span").nth(1).textContent()).toBe(firstTopic);
+    expect(await page.locator(".runner-topic").textContent()).toBe(firstTopic);
     await expect(marks(stem)).toHaveText(["cloudy and dark amber"]);
     await expect(strip.nth(1)).toHaveClass(/runner-strip-answered/);
     await choice(page, RIGHT).click();

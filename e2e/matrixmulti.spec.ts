@@ -104,6 +104,26 @@ async function clipsText(page: Page, selector: string): Promise<boolean> {
   );
 }
 
+/** True when the highlighter pen sits clear of the format and topic words: beside them, never over them. */
+async function penClearOfWords(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const pen = document.querySelector(".runner-meta .pen")?.getBoundingClientRect();
+    if (!pen) return false;
+    const words = [...document.querySelectorAll(".runner-meta .runner-format, .runner-meta .runner-topic")].map((el) => el.getBoundingClientRect());
+    return words.length > 0 && words.every((box) => box.right <= pen.left || box.bottom <= pen.top || box.top >= pen.bottom);
+  });
+}
+
+/** The left edge of each row's name and of its reason line, which sit one over the other. */
+async function labelAndReasonEdges(page: Page): Promise<{ label: number; reason: number }[]> {
+  return page.locator(".matrix-multi-row").evaluateAll((rows) =>
+    rows.map((row) => ({
+      label: row.querySelector(".answer-card-label")?.getBoundingClientRect().left ?? Number.NaN,
+      reason: row.querySelector(".matrix-multi-why")?.getBoundingClientRect().left ?? Number.NaN,
+    })),
+  );
+}
+
 async function shot(page: Page, testInfo: TestInfo, name: string): Promise<void> {
   await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-${name}.png`), fullPage: true });
 }
@@ -181,6 +201,7 @@ test.describe("matrix, check all that fit", () => {
       expect(await clipsText(page, ".matrix-choice-label")).toBe(false);
       await expect(page.locator(".matrix-multi-row")).toHaveCount(2);
     }
+    expect(await penClearOfWords(page)).toBe(true);
     await shot(page, testInfo, "answering");
 
     await page.getByRole("button", { name: "Close" }).click();
@@ -209,6 +230,12 @@ test.describe("matrix, check all that fit", () => {
     await expect(page.getByText("Wheeze points to asthma.")).toBeVisible();
     await expect(page.getByText("Both can wake a client short of breath.")).toBeVisible();
     expect(await overflows(page)).toBe(false);
+    expect(await penClearOfWords(page)).toBe(true);
+    if (wide) {
+      const edges = await labelAndReasonEdges(page);
+      expect(edges).toHaveLength(2);
+      for (const edge of edges) expect(edge.label).toBeCloseTo(edge.reason, 0);
+    }
     await shot(page, testInfo, "revealed");
     await night.scrollIntoViewIfNeeded();
     await shot(page, testInfo, "revealed-lower");
