@@ -206,11 +206,20 @@
 
 .runner-meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
+  align-items: flex-start;
+  gap: 10px;
   margin: 0;
   font: var(--weight-semibold) var(--size-footnote) / var(--lh-footnote) var(--font-mono);
   color: var(--text-2);
+}
+
+/* The words wrap among themselves; the pen beside them stays at the line's end. */
+.runner-meta-text {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
 }
 
 .runner-format {
@@ -970,10 +979,6 @@
   font: var(--weight-semibold) var(--size-subhead) / var(--lh-subhead) var(--font-ui);
   color: var(--tint);
   text-align: center;
-}
-
-.runner-wide .matrix-multi .answer-card-label {
-  padding-left: 12px;
 }
 
 .runner-wide .matrix-multi-row.answer-card {

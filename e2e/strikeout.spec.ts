@@ -185,7 +185,7 @@ test.describe("striking out choices", () => {
     await page.getByRole("button", { name: "Start exam" }).click();
     await expect(page.getByText("1 of 2", { exact: true })).toBeVisible();
 
-    const firstTopic = (await page.locator(".runner-meta span").nth(1).textContent()) ?? "";
+    const firstTopic = (await page.locator(".runner-topic").textContent()) ?? "";
     await row(page, "radio", WRONG).strike.click();
     await expect(row(page, "radio", WRONG).choice).toHaveAttribute("aria-disabled", "true");
     await page.getByRole("button", { name: "Skip for now" }).click();
@@ -198,7 +198,7 @@ test.describe("striking out choices", () => {
 
     // Back on the skipped question, her strike is still there, and one tap restores it.
     await expect(page.getByText("1 of 2", { exact: true })).toBeVisible();
-    expect(await page.locator(".runner-meta span").nth(1).textContent()).toBe(firstTopic);
+    expect(await page.locator(".runner-topic").textContent()).toBe(firstTopic);
     const wrong = row(page, "radio", WRONG);
     await expect(wrong.restore).toBeVisible();
     await expect(page.locator(".choice-row-struck")).toHaveCount(1);

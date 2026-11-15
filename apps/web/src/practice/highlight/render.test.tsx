@@ -110,7 +110,7 @@ describe("the format line", () => {
 
   it("puts the pen at the end of the format line, showing the current color", () => {
     const html = formatLine();
-    expect(html).toMatch(/<span class="runner-format">Single answer<\/span><span>Sepsis<\/span>/);
+    expect(html).toMatch(/<span class="runner-meta-text"><span class="runner-format">Single answer<\/span><span class="runner-topic">Sepsis<\/span><\/span><span class="pen-wrap">/);
     expect(html).toContain('aria-label="Highlighter, yellow"');
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain("pen hl-yellow");

@@ -78,7 +78,7 @@ async function tickFolder(page: Page, name: string): Promise<void> {
 
 /** The topic of the question on screen, which names its week. */
 async function currentTopic(page: Page): Promise<string> {
-  return (await page.locator(".runner-meta span").nth(1).textContent()) ?? "";
+  return (await page.locator(".runner-topic").textContent()) ?? "";
 }
 
 async function answerWith(page: Page, option: string, guessed = false): Promise<string> {

@@ -113,6 +113,7 @@ mark.hl ::selection {
    without making the line taller. With the eraser out it is a plain square holding the eraser. */
 .pen-wrap {
   position: relative;
+  flex: none;
   margin-left: auto;
   display: inline-flex;
 }
