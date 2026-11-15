@@ -1,70 +1,91 @@
-// The highlighter's one gesture, Press and drag. With a mouse: press, drag across words, let go.
-// On a touch screen: touch and hold a word first, then drag and lift, so a quick swipe still
-// scrolls. A plain tap or click is left alone (it still picks an answer), except on a mark,
-// where it erases that mark. Words are found under the pointer by the segment spans Markable
-// draws, so this works inside answer buttons, where the browser selects no text.
+// The highlighter's one gesture, Press and drag, and how each kind of pointer begins it. A mouse
+// or a pencil presses on a word and drags across words, in any direction. A finger swipes
+// sideways across words, the way a line reads, and scrolls the question by swiping up or down,
+// even over words. A plain tap or click is left alone (it still picks an answer), except on a
+// mark, where it erases that mark. Words are found under the pointer by the segment spans
+// Markable draws, so this works inside answer buttons, where the browser selects no text.
 
-import { snapRange, type Segment } from "./marks";
-
-/** How long a finger rests on a word before the drag marks instead of scrolling. */
-export const HOLD_MS = 450;
-const TOUCH_SLOP = 10;
-const MOUSE_SLOP = 4;
+/** How far a finger moves before its swipe has a direction. Less than a browser waits before it scrolls. */
+export const SWIPE_SLOP = 6;
+/** A finger's swipe marks when it runs within this many degrees of level; a steeper one scrolls. */
+export const SWIPE_ANGLE = 35;
+const DRAG_SLOP = 4;
 const CLICK_SLOP = 12;
+const LEVEL = Math.tan((SWIPE_ANGLE * Math.PI) / 180);
 
-export interface Range {
-  start: number;
-  end: number;
-}
-
-export interface PressHandlers {
-  /** The range the drag would mark now, or null when it covers no word. */
-  live: (range: Range | null) => void;
-  /** The press is over: lifted, cancelled, or abandoned. */
-  end: () => void;
-  /** The drag ended on this range. */
-  commit: (range: Range) => void;
-  /** A tap at this offset. True when it erased a mark, so the tap picks nothing. */
-  tap: (offset: number) => boolean;
+/**
+ * How a press begins a drag: "drag" as soon as it moves (a mouse's main button, a pencil),
+ * "swipe" by its direction (a finger). Null for a press that never marks.
+ */
+export function pressBegins(pointerType: string, button: number): "drag" | "swipe" | null {
+  if (pointerType === "touch") return "swipe";
+  return button === 0 ? "drag" : null;
 }
 
 /**
- * Follows one press on `root`, a piece of markable text, until the pointer lifts. Returns a
- * function that abandons it, or null when the press was not on a word of `root`.
+ * What a finger that has moved this far from where it touched a word is doing: "mark" for a
+ * swipe along the line, to either side; "scroll" for one up or down the page. Null while it has
+ * not moved far enough to tell. The first answer holds for the rest of the gesture.
  */
-export function followPress(event: PointerEvent, root: HTMLElement, segments: readonly Segment[], handlers: PressHandlers): (() => void) | null {
-  const touch = event.pointerType === "touch";
-  if (!touch && event.button !== 0) return null;
+export function swipeIntent(dx: number, dy: number): "mark" | "scroll" | null {
+  if (Math.hypot(dx, dy) < SWIPE_SLOP) return null;
+  return Math.abs(dy) <= Math.abs(dx) * LEVEL ? "mark" : "scroll";
+}
+
+export interface PressHandlers {
+  /** The drag now runs from the segment it began on to this one. */
+  live: (from: number, to: number) => void;
+  /** The press is over: lifted, cancelled, or abandoned. */
+  end: () => void;
+  /** The drag ended, from the segment it began on to this one. */
+  commit: (from: number, to: number) => void;
+  /** A tap on this segment. True when it erased a mark, so the tap picks nothing. */
+  tap: (segment: number) => boolean;
+}
+
+export interface Press {
+  /** Ends the press without marking. */
+  abandon: () => void;
+  /**
+   * Takes a touchmove of the press's finger or pencil. Once the drag marks, the page stays
+   * still under it. The listener that passes it must not be passive, and must be in place
+   * before the touch begins: iPhone Safari lets no later one hold the page.
+   */
+  holdTouch: (moved: TouchEvent) => void;
+}
+
+/**
+ * Follows one press on `root`, a piece of markable text, until the pointer lifts. Null when the
+ * press was not on a segment of `root`, or never marks. The segment under the pointer must stay
+ * in the page, where it is, for as long as the press lasts: a finger's events go to the element
+ * it first touched, wherever that element is by then.
+ */
+export function followPress(event: PointerEvent, root: HTMLElement, handlers: PressHandlers): Press | null {
+  const begins = pressBegins(event.pointerType, event.button);
   const anchor = segmentIndex(event.target, root);
-  if (anchor === null) return null;
+  if (begins === null || anchor === null) return null;
+  const touch = begins === "swipe";
   const pointerId = event.pointerId;
   const x0 = event.clientX;
   const y0 = event.clientY;
   let current = anchor;
   let dragging = false;
-  let held = false;
+  let over = false;
 
   const show = () => {
-    handlers.live(snapRange(segments, anchor, current));
+    handlers.live(anchor, current);
   };
-  const timer = touch
-    ? window.setTimeout(() => {
-        held = true;
-        dragging = true;
-        show();
-      }, HOLD_MS)
-    : null;
 
   const move = (moved: PointerEvent) => {
     if (moved.pointerId !== pointerId) return;
     if (!dragging) {
-      const far = Math.hypot(moved.clientX - x0, moved.clientY - y0);
+      const dx = moved.clientX - x0;
+      const dy = moved.clientY - y0;
       if (touch) {
-        // Moving before the hold is a scroll.
-        if (far > TOUCH_SLOP) finish();
-        return;
-      }
-      if (far < MOUSE_SLOP) return;
+        const intent = swipeIntent(dx, dy);
+        if (intent === "scroll") finish();
+        if (intent !== "mark") return;
+      } else if (Math.hypot(dx, dy) < DRAG_SLOP) return;
       dragging = true;
     }
     const at = pointIndex(moved.clientX, moved.clientY, root);
@@ -74,33 +95,31 @@ export function followPress(event: PointerEvent, root: HTMLElement, segments: re
 
   const up = (lifted: PointerEvent) => {
     if (lifted.pointerId !== pointerId) return;
-    const range = dragging ? snapRange(segments, anchor, current) : null;
     const wasDrag = dragging;
     finish();
     if (wasDrag) {
       // The browser selected the words as they were dragged over. Leaving that selection would make
       // the next press inside it start a native text drag, which cancels the gesture.
       window.getSelection()?.removeAllRanges();
-      if (range) handlers.commit(range);
+      handlers.commit(anchor, current);
       // The drag marked words; it does not also pick the answer they belong to.
-      swallowClick(lifted, touch);
+      swallowClick(lifted);
       return;
     }
-    const segment = segments[anchor];
-    if (segment && handlers.tap(segment.start)) swallowClick(lifted, touch);
+    if (handlers.tap(anchor)) swallowClick(lifted);
   };
 
   const cancel = (cancelled: PointerEvent) => {
     if (cancelled.pointerId === pointerId) finish();
   };
 
-  // Once the hold has begun, the finger drags the highlight, not the page.
-  const holdPage = (moved: TouchEvent) => {
-    if (held && moved.cancelable) moved.preventDefault();
+  // A second finger makes it a pinch or a two-finger scroll, which belong to the browser.
+  const second = (pressed: PointerEvent) => {
+    if (touch && pressed.pointerType === "touch" && pressed.pointerId !== pointerId) finish();
   };
 
   // A long press opens the context menu on some phones, and on a choice the menu strikes it out.
-  // Touch and hold belongs to highlighting; the X still strikes.
+  // A finger resting on a word is reading, or about to swipe; the X still strikes.
   const keepMenu = (opened: Event) => {
     if (!touch) return;
     opened.preventDefault();
@@ -108,22 +127,29 @@ export function followPress(event: PointerEvent, root: HTMLElement, segments: re
   };
 
   function finish() {
-    if (timer !== null) window.clearTimeout(timer);
+    if (over) return;
+    over = true;
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", up);
     window.removeEventListener("pointercancel", cancel);
-    window.removeEventListener("touchmove", holdPage);
+    window.removeEventListener("pointerdown", second, true);
     window.removeEventListener("contextmenu", keepMenu, true);
-    handlers.live(null);
     handlers.end();
   }
 
   window.addEventListener("pointermove", move);
   window.addEventListener("pointerup", up);
   window.addEventListener("pointercancel", cancel);
-  window.addEventListener("touchmove", holdPage, { passive: false });
+  window.addEventListener("pointerdown", second, true);
   window.addEventListener("contextmenu", keepMenu, true);
-  return finish;
+  return {
+    abandon: finish,
+    holdTouch: (moved) => {
+      if (over) return;
+      if (moved.touches.length > 1) finish();
+      else if (dragging && moved.cancelable) moved.preventDefault();
+    },
+  };
 }
 
 /** The segment a span of `root` draws, from its data-i. Null for anything else. */
@@ -140,17 +166,17 @@ function pointIndex(x: number, y: number, root: HTMLElement): number | null {
 }
 
 /**
- * Drops the click the browser sends where the pointer lifted, and no other. A tap's click can
- * come a little later than a mouse's.
+ * Drops the click the browser sends where the pointer lifted, and no other. The click of a
+ * finger or a pencil can come a little later than a mouse's.
  */
-function swallowClick(lifted: PointerEvent, touch: boolean): void {
+function swallowClick(lifted: PointerEvent): void {
   const swallow = (click: MouseEvent) => {
     if (Math.abs(click.clientX - lifted.clientX) > CLICK_SLOP || Math.abs(click.clientY - lifted.clientY) > CLICK_SLOP) return;
     click.preventDefault();
     click.stopPropagation();
     stop();
   };
-  const timer = window.setTimeout(stop, touch ? 700 : 100);
+  const timer = window.setTimeout(stop, lifted.pointerType === "mouse" ? 100 : 700);
   function stop() {
     window.clearTimeout(timer);
     window.removeEventListener("click", swallow, true);

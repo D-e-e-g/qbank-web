@@ -37,9 +37,60 @@ mark.hl ::selection {
   color: var(--hl-text);
 }
 
-/* The words a drag is painting, before it lets go. */
-mark.hl-live {
-  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--hl-text) 45%, transparent);
+/* The words a drag is painting, before it lets go. They take the color where they stand, in no
+   new element: a finger's drag belongs to the word it began on only while that word stays put.
+   The lines over and under them, closed at both ends, set them off from marks already made. */
+.markable .hl-live {
+  padding: 2px 0;
+  border: solid color-mix(in srgb, var(--hl-text) 45%, transparent);
+  border-width: 1.5px 0;
+  background: var(--hl);
+  color: var(--hl-text);
+}
+
+.markable .hl-live-first {
+  margin-left: -2.5px;
+  padding-left: 1px;
+  border-left-width: 1.5px;
+  border-top-left-radius: 4.5px;
+  border-bottom-left-radius: 4.5px;
+}
+
+.markable .hl-live-last {
+  margin-right: -2.5px;
+  padding-right: 1px;
+  border-right-width: 1.5px;
+  border-top-right-radius: 4.5px;
+  border-bottom-right-radius: 4.5px;
+}
+
+/* The marked words an eraser's drag is about to clear: their color nearly gone, out to the
+   ends of the mark. */
+.markable .hl-erasing {
+  padding: 2px 0;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+}
+
+/* Under a mouse's drag these words are selected too. The selection shows them as the drag
+   draws them, lines and all, and not in its own color. */
+.markable .hl-live::selection,
+.markable .hl-erasing::selection {
+  background: transparent;
+  color: inherit;
+}
+
+.markable .hl-erasing.hl-live-first {
+  margin-left: -1px;
+  padding-left: 1px;
+  border-top-left-radius: 3px;
+  border-bottom-left-radius: 3px;
+}
+
+.markable .hl-erasing.hl-live-last {
+  margin-right: -1px;
+  padding-right: 1px;
+  border-top-right-radius: 3px;
+  border-bottom-right-radius: 3px;
 }
 
 /* A struck-out choice dims its marks with it. */
@@ -48,7 +99,8 @@ mark.hl-live {
   color: var(--text-3);
 }
 
-/* On a touch screen, touch and hold belongs to the highlighter, not the system's selection and callout. */
+/* On a touch screen, a finger on the words belongs to the highlighter, not the system's
+   selection and callout. */
 @media (hover: none) {
   .markable {
     -webkit-user-select: none;
@@ -58,7 +110,7 @@ mark.hl-live {
 }
 
 /* The pen: a square of the current color at the end of the format line, as tall as a tap needs
-   without making the line taller. */
+   without making the line taller. With the eraser out it is a plain square holding the eraser. */
 .pen-wrap {
   position: relative;
   margin-left: auto;
@@ -93,6 +145,15 @@ mark.hl-live {
   position: relative;
 }
 
+.pen-erasing {
+  color: var(--text-1);
+}
+
+.pen-erasing::before {
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--separator-strong);
+}
+
 .pen:focus-visible,
 .pen-dot:focus-visible,
 .pen-clear:focus-visible {
@@ -100,7 +161,7 @@ mark.hl-live {
   outline-offset: 2px;
 }
 
-/* The colors open beside the pen, over the format line, so the question stays in view. */
+/* The colors and the eraser open beside the pen, over the format line, so the question stays in view. */
 .pen-menu {
   position: absolute;
   z-index: 5;
@@ -136,6 +197,20 @@ mark.hl-live {
 .pen-dot-current {
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--hl-text) 14%, transparent),
+    0 0 0 2px var(--surface-raised),
+    0 0 0 4px var(--text-1);
+}
+
+/* The eraser sits with the colors as a plain dot. */
+.pen-eraser {
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--separator-strong);
+  color: var(--text-1);
+}
+
+.pen-eraser.pen-dot-current {
+  box-shadow:
+    inset 0 0 0 1px var(--separator-strong),
     0 0 0 2px var(--surface-raised),
     0 0 0 4px var(--text-1);
 }

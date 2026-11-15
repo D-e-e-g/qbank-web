@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AnswerArea } from "../Answers";
 import { StemExhibits } from "../Exhibits";
 import { initialDraft, makeLayout, type LoadedQuestion, type Question } from "../model";
@@ -96,15 +96,35 @@ describe("marked text", () => {
 });
 
 describe("the format line", () => {
-  it("puts the pen at the end of the format line, showing the current color", () => {
-    const html = renderToStaticMarkup(
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function formatLine(): string {
+    return renderToStaticMarkup(
       <MarkingProvider marks={{}} onChange={() => undefined}>
         <QuestionMeta format="Single answer" topic="Sepsis" />
       </MarkingProvider>,
     );
+  }
+
+  it("puts the pen at the end of the format line, showing the current color", () => {
+    const html = formatLine();
     expect(html).toMatch(/<span class="runner-format">Single answer<\/span><span>Sepsis<\/span>/);
     expect(html).toContain('aria-label="Highlighter, yellow"');
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain("pen hl-yellow");
+  });
+
+  it("shows the eraser on the pen when the eraser was left out on this device", () => {
+    vi.stubGlobal("localStorage", { getItem: (key: string) => (key === "qbank.highlighter.eraser" ? "1" : "blue"), setItem: () => undefined });
+    const html = formatLine();
+    expect(html).toContain('aria-label="Highlighter, eraser"');
+    expect(html).toContain("pen pen-erasing");
+    expect(html).not.toContain("pen hl-");
+  });
+
+  it("says nothing about how to highlight: the pen alone shows it is there", () => {
+    expect(formatLine()).not.toContain("runner-hint");
   });
 });
