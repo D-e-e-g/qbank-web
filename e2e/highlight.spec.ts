@@ -121,19 +121,18 @@ test.describe("highlighting a question", () => {
     await signIn(page);
     await page.evaluate(() => {
       localStorage.removeItem("qbank.highlighter.color");
-      localStorage.removeItem("qbank.highlighter.used");
     });
     const posted = postedAnswers(page);
     await openSet(page, "Highlighting practice");
     const stem = page.locator(".runner-stem");
-    const hint = page.locator(".runner-hint");
-    await expect(hint).toBeVisible();
+    // No hint line sits under the format line: the pen at its end is what shows highlighting is there.
+    await expect(page.locator(".runner-hint")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Highlighter, / })).toBeVisible();
 
-    // A drag across the stem marks the words it covers, in yellow, and the hint goes.
+    // A drag across the stem marks the words it covers, in yellow.
     await drag(page, word(stem, "cloudy"), word(stem, "amber"));
     await expect(marks(stem)).toHaveText(["cloudy and dark amber"]);
     await expect(marks(stem).first()).toHaveClass(/hl-yellow/);
-    await expect(hint).toHaveCount(0);
 
     // A drag on an answer marks its words and does not pick it; a plain click still picks.
     const right = choice(page, RIGHT);

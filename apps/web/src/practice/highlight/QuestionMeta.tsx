@@ -7,26 +7,17 @@ const COLOR_NAMES: Record<HighlightColor, string> = { yellow: "Yellow", blue: "B
 
 /**
  * The line over the stem: the question's format, its topic, anything the screen adds, and at its
- * end the highlighter pen. Until the user first highlights on this device, a one-line hint under
- * it says how.
+ * end the highlighter pen, which is how the user finds that highlighting is there.
  */
 export function QuestionMeta({ format, topic, children }: { format: string; topic: string; children?: ReactNode }) {
   const marking = useMarking();
   return (
-    <>
-      <p className="runner-meta">
-        <span className="runner-format">{format}</span>
-        {topic ? <span>{topic}</span> : null}
-        {children}
-        {marking ? <HighlightPen /> : null}
-      </p>
-      {marking && !marking.used ? (
-        <p className="runner-hint">
-          <span className="runner-hint-mouse">Drag across words to highlight them. Click a highlight to erase it.</span>
-          <span className="runner-hint-touch">Hold a word and drag to highlight. Tap one to erase it.</span>
-        </p>
-      ) : null}
-    </>
+    <p className="runner-meta">
+      <span className="runner-format">{format}</span>
+      {topic ? <span>{topic}</span> : null}
+      {children}
+      {marking ? <HighlightPen /> : null}
+    </p>
   );
 }
 

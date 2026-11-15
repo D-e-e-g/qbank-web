@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { followPress } from "./gesture";
 import { MarkingContext, useMarking, type LiveMark, type Marking } from "./marking-context";
 import { eraseAt, HIGHLIGHT_COLORS, markAt, paint, segmentText, setPiece, textRuns, type HighlightColor, type Mark, type Marks, type Segment } from "./marks";
-import { readHighlighterUsed, readPenColor, saveHighlighterUsed, savePenColor } from "./pen-store";
+import { readPenColor, savePenColor } from "./pen-store";
 
 const NO_MARKS: readonly Mark[] = [];
 
@@ -13,7 +13,6 @@ const NO_MARKS: readonly Mark[] = [];
  */
 export function MarkingProvider({ marks, onChange, children }: { marks: Marks; onChange: (marks: Marks) => void; children: ReactNode }) {
   const [color, setColorState] = useState<HighlightColor>(readPenColor);
-  const [used, setUsed] = useState(readHighlighterUsed);
   const [live, setLive] = useState<LiveMark | null>(null);
   const latest = useRef({ marks, onChange, color });
   useLayoutEffect(() => {
@@ -62,8 +61,6 @@ export function MarkingProvider({ marks, onChange, children }: { marks: Marks; o
       },
       commit: (range) => {
         change((marks) => paint(marks, range.start, range.end, latest.current.color));
-        setUsed(true);
-        saveHighlighterUsed();
       },
       tap: (offset) => {
         const marks = latest.current.marks[piece] ?? NO_MARKS;
@@ -78,7 +75,7 @@ export function MarkingProvider({ marks, onChange, children }: { marks: Marks; o
     latest.current.onChange({});
   }, []);
 
-  const value = useMemo<Marking>(() => ({ marks, color, live, used, setColor, clear, press }), [marks, color, live, used, setColor, clear, press]);
+  const value = useMemo<Marking>(() => ({ marks, color, live, setColor, clear, press }), [marks, color, live, setColor, clear, press]);
   return <MarkingContext value={value}>{children}</MarkingContext>;
 }
 
