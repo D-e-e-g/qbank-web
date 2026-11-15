@@ -1,19 +1,22 @@
 import type { Locator, Page, Request } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { drag, middle, realFinger, steps, stroke } from "./gestures";
 import { signIn } from "./sign-in";
 
 const STEM = "At 2 PM the urine is cloudy and dark amber, 90 mL in the last 6 hours.";
+// Long enough to wrap onto several lines and, on a phone, to make the question scroll.
+const LONG_STEM = `${STEM} The client reports new confusion and chills since the morning, and the skin is cool and mottled over both knees. Capillary refill is 4 seconds. The indwelling catheter was placed three days ago after surgery, and the client has received two liters of fluid since admission without improvement in urine output.`;
 const RIGHT = "Blood pressure 86/48 mm Hg";
 const WRONG = "Temperature 37.9 degrees";
 const OTHER = "Type 2 diabetes in the history";
 
-function single(id: string, topic: string): Record<string, unknown> {
+function single(id: string, topic: string, stem = STEM): Record<string, unknown> {
   return {
     id,
     type: "single",
     topic,
     cj: "Recognize cues",
-    stem: STEM,
+    stem,
     ask: "Which finding needs follow-up right away?",
     table: { caption: "Vital signs", head: ["Time", "BP"], rows: [["8 AM", "118/70"], ["4 PM", "86/48"]] },
     options: [
@@ -67,35 +70,6 @@ function word(scope: Locator, text: string): Locator {
   return scope.locator("[data-i]").filter({ hasText: new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")}$`) }).first();
 }
 
-/** Press on the first word, drag to the last, let go: the mouse version of the gesture. */
-async function drag(page: Page, from: Locator, to: Locator): Promise<void> {
-  await from.scrollIntoViewIfNeeded();
-  const start = await from.boundingBox();
-  const end = await to.boundingBox();
-  if (!start || !end) throw new Error("the words are not on screen");
-  await page.mouse.move(start.x + 2, start.y + start.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(end.x + end.width - 2, end.y + end.height / 2, { steps: 8 });
-  await page.mouse.up();
-}
-
-/** A touch and hold on `from`, a drag to `to`, and a lift, as a finger does it. `holdMs` 0 is a quick swipe. */
-async function touchDrag(page: Page, from: Locator, to: Locator, holdMs: number): Promise<void> {
-  await from.scrollIntoViewIfNeeded();
-  const start = await from.boundingBox();
-  const end = await to.boundingBox();
-  if (!start || !end) throw new Error("the words are not on screen");
-  await from.dispatchEvent("pointerdown", { pointerId: 7, pointerType: "touch", isPrimary: true, clientX: start.x + 2, clientY: start.y + start.height / 2, button: 0 });
-  await page.waitForTimeout(holdMs);
-  await page.evaluate(
-    ({ x, y }) => {
-      window.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, pointerId: 7, pointerType: "touch", isPrimary: true, clientX: x, clientY: y }));
-      window.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 7, pointerType: "touch", isPrimary: true, clientX: x, clientY: y }));
-    },
-    { x: end.x + end.width - 2, y: end.y + end.height / 2 },
-  );
-}
-
 function marks(scope: Locator): Locator {
   return scope.locator("mark.hl");
 }
@@ -104,8 +78,8 @@ function choice(page: Page, name: string): Locator {
   return page.getByRole("radio", { name, exact: true });
 }
 
-async function openSet(page: Page, title: string): Promise<void> {
-  const courseId = await importSet(page, title, [single("Q1", "Highlight topic 1"), single("Q2", "Highlight topic 2")]);
+async function openSet(page: Page, title: string, stem = STEM): Promise<void> {
+  const courseId = await importSet(page, title, [single("Q1", "Highlight topic 1", stem), single("Q2", "Highlight topic 2", stem)]);
   await page.goto(`/course/${courseId}`);
   await page.getByRole("link", { name: /^Week 1 / }).click();
   await page.getByRole("link", { name: title }).click();
@@ -232,24 +206,202 @@ test.describe("highlighting a question", () => {
     await expect(page.getByRole("button", { name: /^Highlighter, / })).toHaveAccessibleName("Highlighter, pink");
   });
 
-  test("on a touch screen, touch and hold marks, a quick swipe does not, and a tap still picks", async ({ page }, testInfo) => {
+  test("the eraser takes marks off by a drag, a color brings the pen back, and Clear highlights still clears", async ({ page }) => {
     await signIn(page);
-    await openSet(page, "Highlighting by touch");
+    await openSet(page, "Highlighting eraser");
     const stem = page.locator(".runner-stem");
-    // A swipe that moves at once scrolls; it marks nothing.
-    await touchDrag(page, word(stem, "cloudy"), word(stem, "amber"), 0);
-    await expect(marks(stem)).toHaveCount(0);
-    // Holding first, then dragging, marks.
-    await touchDrag(page, word(stem, "cloudy"), word(stem, "amber"), 700);
-    await expect(marks(stem)).toHaveText(["cloudy and dark amber"]);
     const right = choice(page, RIGHT);
-    await touchDrag(page, word(right, "Blood"), word(right, "pressure"), 700);
+    const pen = page.getByRole("button", { name: /^Highlighter, / });
+    await drag(page, word(stem, "cloudy"), word(stem, "amber"));
+    await drag(page, word(right, "Blood"), word(right, "pressure"));
+    await expect(marks(stem)).toHaveText(["cloudy and dark amber"]);
+    await expect(marks(right)).toHaveText(["Blood pressure"]);
+
+    // The eraser sits in the pen's tray after the colors. Picking it closes the tray and shows on the pen.
+    await pen.click();
+    await expect(page.getByRole("group", { name: "Highlighter colors and eraser" }).getByRole("button")).toHaveText(["1", "2", "3", "", "Clear"]);
+    const eraser = page.getByRole("button", { name: "Eraser", exact: true });
+    await expect(eraser).toHaveAttribute("aria-pressed", "false");
+    await eraser.click();
+    await expect(pen).toHaveAccessibleName("Highlighter, eraser");
+    await expect(pen).toHaveAttribute("aria-expanded", "false");
+
+    // A drag with the eraser clears the marks under it and keeps the rest of a mark it cuts through.
+    await drag(page, word(stem, "dark"), word(stem, "amber"));
+    await expect(marks(stem)).toHaveText(["cloudy and"]);
+    // Over plain words it marks nothing.
+    await drag(page, word(stem, "last"), word(stem, "hours"));
+    await expect(marks(stem)).toHaveText(["cloudy and"]);
+    // On an answer it clears the mark and does not pick the answer.
+    await drag(page, word(right, "Blood"), word(right, "Hg"));
+    await expect(marks(right)).toHaveCount(0);
+    await expect(right).toHaveAttribute("aria-checked", "false");
+    // A click on a mark still erases the whole mark.
+    await word(stem, "cloudy").click();
+    await expect(marks(stem)).toHaveCount(0);
+
+    // The eraser stays out on this device, as the pen's color does.
+    await page.reload();
+    await expect(page.getByText("1 of 2", { exact: true })).toBeVisible();
+    await expect(pen).toHaveAccessibleName("Highlighter, eraser");
+    await pen.click();
+    await expect(eraser).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Clear highlights" })).toHaveCount(0);
+
+    // Picking a color goes back to highlighting.
+    await page.getByRole("button", { name: "Blue", exact: true }).click();
+    await expect(pen).toHaveAccessibleName("Highlighter, blue");
+    await drag(page, word(stem, "cloudy"), word(stem, "amber"));
+    await expect(marks(stem)).toHaveText(["cloudy and dark amber"]);
+    await expect(marks(stem).first()).toHaveClass(/hl-blue/);
+    // So do keys 1, 2 and 3.
+    await pen.click();
+    await eraser.click();
+    await page.keyboard.press("3");
+    await expect(pen).toHaveAccessibleName("Highlighter, pink");
+
+    // Clear highlights still takes every mark off the question.
+    await drag(page, word(right, "Blood"), word(right, "pressure"));
+    await pen.click();
+    await page.getByRole("button", { name: "Clear highlights" }).click();
+    await expect(page.locator(".runner-column mark.hl")).toHaveCount(0);
+  });
+
+  test("a finger highlights by swiping along the words and not by swiping down them, a pencil in any direction, and a tap still picks", async ({ page }, testInfo) => {
+    await signIn(page);
+    await openSet(page, "Highlighting by touch", LONG_STEM);
+    const stem = page.locator(".runner-stem");
+    const cloudy = await middle(word(stem, "cloudy"));
+    const amber = await middle(word(stem, "amber"));
+    const mottled = await middle(word(stem, "mottled"));
+    // The stem wraps, so "mottled" is on a line below "cloudy": straight down from "cloudy" to
+    // that line, then along it, ends on "mottled" however wide the screen is.
+    expect(mottled.y).toBeGreaterThan(cloudy.y + 10);
+    const below = { x: cloudy.x, y: mottled.y };
+    const down = [...steps(cloudy, below), ...steps(below, mottled)];
+    const toMottled = LONG_STEM.slice(LONG_STEM.indexOf("cloudy"), LONG_STEM.indexOf("mottled") + "mottled".length);
+
+    // A finger's swipe down the words is a scroll: it marks nothing, wherever it goes next.
+    await stroke(page, "touch", word(stem, "cloudy"), steps(cloudy, { x: cloudy.x + 4, y: cloudy.y + 160 }));
+    await stroke(page, "touch", word(stem, "cloudy"), down);
+    await expect(marks(stem)).toHaveCount(0);
+    // So is a slanted one.
+    await stroke(page, "touch", word(stem, "cloudy"), steps(cloudy, { x: cloudy.x + 60, y: cloudy.y + 60 }));
+    await expect(marks(stem)).toHaveCount(0);
+    // Its swipe along the words marks them at once, with no hold, in either direction.
+    await stroke(page, "touch", word(stem, "cloudy"), steps(cloudy, amber));
+    await expect(marks(stem)).toHaveText(["cloudy and dark amber"]);
+    await word(stem, "cloudy").click();
+    await expect(marks(stem)).toHaveCount(0);
+    await stroke(page, "touch", word(stem, "amber"), steps(amber, cloudy));
+    await expect(marks(stem)).toHaveText(["cloudy and dark amber"]);
+    // Once it marks, it keeps marking wherever it goes next, down the lines too.
+    await stroke(page, "touch", word(stem, "cloudy"), [...steps(cloudy, amber), ...steps(amber, mottled)]);
+    await expect(marks(stem)).toHaveText([toMottled]);
+
+    // A swipe that starts beside the words marks nothing.
+    await page.getByRole("button", { name: /^Highlighter, / }).click();
+    await page.getByRole("button", { name: "Clear highlights" }).click();
+    const beside = await page.locator(".runner-stem").evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      return { x: box.left + 20, y: box.bottom + 4 };
+    });
+    await stroke(page, "touch", page.locator(".runner-column"), [beside, ...steps(beside, { x: beside.x + 200, y: beside.y })]);
+    await expect(page.locator(".runner-column mark.hl")).toHaveCount(0);
+
+    // Resting on a word first changes nothing: down the words still scrolls, along them still marks.
+    await stroke(page, "touch", word(stem, "cloudy"), down, 700);
+    await expect(marks(stem)).toHaveCount(0);
+    await stroke(page, "touch", word(stem, "cloudy"), steps(cloudy, amber), 700);
+    await expect(marks(stem)).toHaveText(["cloudy and dark amber"]);
+    await word(stem, "cloudy").click();
+    await expect(marks(stem)).toHaveCount(0);
+
+    // A pencil marks at once in any direction: straight down the lines, where a finger scrolls.
+    await stroke(page, "pen", word(stem, "cloudy"), down);
+    await expect(marks(stem)).toHaveText([toMottled]);
+
+    // On an answer a finger's swipe marks and does not pick; a tap still picks.
+    const right = choice(page, RIGHT);
+    await stroke(page, "touch", word(right, "Blood"), steps(await middle(word(right, "Blood")), await middle(word(right, "pressure"))));
     await expect(marks(right)).toHaveText(["Blood pressure"]);
     await expect(right).toHaveAttribute("aria-checked", "false");
     const letter = right.locator(".choice-letter");
     if (testInfo.project.name === "iphone-safari") await letter.tap();
     else await letter.click();
     await expect(right).toHaveAttribute("aria-checked", "true");
+
+    // The eraser follows the same rules: a finger's swipe along marked words clears them.
+    await page.getByRole("button", { name: /^Highlighter, / }).click();
+    await page.getByRole("button", { name: "Eraser", exact: true }).click();
+    await stroke(page, "touch", word(stem, "cloudy"), steps(cloudy, { x: cloudy.x + 4, y: cloudy.y + 160 }));
+    await expect(marks(stem)).toHaveCount(1);
+    await stroke(page, "touch", word(stem, "cloudy"), steps(cloudy, amber));
+    await expect(marks(stem)).toHaveText([LONG_STEM.slice(LONG_STEM.indexOf("90 mL"), LONG_STEM.indexOf("mottled") + "mottled".length)]);
+  });
+
+  test.describe("under a real finger on a phone", () => {
+    test.use({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true });
+
+    test("a swipe along the words marks them and the page stays still; a swipe down the words, or beside them, scrolls and marks nothing", async ({ page, browserName }) => {
+      test.skip(browserName !== "chromium", "a real touch is sent through Chromium");
+      await signIn(page);
+      await openSet(page, "Highlighting by a real finger", LONG_STEM);
+      const stem = page.locator(".runner-stem");
+      const scroller = page.locator(".runner-scroll");
+      const scrolled = () => scroller.evaluate((element) => element.scrollTop);
+      // Back to the top once the page has come to rest.
+      const rest = async () => {
+        let last = -1;
+        await expect
+          .poll(async () => {
+            const before = last;
+            last = await scrolled();
+            return last === before;
+          })
+          .toBe(true);
+        await scroller.evaluate((element) => {
+          element.scrollTo(0, 0);
+        });
+      };
+      // The question is taller than the screen, so there is something to scroll.
+      expect(await scroller.evaluate((element) => element.scrollHeight - element.clientHeight)).toBeGreaterThan(150);
+      const swipe = await realFinger(page);
+      const cloudy = await middle(word(stem, "cloudy"));
+      const amber = await middle(word(stem, "amber"));
+      await rest();
+
+      // Along the words: they are marked at once, and the page has not moved.
+      await swipe(cloudy, amber);
+      await expect(marks(stem)).toHaveText(["cloudy and dark amber"]);
+      expect(await scrolled()).toBe(0);
+
+      // Up the page from a word: the question scrolls, and no word is marked.
+      const confusion = await middle(word(stem, "confusion"));
+      expect(await scrolled()).toBe(0);
+      await swipe(confusion, { x: confusion.x + 6, y: confusion.y - 160 });
+      await expect.poll(scrolled).toBeGreaterThan(50);
+      await expect(marks(stem)).toHaveText(["cloudy and dark amber"]);
+      await rest();
+
+      // Up the page from beside the words, in the gap under the stem: the question scrolls.
+      const gap = await stem.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return { x: box.left + 40, y: box.bottom + 5 };
+      });
+      expect(await scrolled()).toBe(0);
+      await swipe(gap, { x: gap.x, y: gap.y - 160 });
+      await expect.poll(scrolled).toBeGreaterThan(50);
+      await expect(page.locator(".runner-column mark.hl")).toHaveText(["cloudy and dark amber"]);
+      await rest();
+
+      // The eraser under the same finger: along marked words it clears them, and the page stays still.
+      await page.getByRole("button", { name: /^Highlighter, / }).tap();
+      await page.getByRole("button", { name: "Eraser", exact: true }).tap();
+      await swipe(await middle(word(stem, "dark")), await middle(word(stem, "amber")));
+      await expect(marks(stem)).toHaveText(["cloudy and"]);
+      expect(await scrolled()).toBe(0);
+    });
   });
 
   test("in an exam, a skipped question keeps its marks, and the result shows the question clean", async ({ page }) => {

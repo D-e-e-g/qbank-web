@@ -1,21 +1,23 @@
 import { createContext, useContext, type PointerEvent } from "react";
-import type { HighlightColor, Mark, Marks, Segment } from "./marks";
+import type { LiveStroke, Marks, Segment, Tool } from "./marks";
 
-/** The drag in progress: the piece it is on and the range it would mark, in the pen's color. */
-export interface LiveMark {
+/** The drag in progress: the piece of text it is on, the range it would work on, and with what. */
+export interface LiveMark extends LiveStroke {
   piece: string;
-  mark: Mark;
 }
 
 /** What the text of one question needs to be marked: its marks, the pen, and the drag in progress. */
 export interface Marking {
   marks: Marks;
-  color: HighlightColor;
+  /** What a drag does now: paints in this color, or erases. */
+  tool: Tool;
   live: LiveMark | null;
-  setColor: (color: HighlightColor) => void;
+  setTool: (tool: Tool) => void;
   clear: () => void;
-  /** A press on a piece of text: the start of a drag, a touch and hold, or a tap on a mark. */
+  /** A press on a piece of text: the start of a drag or a swipe, or a tap on a mark. */
   press: (event: PointerEvent<HTMLElement>, piece: string, segments: readonly Segment[]) => void;
+  /** A touchmove on a piece of text, heard by a listener that can hold the page still under a drag. */
+  holdTouch: (event: TouchEvent) => void;
 }
 
 export const MarkingContext = createContext<Marking | null>(null);

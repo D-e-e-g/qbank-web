@@ -22,8 +22,9 @@ export function QuestionMeta({ format, topic, children }: { format: string; topi
 }
 
 /**
- * A button that shows the pen's color and opens the three colors beside it, with Clear when the
- * question has a mark. Picking a color closes it; so do a tap outside and Escape.
+ * A button that shows what the pen does now, its color or the eraser, and opens the tray beside
+ * it: the three colors, the eraser, and Clear when the question has a mark. Picking a tool closes
+ * it; so do a tap outside and Escape.
  */
 function HighlightPen() {
   const marking = useMarking();
@@ -51,23 +52,24 @@ function HighlightPen() {
   }, [open]);
 
   if (!marking) return null;
-  const { color, setColor, clear } = marking;
+  const { tool, setTool, clear } = marking;
+  const erasing = tool === "eraser";
   const marked = hasMarks(marking.marks);
 
   return (
     <span className="pen-wrap" ref={wrap}>
       {open ? (
-        <span className="pen-menu" role="group" aria-label="Highlighter colors">
+        <span className="pen-menu" role="group" aria-label="Highlighter colors and eraser">
           {HIGHLIGHT_COLORS.map((choice, index) => (
             <button
               key={choice}
               type="button"
-              className={`pen-dot hl-${choice}${choice === color ? " pen-dot-current" : ""}`}
+              className={`pen-dot hl-${choice}${choice === tool ? " pen-dot-current" : ""}`}
               aria-label={COLOR_NAMES[choice]}
-              aria-pressed={choice === color}
+              aria-pressed={choice === tool}
               aria-keyshortcuts={String(index + 1)}
               onClick={() => {
-                setColor(choice);
+                setTool(choice);
                 setOpen(false);
               }}
             >
@@ -76,6 +78,18 @@ function HighlightPen() {
               </span>
             </button>
           ))}
+          <button
+            type="button"
+            className={`pen-dot pen-eraser${erasing ? " pen-dot-current" : ""}`}
+            aria-label="Eraser"
+            aria-pressed={erasing}
+            onClick={() => {
+              setTool("eraser");
+              setOpen(false);
+            }}
+          >
+            <Icon name="eraser" size={18} />
+          </button>
           {marked ? (
             <button
               type="button"
@@ -95,15 +109,15 @@ function HighlightPen() {
       <button
         ref={pen}
         type="button"
-        className={`pen hl-${color}`}
-        aria-label={`Highlighter, ${color}`}
+        className={erasing ? "pen pen-erasing" : `pen hl-${tool}`}
+        aria-label={`Highlighter, ${erasing ? "eraser" : tool}`}
         aria-expanded={open}
         title="Highlighter"
         onClick={() => {
           setOpen((was) => !was);
         }}
       >
-        <Icon name="highlighter" size={18} />
+        <Icon name={erasing ? "eraser" : "highlighter"} size={18} />
       </button>
     </span>
   );
