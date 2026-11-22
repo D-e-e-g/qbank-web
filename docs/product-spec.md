@@ -131,12 +131,12 @@ Any question may also carry a table of readings under its stem and up to 4 image
 - Not valid JSON (a fenced code block around it is tolerated). A bare list of questions is accepted as a set titled "Imported questions".
 - No non-empty `questions` list.
 - A question that is not an object, or has an unknown `type`.
-- Missing `stem`, `ask`, `rationale`, or `takeaway`.
-- `single` and `priority`: at least 3 options, every option has text `t`, exactly one option with `"ok": true`.
-- `sata` (select all): at least 3 options with text, at least one option with `"ok": true`. Every option may be correct.
+- Missing `ask`. Only the ask is required: `stem`, `rationale`, and `takeaway` may be left out or blank, and are then stored as empty text, but one that is present must be text.
+- `single` and `priority`: at least 2 options, every option has text `t`, exactly one option with `"ok": true`. Two options make a true or false question.
+- `sata` (select all): at least 2 options with text, at least one option with `"ok": true`. Every option may be correct.
 - `order`: 3 or more items with text, listed in the correct order.
 - `match`: 2 or more pairs, each with `l` and `r`.
-- `matrix`: 2 or more columns, at least one row, and every row's `ans` names a column.
+- `matrix`: 2 or more columns with different names, at least one row, and every row's `ans` names a column. A warning, not a refusal, when a column is a catch-all such as "Both", "Either" or "All of the above": a row that fits more than one column is a `matrixmulti`.
 - `matrixmulti`: 2 or more columns with different names, at least one row, every row's `ans` a list of those column names (each once, and at least one), and not every box right. A warning, not a refusal, when the ask does not say a row can fit more than one column.
 - `highlight`: 3 or more segments, some `ok` and some not.
 - `cloze` (drop-down): one `{0}`, `{1}`, ... placeholder per blank, and every blank has 2 or more `opts` and a valid `ans` index.
@@ -144,9 +144,9 @@ Any question may also carry a table of readings under its stem and up to 4 image
 - `images`, when present: a list of at most 4, each with `alt` and one of `src` (a base64 PNG, JPEG, WebP, or SVG data URL of at most 300 KB whose bytes match its type) or `svg` (SVG markup of at most 300 KB with no scripts, event handlers, or links to other files), and an `at` of `"stem"` or `"rationale"` if set.
 - `kind`, when present: `"practice"` or `"exam"`. `twinOf`, when present: the id of a practice question.
 
-Each error names the question by position and id, for example `Question 4 (X04): missing takeaway` or `Question 7 (Q7): image 1 needs "alt": a short description of what it shows`.
+Each error names the question by position and id, for example `Question 4 (X04): missing ask` or `Question 7 (Q7): image 1 needs "alt": a short description of what it shows`.
 
-**Warnings (import anyway):** a term used by a question but not defined in `terms` (it is skipped); a missing `cj`, `need`, `diff`, or `src`; a `twinOf` in a practice set (only exam sets read it).
+**Warnings (import anyway):** a term used by a question but not defined in `terms` (it is skipped); a question with no `cj`, `need`, `diff`, or `src` when another question in the same file carries that field (a file that uses none of them, as a set on any subject may, gets no such warning); a `twinOf` in a practice set (only exam sets read it).
 
 The whole question body is stored as JSON, so a format the runner gains later needs no schema change. Tables and images are stored in that body too, images included as their data URLs, so they are in every backup and come back with a restored set.
 

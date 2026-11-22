@@ -14,6 +14,8 @@ const account: Account = {
   role: "student",
   mustChangePassword: false,
   palette: "dusk",
+  origin: "invited",
+  cloud: { active: true, expiresAt: null },
 };
 
 const signedIn: Gate = { status: "signed-in", user: account };

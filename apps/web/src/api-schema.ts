@@ -8632,12 +8632,29 @@ export interface components {
             role: "student" | "admin";
             mustChangePassword: boolean;
             palette: components["schemas"]["Palette"];
+            origin: components["schemas"]["Origin"];
+            cloud: components["schemas"]["Cloud"];
         };
         /**
          * @description The account's color scheme. Every account is on dusk until it picks another with PUT /api/me/palette. More may be added later; show one you do not know as dusk.
          * @enum {string}
          */
         Palette: "dusk" | "slate";
+        /**
+         * @description Who set the account up: `invited` for an account the owner made or put on the sign-up list, `store` for one made by Sign in with Apple in the iPhone app. Every account that existed before this field is `invited`. More may be added later.
+         * @enum {string}
+         */
+        Origin: "invited" | "store";
+        /** @description Whether an account has Cloud, which the server decides. A store account without it is refused with 403 `cloud_required` on every route that reads or writes the bank: courses, folders, imports, deletes, answers, Review, exams and progress. It may still sign in, read this, change its color scheme and delete its account. */
+        Cloud: {
+            /** @description Whether the account has Cloud now: its question bank lives on the server and every content, answer, exam and import route works. An invited account always has it. */
+            active: boolean;
+            /**
+             * @description When the latest subscription that was not revoked ends, or ended. Null for an account that never had one, and for an invited account.
+             * @example 2027-12-03T00:00:00.000Z
+             */
+            expiresAt: string | null;
+        };
         Error: {
             /** @example invalid_credentials */
             error: string;
