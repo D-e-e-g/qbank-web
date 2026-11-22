@@ -866,7 +866,7 @@ export interface paths {
         head?: never;
         /**
          * Rename, move, archive, or unarchive a course or topic
-         * @description A topic takes `title` and `archived` only: `code` or `semesterId` for a topic is refused with 400. A course moves only to another of her semesters.
+         * @description A topic takes `title` and `archived` only: `code` or `semesterId` for a topic is refused with 400. A course moves only to another of her semesters. Archiving one that is not archived (`archived: true`) is refused with 409 `in_use`, and a sentence in `message`, while a Make questions or twin job is running or waiting in it: the job files its set there at its end, and filing refuses an archived course, so wait for the job or cancel it first. It is the sentence DELETE /api/courses/{id} answers for the same job. An exam in progress does not hold an archive, and unarchiving (`archived: false`) and every other change are not refused for a job.
          */
         patch: {
             parameters: {
