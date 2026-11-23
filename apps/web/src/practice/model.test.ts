@@ -3,6 +3,8 @@ import {
   choiceLetter,
   clozeParts,
   draftFromResponse,
+  hasRationale,
+  hasText,
   initialDraft,
   makeLayout,
   moveOrder,
@@ -12,6 +14,7 @@ import {
   toggleStrike,
   toResponse,
   togglePick,
+  type LoadedQuestion,
   type Question,
 } from "./model";
 
@@ -280,5 +283,19 @@ describe("draftFromResponse", () => {
     expect(draftFromResponse(order, { type: "order", positions: [0, 0, 1] })).toBeNull();
     expect(draftFromResponse(match, { type: "match", choices: [1, 2] })).toBeNull();
     expect(draftFromResponse(sata, null)).toBeNull();
+  });
+});
+
+describe("sections a question may leave empty", () => {
+  it("counts an empty or whitespace-only text as nothing to show", () => {
+    expect(hasText("")).toBe(false);
+    expect(hasText(" \n\t ")).toBe(false);
+    expect(hasText("Eases breathing.")).toBe(true);
+  });
+
+  it("shows Rationale for an image placed with it even when its text is empty", () => {
+    const loaded = { rationale: "  ", images: [{ at: "rationale" }] } as unknown as LoadedQuestion;
+    expect(hasRationale(loaded)).toBe(true);
+    expect(hasRationale({ rationale: "", images: [{ at: "stem" }] } as unknown as LoadedQuestion)).toBe(false);
   });
 });

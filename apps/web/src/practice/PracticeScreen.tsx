@@ -10,7 +10,7 @@ import { Markable, MarkingProvider } from "./highlight/Markable";
 import { QuestionMeta } from "./highlight/QuestionMeta";
 import { RationaleImages, StemExhibits } from "./Exhibits";
 import { scoreOf } from "./attempt";
-import { FORMAT_LABELS, toggleStrike, toResponse } from "./model";
+import { FORMAT_LABELS, hasRationale, hasText, toggleStrike, toResponse } from "./model";
 import { NewRunNotice } from "./NewRunNotice";
 import { openPractice } from "./open";
 import type { PracticeSource } from "./source";
@@ -201,9 +201,11 @@ function PracticeRunner({ opened, source, wide }: { opened: Session; source: Pra
         }}
       >
         <QuestionMeta format={FORMAT_LABELS[loaded.question.type]} topic={loaded.topic} />
-        <p className="runner-stem">
-          <Markable piece="stem" text={loaded.stem} />
-        </p>
+        {hasText(loaded.stem) ? (
+          <p className="runner-stem">
+            <Markable piece="stem" text={loaded.stem} />
+          </p>
+        ) : null}
         <StemExhibits loaded={loaded} />
         <p className="runner-ask">
           <Markable piece="ask" text={loaded.ask} />
@@ -246,15 +248,19 @@ function PracticeRunner({ opened, source, wide }: { opened: Session; source: Pra
       )}
       {revealed ? (
         <div className="runner-feedback">
-          <section>
-            <h2 className="runner-kicker">Rationale</h2>
-            <p className="runner-prose">{loaded.rationale}</p>
-            <RationaleImages loaded={loaded} />
-          </section>
-          <section className="takeaway">
-            <h2 className="runner-kicker">Key takeaway</h2>
-            <p className="runner-prose">{loaded.takeaway}</p>
-          </section>
+          {hasRationale(loaded) ? (
+            <section>
+              <h2 className="runner-kicker">Rationale</h2>
+              {hasText(loaded.rationale) ? <p className="runner-prose">{loaded.rationale}</p> : null}
+              <RationaleImages loaded={loaded} />
+            </section>
+          ) : null}
+          {hasText(loaded.takeaway) ? (
+            <section className="takeaway">
+              <h2 className="runner-kicker">Key takeaway</h2>
+              <p className="runner-prose">{loaded.takeaway}</p>
+            </section>
+          ) : null}
           {loaded.terms.length > 0 ? (
             <section>
               <h2 className="runner-kicker">Terms in this question</h2>
@@ -349,14 +355,14 @@ function Results({ session, wide, closeLabel, onClose }: { session: Session; wid
                       </span>
                     </summary>
                     <div className="result-detail">
-                      <p className="runner-prose">{question.stem}</p>
+                      {hasText(question.stem) ? <p className="runner-prose">{question.stem}</p> : null}
                       <StemExhibits loaded={question} />
                       <p className="runner-prose">
                         <strong>{question.ask}</strong>
                       </p>
-                      <p className="runner-prose">{question.rationale}</p>
+                      {hasText(question.rationale) ? <p className="runner-prose">{question.rationale}</p> : null}
                       <RationaleImages loaded={question} />
-                      <p className="takeaway runner-prose">{question.takeaway}</p>
+                      {hasText(question.takeaway) ? <p className="takeaway runner-prose">{question.takeaway}</p> : null}
                     </div>
                   </details>
                 );

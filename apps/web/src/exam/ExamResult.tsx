@@ -6,7 +6,7 @@ import { kindWords } from "../course/pages";
 import { navigate } from "../router";
 import { AnswerArea } from "../practice/Answers";
 import { RationaleImages, StemExhibits } from "../practice/Exhibits";
-import { FORMAT_LABELS, draftFromResponse, initialDraft, readLayout, type LoadedQuestion } from "../practice/model";
+import { FORMAT_LABELS, draftFromResponse, hasText, initialDraft, readLayout, type LoadedQuestion } from "../practice/model";
 import { MeterList, ScoreSummary } from "../practice/ResultCharts";
 import type { LoadedExam } from "./ExamScreen";
 import { foldersText, practiceFoldersText } from "./names";
@@ -117,16 +117,16 @@ function ResultQuestion({ question, item, position }: { question: LoadedQuestion
         <span className={answered ? `result-mark result-mark-${item.status}` : "result-mark result-mark-unanswered"}>{markText(item)}</span>
       </summary>
       <div className="result-detail">
-        <p className="runner-prose">{question.stem}</p>
+        {hasText(question.stem) ? <p className="runner-prose">{question.stem}</p> : null}
         <StemExhibits loaded={question} />
         <p className="runner-prose">
           <strong>{question.ask}</strong>
         </p>
         {answered ? null : <p className="note">Not answered. The right answer is marked below.</p>}
         <AnswerArea loaded={question} layout={layout} draft={draft} revealed onDraft={() => undefined} />
-        <p className="runner-prose">{question.rationale}</p>
+        {hasText(question.rationale) ? <p className="runner-prose">{question.rationale}</p> : null}
         <RationaleImages loaded={question} />
-        <p className="takeaway runner-prose">{question.takeaway}</p>
+        {hasText(question.takeaway) ? <p className="takeaway runner-prose">{question.takeaway}</p> : null}
       </div>
     </details>
   );
