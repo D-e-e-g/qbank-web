@@ -355,6 +355,16 @@ export function clozeParts(text: string): (string | number)[] {
   return parts;
 }
 
+/** A stem, rationale or takeaway may arrive empty or blank. A screen shows such a section only when this is true. */
+export function hasText(text: string): boolean {
+  return text.trim() !== "";
+}
+
+/** Whether the question has anything to show under Rationale: its text or an image placed with it. */
+export function hasRationale(loaded: LoadedQuestion): boolean {
+  return hasText(loaded.rationale) || loaded.images.some((image) => image.at === "rationale");
+}
+
 function readLoadedQuestion(value: unknown): LoadedQuestion | null {
   if (!isRecord(value) || typeof value.id !== "string" || typeof value.publicId !== "string") return null;
   if (typeof value.position !== "number" || typeof value.type !== "string" || typeof value.topic !== "string") return null;

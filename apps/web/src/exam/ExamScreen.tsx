@@ -13,6 +13,7 @@ import { Markable, MarkingProvider } from "../practice/highlight/Markable";
 import { QuestionMeta } from "../practice/highlight/QuestionMeta";
 import {
   FORMAT_LABELS,
+  hasText,
   initialDraft,
   makeLayout,
   readPracticeSet,
@@ -320,9 +321,11 @@ function ExamRunner({ exam, wide, onEnded }: { exam: LoadedExam; wide: boolean; 
         <QuestionMeta format={FORMAT_LABELS[loaded.question.type]} topic={loaded.topic}>
           {item.skipped ? <span className="exam-skipped">Skipped earlier</span> : null}
         </QuestionMeta>
-        <p className="runner-stem">
-          <Markable piece="stem" text={loaded.stem} />
-        </p>
+        {hasText(loaded.stem) ? (
+          <p className="runner-stem">
+            <Markable piece="stem" text={loaded.stem} />
+          </p>
+        ) : null}
         <StemExhibits loaded={loaded} />
         <p className="runner-ask">
           <Markable piece="ask" text={loaded.ask} />

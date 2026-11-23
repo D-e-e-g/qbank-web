@@ -3025,6 +3025,8 @@ export interface paths {
          *
          *     The account is always the one signed in: nothing in the request names another, and no other account's content or answers change. Send its current password, checked as sign-in checks it; a wrong one counts toward the same lock as sign-in from this address, and deletes nothing.
          *
+         *     An account with no password, a store account, confirms with a fresh Sign in with Apple instead: it sends the `identityToken`, `nonce` and `authorizationCode` of a Sign in with Apple made just before the delete. The identity token is checked as POST /api/sign-in/apple checks it, and must also name this account's Apple identity and have been issued in the last five minutes; one that does not deletes nothing and counts toward the same lock as Sign in with Apple from this address. Then the server exchanges the code with Apple, revokes the tokens Apple issues for it, which ends the app's Sign in with Apple grant, and deletes the account; it keeps no Apple token. When nothing can be revoked (Apple refuses the code or is out of reach, the server has no Sign in with Apple key yet, or the revoke fails), the server logs it and the account is deleted all the same.
+         *
          *     Once deleted, every session of the account ends, on every device, and every agent key it approved stops working (401 `invalid_agent_key`). The answer also clears this device's session cookie.
          *
          *     The admin account is refused, and so is any request that carries an agent key, whatever its scopes.
@@ -3051,7 +3053,7 @@ export interface paths {
                         "application/json": components["schemas"]["AccountDeleted"];
                     };
                 };
-                /** @description The password is missing (`invalid_request`). Nothing was deleted. */
+                /** @description `invalid_request`: the password is missing, or for an account with no password, `identityToken`, `nonce` or `authorizationCode`. Nothing was deleted. */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -3060,7 +3062,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description `unauthenticated`: sign in. `invalid_credentials`: that password is not the account's. Nothing was deleted. */
+                /** @description `unauthenticated`: sign in. `invalid_credentials`: that password is not the account's. `invalid_apple_token`: the identity token is not Apple's, is for another app, has ended or is more than five minutes old, does not match the nonce, was used already, or names another Apple identity; sign in with Apple again. Nothing was deleted. */
                 401: {
                     headers: {
                         [name: string]: unknown;
@@ -3087,7 +3089,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description Too many wrong passwords from this address (`too_many_attempts`). Nothing was deleted. */
+                /** @description Too many wrong passwords, or refused Sign in with Apple tokens, from this address (`too_many_attempts`). Nothing was deleted. */
                 429: {
                     headers: {
                         [name: string]: unknown;
@@ -3096,7 +3098,16 @@ export interface paths {
                         "application/json": components["schemas"]["Locked"];
                     };
                 };
-                /** @description Sign-in is not configured. */
+                /** @description `apple_unreachable`: Apple's keys could not be read, so the Sign in with Apple could not be checked; it does not count as refused. Nothing was deleted. */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description `auth_unavailable`: sign-in is not configured. `apple_sign_in_unavailable`: an account with no password cannot be deleted until Sign in with Apple is available on this server. Nothing was deleted. */
                 503: {
                     headers: {
                         [name: string]: unknown;
@@ -3596,6 +3607,376 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sign-in/apple": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with Apple
+         * @description For the iPhone app. Checks Apple's identity token: Apple's signature, by the keys Apple publishes; Apple as the issuer; the app's bundle id as the audience; not ended, and issued within the hour; and its nonce the SHA-256 of `nonce`. A token is taken once: sent again, it is refused.
+         *
+         *     The account is found by Apple's id of the person, never by email. An Apple identity that has an account signs in to it (200). A new one gets a new store account (201): `origin` `store`, no Cloud, and no password. Its email is the one Apple shares, the person's own or a private relay address; when Apple shares none, it is `<Apple's id>@apple.invalid`, which reaches no one. A new identity whose email already belongs to an account is refused and is never joined to it (409): an account with a password links Apple from its own session, with POST /api/me/apple.
+         *
+         *     The answer is the password sign-in's: a session that lasts until sign-out, its `token` for Authorization: Bearer, and the session cookie.
+         *
+         *     5 refused tokens from one address lock Sign in with Apple, and linking it (POST /api/me/apple), from that address for 15 minutes; other addresses sign in as before, and a sign-in clears the count. Until the server is given the app's bundle id it answers 503 `apple_sign_in_unavailable` and makes nothing.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AppleSignIn"];
+                };
+            };
+            responses: {
+                /** @description Signed in to the account this Apple identity has. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SignedIn"];
+                    };
+                };
+                /** @description A new store account was made for this Apple identity, and signed in. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SignedIn"];
+                    };
+                };
+                /** @description The token or the nonce is missing (`invalid_request`). Nothing was made. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description `invalid_apple_token`: the token is not Apple's, is for another app, has ended, does not match the nonce, or was used already. Nothing was made. Ask Apple again, with a new nonce. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The email Apple shares already belongs to an account, and nothing was made: `password_account` when that account has a password (sign in with email and password instead), `email_in_use` for any other. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Too many refused tokens from this address (`too_many_attempts`). */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Locked"];
+                    };
+                };
+                /** @description `apple_unreachable`: Apple's keys could not be read, so the token could not be checked; it does not count as refused. `auth_failed`: the session could not be made. Try again. */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description `apple_sign_in_unavailable`: Sign in with Apple is not available on this server yet. `auth_unavailable`: sign-in is not configured. Nothing was made. */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/apple": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link Sign in with Apple to this account
+         * @description For the iPhone app's Settings: the signed-in account links the Apple identity of a Sign in with Apple the app has just done, so Sign in with Apple lands in this account from then on, with the same courses, sets, answers and progress. The body is POST /api/sign-in/apple's with the account's current `password` beside it, and the token is checked the same way: Apple's signature, issuer, the app's bundle id, its time, and the nonce. A token is taken once, by either route.
+         *
+         *     Linking adds the Apple identity to the account and changes nothing else: not its email, name, origin, role, Cloud, content or progress, and no session ends. The answer is the account, whose `signInWith` now has `apple`. Linking the identity the account has already changes nothing and answers the same.
+         *
+         *     An account has one Apple identity, and an Apple identity one account: one that is another account's, a store account Sign in with Apple made or another account that linked it, is refused, and so is a second identity for an account that has one. It needs a signed-in session: a request with an agent key is refused, and so is an account with a temporary password.
+         *
+         *     The password is checked first, as DELETE /api/me checks it: a wrong one counts toward the same lock as password sign-in for this email from this address, 5 lock it for 15 minutes, the right one clears that count, and a refused password links nothing and leaves the token unused. An account with no password cannot link.
+         *
+         *     Refused tokens count toward Sign in with Apple's lock for the address: 5 lock both routes from it for 15 minutes. Until the server is given the app's bundle id it answers 503 `apple_sign_in_unavailable` and links nothing.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AppleLink"];
+                };
+            };
+            responses: {
+                /** @description The Apple identity is this account's. The account, with its ways in. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Account"];
+                    };
+                };
+                /** @description The password, the token or the nonce is missing (`invalid_request`). Nothing was linked. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description `unauthenticated`: sign in. `invalid_credentials`: that password is not the account's; the token was not read. `invalid_apple_token`: the token is not Apple's, is for another app, has ended, does not match the nonce, or was used already; ask Apple again, with a new nonce. Nothing was linked. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Nothing was linked: `agent_key_not_allowed` (the request carries an agent key) or `must_change_password` (choose a new password first). */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Nothing was linked: `apple_linked_elsewhere`, this Apple identity is another QBank account's; `apple_already_linked`, this account has another Apple identity (unlink it first). */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Too many wrong passwords for this account, or refused tokens, from this address (`too_many_attempts`). Nothing was linked. */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Locked"];
+                    };
+                };
+                /** @description `apple_unreachable`: Apple's keys could not be read, so the token could not be checked. Try again. */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description `apple_sign_in_unavailable`: Sign in with Apple is not available on this server yet. `auth_unavailable`: sign-in is not configured. Nothing was linked. */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        /**
+         * Unlink Sign in with Apple from this account
+         * @description The signed-in account's Apple identity is removed, so Sign in with Apple no longer lands in this account; the account signs in with its email and password. Nothing else changes, and sessions already signed in stay signed in (`POST /api/sign-out/everywhere` ends them). An account with no Apple identity is answered the same, and nothing changes.
+         *
+         *     An account with no password keeps its Apple identity: a store account, which Sign in with Apple made, is refused. It needs a signed-in session: a request with an agent key is refused, and so is an account with a temporary password.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description This account has no Apple identity. The account, with its ways in. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Account"];
+                    };
+                };
+                /** @description Sign in (`unauthenticated`). */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Nothing was unlinked: `agent_key_not_allowed` (the request carries an agent key) or `must_change_password` (choose a new password first). */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description `no_password`: the account has no password, so Sign in with Apple stays its way in. Nothing was unlinked. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Sign-in is not configured (`auth_unavailable`). */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sign-in/apple/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a notification about Sign in with Apple
+         * @description For Apple, not the app: the server-to-server notification endpoint registered for the iPhone app's Sign in with Apple. Apple sends `{ "payload": "<JWT>" }` when a person changes how they use Sign in with Apple with the app. Nobody signs in: the JWT is checked exactly as Sign in with Apple checks an identity token, against the keys Apple publishes, with Apple as the issuer, the app's bundle id as the audience, and an issue time no later than now and within the hour. It must carry Apple's id of it (`jti`) and an event (`events`, JSON text of an object) that names its `type` and the person (`sub`).
+         *
+         *     The account is found by Apple's id of the person, as Sign in with Apple finds it, never by email. `consent-revoked` (the person stopped using Apple with the app) ends every session of the account, on every device; its Apple identity stays, so signing in with Apple again lands in the same account. `account-delete` (the person deleted their Apple Account; Apple's page on processing these changes writes it `account-deleted`) ends every session and removes the Apple identity. Nothing else of the account changes: an account that signs in with a password or a passkey keeps it, and an account Apple was the only way into keeps its bank, with no way in: it is not deleted here. `email-enabled`, `email-disabled`, any other type, and an Apple identity no account has change nothing.
+         *
+         *     Each notification is taken once, by Apple's id of it, with its change, in one database transaction, and answered 200; a copy sent again changes nothing. Any other answer changes nothing: 400 when the body is not a notification or the notification does not verify, 413 for a body over 16 KiB (before it is read), 502 when Apple's keys could not be read, and 503 until the server is given the app's bundle id.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AppleSignInNotification"];
+                };
+            };
+            responses: {
+                /** @description The notification was taken now, or was already. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AppleSignInNotificationReceipt"];
+                    };
+                };
+                /** @description Nothing was changed. The body is not a notification (`invalid_request`), or the notification is not Apple's, is for another app, is more than an hour old, or names no id, event or person (`notification_unverified`). */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The body is larger than any notification (`too_large`). Nothing was changed. */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description `apple_unreachable`: Apple's keys could not be read, so the notification could not be checked. Nothing was changed. */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description `apple_sign_in_unavailable`: the server does not have the app's bundle id yet. `auth_unavailable`: it has no database. Nothing was changed. */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4601,6 +4982,153 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/bank": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The account's whole bank, as bank archive v1
+         * @description Every row the signed-in account has in the twelve tables of a bank, deleted rows and every version of a set included, read in one snapshot that writes nothing. Rows are listed by their key; rows are as stored, so an exam whose time ran out keeps a null finishedAt until something ends it. A row that names a row outside the account (an answer from before content was private to each account) is left out, then any row that named it, and `complete` is false. A store account keeps this without Cloud, so its bank comes back to the phone after Cloud ends. The admin has no bank of its own and is refused with `not_student`.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The bank. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankArchive"];
+                    };
+                };
+                /** @description Sign in. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankError"];
+                    };
+                };
+                /** @description `not_student` for the admin, `must_change_password`, or `agent_key_not_allowed` for an agent key. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankError"];
+                    };
+                };
+                /** @description Sign-in is not configured. */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankError"];
+                    };
+                };
+            };
+        };
+        /**
+         * Store a bank archive as the account's bank
+         * @description Stores a whole bank into the signed-in account, which must have no bank: no row in any of the twelve tables, deleted rows included. It writes in one transaction, so it stores all of it or nothing, and answers the counts it then reads back from the account in that transaction. Needs Cloud. Every set, of every version and deleted ones too, is rebuilt as a question file and run through the import check POST /api/imports runs; a set it refuses refuses the whole archive. What the check returns is stored for each set, question and term, with the content hash and set counts the server works out itself, so a set made by the same rules is stored as sent; ids, lineages, positions, times, order, folders and version and delete marks are taken from the rows. Every row is the account's: an owner named in a row is ignored. A body over 64 MB is refused with 413: by its stated length before any of it is read, or, when sent in pieces, as soon as it passes the limit. The rest is not read and nothing is written.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["BankArchive"];
+                };
+            };
+            responses: {
+                /** @description Stored. The counts are read back from the account, so they match the archive's. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankStored"];
+                    };
+                };
+                /** @description `invalid_archive`: the archive breaks a rule of the format, or a set fails the import check; `problems` says what. Nothing was changed. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankError"];
+                    };
+                };
+                /** @description Sign in. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankError"];
+                    };
+                };
+                /** @description `cloud_required` for a store account without Cloud, `admin_read_only` for the admin, `must_change_password`, or `agent_key_not_allowed` for an agent key. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankError"];
+                    };
+                };
+                /** @description `bank_not_empty` ("This account already has a question bank on the server, so the upload was refused. Nothing was changed."), or `bank_ids_taken` when a row of the archive is already on the server, in another account. Nothing was changed. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankError"];
+                    };
+                };
+                /** @description `archive_too_large`: the body is over 64 MB, by its length or as it arrives. Nothing was changed. */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankError"];
+                    };
+                };
+                /** @description Sign-in is not configured. */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankError"];
+                    };
+                };
+            };
+        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -8051,6 +8579,251 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/cloud": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read whether this account has Cloud
+         * @description Whether the signed-in account has Cloud now, as the server decides it, with the token a store account buys with. A store account without Cloud may read it: it is how the app learns what to offer, and that Cloud has ended.
+         *
+         *     The first read by a store account issues its token; every later read answers the same one. An invited account has Cloud without buying it, gets no token, and nothing of it is written.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description How the account stands. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CloudStatus"];
+                    };
+                };
+                /** @description Sign in. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description An agent key can't do this. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Sign-in is not configured. */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/cloud/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record an App Store purchase of Cloud
+         * @description The app sends the signed transaction StoreKit gave it (its jwsRepresentation), after a purchase, a renewal or a restore. The server checks it offline, with no call to Apple: the signature chain to Apple's root certificate, the app's bundle id, that the product is a Cloud plan (com.dimitrygallego.qbank.cloud.monthly or com.dimitrygallego.qbank.cloud.yearly), that the App Store environment is one this server takes, and that the appAccountToken is this account's `storeToken` (GET /api/me/cloud). It then records the subscription and answers the whole Cloud state.
+         *
+         *     The app grants nothing from what StoreKit says: it finishes the transaction once this answers 200, and shows Cloud as on only when `active` is true. The server keeps the latest period of each subscription, by when the period began: a renewal, a resubscribe or a change of plan replaces the one before. The period recorded, sent again as it is, or an earlier one changes nothing and answers the same state, so sending a transaction again is harmless. For the recorded period, the transaction Apple signed last says whether it is refunded or revoked: a revoked period grants nothing, and one Apple signed since, and after the revocation, without it (a refund it took back) undoes it. A transaction Apple signed before the latest transaction or notification applied to the period (a copy kept from before a refund) is older news: it changes nothing and answers the state as it is. A period the account upgraded from (`isUpgraded`) is not recorded. A period that has ended is recorded and answers `active: false`.
+         *
+         *     Every refusal records nothing. An invited account has Cloud without buying it and is refused with 409 `cloud_included`. A body over 64 KiB is refused with 413 `too_large` before it is read.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CloudTransaction"];
+                };
+            };
+            responses: {
+                /** @description The transaction was recorded, or already was. The account's Cloud state now. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CloudStatus"];
+                    };
+                };
+                /** @description The body is not a signed transaction (`invalid_request`), it does not verify against Apple's root certificate (`transaction_unverified`), it is another app's (`transaction_other_app`), it is not a Cloud plan (`transaction_not_cloud`), or it comes from an App Store environment this server does not take (`transaction_wrong_environment`). */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Sign in. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description An agent key can't do this. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The account is invited and has Cloud already (`cloud_included`), or the subscription was bought for another account (`transaction_other_account`). */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The body is larger than any purchase (`too_large`). */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Sign-in is not configured, or this server is not set up to check App Store purchases (`store_not_set_up`). */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/app-store/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take an App Store Server Notification
+         * @description For Apple, not the app: the address App Store Connect is given for App Store Server Notifications, version 2. Apple sends `{ "signedPayload": "<JWS>" }` when a Cloud subscription changes, such as a renewal while the app is closed, a payment that failed, a refund or an expiry. Nobody signs in: the server checks the notification offline, with no call to Apple, as it checks a purchase (POST /api/me/cloud/transactions): the notification, and the transaction and renewal info in it, each chain to Apple's root certificate. Then the notification's bundle id must be the app's, and its environment one this server takes.
+         *
+         *     The subscription is found by the transaction's appAccountToken, the store account's `storeToken`, and whatever the notification's type, its row follows Apple's latest word on it. The transaction is recorded as the purchase route records one: a renewal or a resubscribe replaces the period before (`SUBSCRIBED`, `DID_RENEW`), and for the recorded period its revocation revokes it (`REFUND`, `REVOKE`) and its absence undoes one (`REFUND_REVERSED`). The renewal info says whether the recorded period is in a billing grace period: a `gracePeriodExpiresDate` (as `DID_FAIL_TO_RENEW` with the subtype `GRACE_PERIOD` carries) keeps Cloud until the grace ends, and none (a billing retry with no grace, `GRACE_PERIOD_EXPIRED`, `EXPIRED`) ends it at the period's own end. A token that names no store account, a subscription recorded for another account, and a notification about no Cloud subscription (Apple's test, or another product) change nothing.
+         *
+         *     Apple may deliver notifications out of order. The subscription keeps when Apple signed the latest transaction and the latest renewal info applied to its period, and either one Apple signed before that is older news and changes nothing; a notification that is older news in both is recorded and answered 200. So a refund delivered after its reversal does not revoke Cloud again, and a grace delivered after the expiry does not lengthen it.
+         *
+         *     Each notification is recorded by Apple's id of it, with its change, in one database transaction, and answered 200. Sent again, it is recognized and changes nothing. Any other answer records nothing, and Apple sends it again later: 400 when it does not verify or is for another app or environment, 413 for a body over 128 KiB (before it is read), and 503 while the server is not set up to check it.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AppStoreNotification"];
+                };
+            };
+            responses: {
+                /** @description The notification was recorded now, or was already. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AppStoreNotificationReceipt"];
+                    };
+                };
+                /** @description Nothing was recorded. The body is not a signed notification (`invalid_request`), the notification or something in it does not verify against Apple's root certificate (`notification_unverified`), it is another app's (`notification_other_app`), or it comes from an App Store environment this server does not take (`notification_wrong_environment`). */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The body is larger than any notification (`too_large`). Nothing was recorded. */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description This server is not set up to check App Store notifications (`store_not_set_up`), or has no database (`auth_unavailable`). Nothing was recorded. */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -8634,6 +9407,8 @@ export interface components {
             palette: components["schemas"]["Palette"];
             origin: components["schemas"]["Origin"];
             cloud: components["schemas"]["Cloud"];
+            /** @description The ways into the account now, each once, in the order password, passkey, apple. A store account has `apple`; an invited account has `password`, and `apple` once it links it. */
+            signInWith: components["schemas"]["SignInMethod"][];
         };
         /**
          * @description The account's color scheme. Every account is on dusk until it picks another with PUT /api/me/palette. More may be added later; show one you do not know as dusk.
@@ -8655,6 +9430,11 @@ export interface components {
              */
             expiresAt: string | null;
         };
+        /**
+         * @description A way into an account: `password`, its email and password; `passkey`, one or more passkeys; `apple`, Sign in with Apple, which made a store account or which an account linked with POST /api/me/apple. More may be added later; leave out one you do not know.
+         * @enum {string}
+         */
+        SignInMethod: "password" | "passkey" | "apple";
         Error: {
             /** @example invalid_credentials */
             error: string;
@@ -8704,7 +9484,14 @@ export interface components {
             status: "deleted";
         };
         DeleteAccount: {
-            password: string;
+            /** @description The account's current password. Every account that has a password confirms with it. */
+            password?: string;
+            /** @description For an account with no password, a store account: the identity token of a fresh Sign in with Apple, asked for just before the delete (the credential's `identityToken`, as UTF-8 text). It must name this account's Apple identity, have been issued in the last five minutes, and be used once. */
+            identityToken?: string;
+            /** @description With `identityToken`: the nonce the app made for that Sign in with Apple, as it made it. The app asks Apple with its SHA-256 in lowercase hex. */
+            nonce?: string;
+            /** @description With `identityToken`: the authorization code Apple gave in the same Sign in with Apple (the credential's `authorizationCode`, as UTF-8 text). The server exchanges it with Apple to revoke Apple's tokens. It is good once, for five minutes. */
+            authorizationCode?: string;
         };
         TemporaryPasswordSet: {
             /** @enum {string} */
@@ -8746,6 +9533,28 @@ export interface components {
         PasskeyRemoved: {
             /** @enum {string} */
             status: "removed";
+        };
+        AppleSignIn: {
+            /** @description The identity token Apple gave the app for this sign-in (the credential's `identityToken`), as UTF-8 text. */
+            identityToken: string;
+            /** @description The nonce the app made for this sign-in, as it made it: random, and used once. The app asks Apple with its SHA-256 in lowercase hex, Apple writes that into the token, and the server checks that the two agree. */
+            nonce: string;
+        };
+        AppleLink: components["schemas"]["AppleSignIn"] & {
+            /** @description The account's current password, checked as sign-in checks it. */
+            password: string;
+        };
+        /** @description What the server did with a notification about Sign in with Apple. */
+        AppleSignInNotificationReceipt: {
+            /**
+             * @description `recorded`: the notification was taken now, with whatever it changes, which may be nothing (an email event, or an Apple identity no account has). `repeat`: it was taken before, and nothing was done again.
+             * @enum {string}
+             */
+            status: "recorded" | "repeat";
+        };
+        AppleSignInNotification: {
+            /** @description The notification as Apple signed it: a JWT. */
+            payload: string;
         };
         SignUpEmailList: {
             emails: components["schemas"]["SignUpEmail"][];
@@ -9098,6 +9907,344 @@ export interface components {
         };
         ApplyRepair: {
             confirmed: boolean;
+        };
+        /** @description Bank archive v1: one account's whole bank, as a row copy of the twelve tables it lives in, defined by the iPhone app's design record (docs/on-phone-bank.md in the qbank repository). Every row has every field, with null where a field may be null. Ids are kept on both sides of a move. Deleted rows are in it with their marks, so Undo still works after a move, and so is every version of a set. The owner of a row is not in it: the server fills it with the signed-in account. A field a reader does not know is ignored. */
+        BankArchive: {
+            /** @enum {string} */
+            format: "qbank-bank-archive";
+            /** @enum {number} */
+            version: 1;
+            /**
+             * Format: date-time
+             * @description When it was written.
+             */
+            exportedAt: string;
+            /** @enum {string} */
+            writtenBy: "phone" | "server";
+            /** @description False when the writer had to leave a row out to keep every reference inside the document. A move takes only a complete archive. */
+            complete: boolean;
+            counts: components["schemas"]["BankCounts"];
+            semesters: components["schemas"]["BankSemester"][];
+            courses: components["schemas"]["BankCourse"][];
+            courseExams: components["schemas"]["BankCourseExam"][];
+            folders: components["schemas"]["BankFolder"][];
+            practiceSets: components["schemas"]["BankPracticeSet"][];
+            questions: components["schemas"]["BankQuestion"][];
+            terms: components["schemas"]["BankTerm"][];
+            studySessions: components["schemas"]["BankStudySession"][];
+            attempts: components["schemas"]["BankAttempt"][];
+            questionProgress: components["schemas"]["BankQuestionProgress"][];
+            reviewClears: components["schemas"]["BankReviewClear"][];
+            studyPlace: components["schemas"]["BankStudyPlace"] | null;
+        };
+        /** @description Rows in each table, deleted rows and earlier versions included; `studyPlace` is 1 or 0. */
+        BankCounts: {
+            semesters: number;
+            courses: number;
+            courseExams: number;
+            folders: number;
+            practiceSets: number;
+            questions: number;
+            terms: number;
+            studySessions: number;
+            attempts: number;
+            questionProgress: number;
+            reviewClears: number;
+            studyPlace: number;
+        };
+        BankSemester: {
+            /** @description A lowercase UUID. */
+            id: string;
+            number: number;
+            name: string;
+            /** Format: date */
+            startsOn: string | null;
+            /** Format: date */
+            endsOn: string | null;
+            /**
+             * Format: date-time
+             * @description UTC with milliseconds: YYYY-MM-DDTHH:MM:SS.sssZ.
+             */
+            archivedAt: string | null;
+            /**
+             * Format: date-time
+             * @description UTC with milliseconds: YYYY-MM-DDTHH:MM:SS.sssZ.
+             */
+            createdAt: string;
+        };
+        BankCourse: {
+            /** @description A lowercase UUID. */
+            id: string;
+            /** @description Null exactly for a study topic. */
+            semesterId: string | null;
+            /** @enum {string} */
+            kind: "course" | "topic";
+            /** @description Empty for a topic. */
+            code: string;
+            title: string;
+            sortOrder: number;
+            /**
+             * Format: date-time
+             * @description UTC with milliseconds: YYYY-MM-DDTHH:MM:SS.sssZ.
+             */
+            archivedAt: string | null;
+            /**
+             * Format: date-time
+             * @description UTC with milliseconds: YYYY-MM-DDTHH:MM:SS.sssZ.
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description When a delete hid the row, or null. Undo clears it.
+             */
+            deletedAt: string | null;
+            /** @description The delete that hid it: every row one delete hid carries its id. Null exactly when deletedAt is. */
+            deletionId: string | null;
+        };
+        /** @description A page of a course or topic. */
+        BankCourseExam: {
+            /** @description A lowercase UUID. */
+            id: string;
+            /** @description A lowercase UUID. */
+            courseId: string;
+            name: string;
+            sortOrder: number;
+            linkUrl: string | null;
+            /** @enum {string|null} */
+            badge: "exam" | "concept" | "study" | null;
+            /**
+             * Format: date-time
+             * @description UTC with milliseconds: YYYY-MM-DDTHH:MM:SS.sssZ.
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description When a delete hid the row, or null. Undo clears it.
+             */
+            deletedAt: string | null;
+            /** @description The delete that hid it: every row one delete hid carries its id. Null exactly when deletedAt is. */
+            deletionId: string | null;
+        };
+        BankFolder: {
+            /** @description A lowercase UUID. */
+            id: string;
+            /** @description A lowercase UUID. */
+            courseId: string;
+            name: string;
+            /** @description The page it is on, or null. */
+            courseExamId: string | null;
+            sortOrder: number;
+            /**
+             * Format: date-time
+             * @description UTC with milliseconds: YYYY-MM-DDTHH:MM:SS.sssZ.
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description When a delete hid the row, or null. Undo clears it.
+             */
+            deletedAt: string | null;
+            /** @description The delete that hid it: every row one delete hid carries its id. Null exactly when deletedAt is. */
+            deletionId: string | null;
+        };
+        /** @description A set, of any version: every version of a set is in the archive. */
+        BankPracticeSet: {
+            /** @description A lowercase UUID. */
+            id: string;
+            /** @description A lowercase UUID. */
+            courseId: string;
+            /** @description Shared by every version of the set. */
+            lineageId: string;
+            title: string;
+            description: string;
+            weekLabel: string;
+            /** @description A lowercase UUID. */
+            folderId: string | null;
+            sortOrder: number;
+            /**
+             * Format: date-time
+             * @description UTC with milliseconds: YYYY-MM-DDTHH:MM:SS.sssZ.
+             */
+            importedAt: string;
+            fileHash: string;
+            /** @description Counts kept with the set. On an upload the server works them out itself. */
+            stats: {
+                [key: string]: unknown;
+            };
+            isCurrent: boolean;
+            /**
+             * Format: date-time
+             * @description UTC with milliseconds: YYYY-MM-DDTHH:MM:SS.sssZ.
+             */
+            replacedAt: string | null;
+            /** @enum {string} */
+            kind: "practice" | "exam";
+            /**
+             * Format: date-time
+             * @description When a delete hid the row, or null. Undo clears it.
+             */
+            deletedAt: string | null;
+            /** @description The delete that hid it: every row one delete hid carries its id. Null exactly when deletedAt is. */
+            deletionId: string | null;
+        };
+        BankQuestion: {
+            /** @description A lowercase UUID. */
+            id: string;
+            /** @description A lowercase UUID. */
+            setId: string;
+            /** @description A lowercase UUID. */
+            lineageId: string;
+            publicId: string;
+            /** @description From 1, in the set's order. */
+            position: number;
+            /** @description The question format, such as single or sata. The import check refuses one it does not know. */
+            type: string;
+            topic: string;
+            cj: string | null;
+            clientNeed: string | null;
+            difficulty: number | null;
+            weekLabel: string;
+            stem: string;
+            ask: string;
+            /** @description The question's own fields, as the import check keeps them. Images ride here as data URLs. */
+            body: {
+                [key: string]: unknown;
+            };
+            rationale: string;
+            takeaway: string;
+            termKeys: string[];
+            source: string | null;
+            /** @description On an upload the server works it out itself, byte for byte as an import does. */
+            contentHash: string;
+            twinOf: string | null;
+            /** @description A lowercase UUID. */
+            twinOfLineageId: string | null;
+        };
+        BankTerm: {
+            /** @description A lowercase UUID. */
+            id: string;
+            /** @description A lowercase UUID. */
+            setId: string;
+            key: string;
+            term: string;
+            meaning: string;
+        };
+        BankStudySession: {
+            /** @description A lowercase UUID. */
+            id: string;
+            /** @description A lowercase UUID. */
+            courseId: string;
+            /** @enum {string} */
+            mode: "practice" | "exam" | "review";
+            /** @description A lowercase UUID. */
+            setId: string | null;
+            questionIds: string[];
+            examWeeks: string[] | null;
+            examFolderIds: string[] | null;
+            timeLimitSeconds: number | null;
+            /**
+             * Format: date-time
+             * @description UTC with milliseconds: YYYY-MM-DDTHH:MM:SS.sssZ.
+             */
+            startedAt: string;
+            /**
+             * Format: date-time
+             * @description As stored: an exam whose time ran out keeps null until something ends it.
+             */
+            finishedAt: string | null;
+            score: {
+                [key: string]: unknown;
+            } | null;
+            /** @enum {string|null} */
+            endReason: "finished" | "left" | "timeout" | null;
+            /** @enum {string} */
+            examPool: "all" | "wrong";
+            examPracticeWeeks: string[] | null;
+            seededQuestionIds: string[] | null;
+            /**
+             * Format: date-time
+             * @description When a delete hid the row, or null. Undo clears it.
+             */
+            deletedAt: string | null;
+            /** @description The delete that hid it: every row one delete hid carries its id. Null exactly when deletedAt is. */
+            deletionId: string | null;
+        };
+        BankAttempt: {
+            /** @description A lowercase UUID. */
+            id: string;
+            /** @description A lowercase UUID. */
+            clientAttemptId: string;
+            /** @description A lowercase UUID. */
+            studySessionId: string | null;
+            /** @description A lowercase UUID. */
+            questionId: string;
+            /** @description The answer, in the shape of its question's format. */
+            response: {
+                [key: string]: unknown;
+            } | unknown[] | string | number | boolean;
+            /** @description The order the options were shown in, or null. */
+            shuffle: {
+                [key: string]: unknown;
+            } | unknown[] | string | number | boolean | null;
+            /** @enum {string} */
+            status: "correct" | "partial" | "incorrect";
+            points: number;
+            maxPoints: number;
+            guessed: boolean;
+            /**
+             * Format: date-time
+             * @description UTC with milliseconds: YYYY-MM-DDTHH:MM:SS.sssZ.
+             */
+            answeredAt: string;
+        };
+        BankQuestionProgress: {
+            /** @description A lowercase UUID. */
+            questionLineageId: string;
+            attempts: number;
+            correctAttempts: number;
+            /** @enum {string} */
+            lastStatus: "correct" | "partial" | "incorrect";
+            lastGuessed: boolean;
+            /**
+             * Format: date-time
+             * @description UTC with milliseconds: YYYY-MM-DDTHH:MM:SS.sssZ.
+             */
+            lastAnsweredAt: string;
+            lastPoints: number;
+            lastMaxPoints: number;
+            inReview: boolean;
+            /** @description A lowercase UUID. */
+            lastAttemptId: string;
+        };
+        BankReviewClear: {
+            /** @description A lowercase UUID. */
+            questionLineageId: string;
+            /** @description A lowercase UUID. */
+            lastAttemptId: string;
+            /**
+             * Format: date-time
+             * @description UTC with milliseconds: YYYY-MM-DDTHH:MM:SS.sssZ.
+             */
+            clearedAt: string;
+        };
+        BankStudyPlace: {
+            /** @description A lowercase UUID. */
+            courseId: string;
+            /**
+             * Format: date-time
+             * @description UTC with milliseconds: YYYY-MM-DDTHH:MM:SS.sssZ.
+             */
+            updatedAt: string;
+        };
+        BankError: {
+            error: string;
+            /** @description A sentence to show as it is. */
+            message: string;
+            /** @description With `invalid_archive`: each thing wrong with the archive, as a sentence, at most 50; a last one says how many more there are. */
+            problems?: string[];
+        };
+        BankStored: {
+            counts: components["schemas"]["BankCounts"];
         };
         ExamSetup: {
             /** Format: uuid */
@@ -10201,6 +11348,31 @@ export interface components {
         };
         AgentKeyList: {
             keys: components["schemas"]["AgentKey"][];
+        };
+        /** @description Whether the account has Cloud now, which the server decides, and the token it buys with. The same shape answers a purchase, so a purchase that was recorded reads as the state it left the account in. */
+        CloudStatus: components["schemas"]["Cloud"] & {
+            /**
+             * Format: uuid
+             * @description The token a store account buys Cloud with: the app passes it to StoreKit as the purchase's appAccountToken, so the signed transaction names this account. Issued the first time it is read and the same ever after. Null for an invited account, which has Cloud without buying it.
+             * @example 6f1c2a4e-3b7d-4c55-9e2a-0d8b1f6a7c90
+             */
+            storeToken: string | null;
+        };
+        CloudTransaction: {
+            /** @description The transaction as StoreKit signed it: a compact JWS. */
+            signedTransaction: string;
+        };
+        /** @description What the server did with an App Store Server Notification. */
+        AppStoreNotificationReceipt: {
+            /**
+             * @description `recorded`: the notification was taken now, with whatever it changes, which may be nothing (a token that names no store account, no Cloud subscription, or one Apple signed before what the subscription was last told). `repeat`: it was taken before, and nothing was done again.
+             * @enum {string}
+             */
+            status: "recorded" | "repeat";
+        };
+        AppStoreNotification: {
+            /** @description The notification as Apple signed it: a compact JWS. */
+            signedPayload: string;
         };
     };
     responses: never;

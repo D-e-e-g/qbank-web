@@ -16,6 +16,7 @@ const account: Account = {
   palette: "dusk",
   origin: "invited",
   cloud: { active: true, expiresAt: null },
+  signInWith: ["password"],
 };
 
 const signedIn: Gate = { status: "signed-in", user: account };
