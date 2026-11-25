@@ -66,7 +66,7 @@ There are two doors. Both end in the same place: a set filed in a folder of her 
 
 1. **Her agent makes a set outside the app** by running the weekly `nclex-questions` skill. The skill reads the week's slides and transcripts from her iCloud folder, writes 12 to 15 hard questions per batch, runs a blind accuracy check, and returns one JSON question file.
 2. **She imports that file in the app** from any device: Import, paste the JSON or choose the file, pick the course and a folder (Unsorted unless she picks one), confirm the set name, Check file, Import.
-3. **The app checks the file's shape** with the same rules the existing runner's importer uses. Errors block the import and are listed in words she can paste back to her agent; warnings import anyway.
+3. **The API checks the file** (see [The import file](#the-import-file)). Errors block the import and are listed in words she can paste back to her agent; warnings import anyway.
 
 Her agent can also hand a set to QBank itself, with an agent key of its own instead of her pasting the file. Nobody copies a key: the agent asks to pair and shows her a short code, she enters or confirms it in **Settings › Account › Connect an agent**, sees the agent's name and what it asks to do, and approves or denies it; the agent then picks its key up. A key does only what she approved: **import** sets (and read what importing needs, never replacing, moving, renaming, or deleting anything), **read** her progress without changing anything, or **manage** her content: add, change, and delete her sets, questions, folders, courses, and topics as she can in QBank, with everything it deletes going to Recently deleted, where Undo brings it back for 30 days. Manage is marked "Most access" when she approves it and in her keys. No key answers questions for her, and she can revoke one there at any time. Sets it imports say "Imported by your agent".
 
@@ -74,81 +74,28 @@ Her agent can also hand a set to QBank itself, with an agent key of its own inst
 
 The recipe is her agent's `nclex-questions` skill; QBank runs a copy of it.
 
-The app checks shape, not clinical accuracy. A wrong question is fixed in the JSON and re-imported, which replaces the set (see [Import](#import)).
+The check looks at a file's shape, not clinical accuracy. A wrong question is fixed in the JSON and re-imported, which replaces the set (see [Import](#import)).
 
 ### The import file
 
-The recipe's JSON, the format the runner's importer accepts, plus an optional table and images per question (see [Tables and images](#tables-and-images)):
+A question file is one set of questions, written as JSON. The API's check, `POST /api/imports/check`, alone decides whether a file is valid, with the errors that block an import and the warnings that do not. This spec does not restate the format or the rules. The API generates their description from the table its check runs on, and publishes it in two places:
 
-```json
-{
-  "title": "Week 4 - Set 1: <topic>",
-  "desc": "One sentence about what this set covers.",
-  "terms": { "orthopnea": ["Orthopnea", "Trouble breathing when lying flat that improves when sitting up."] },
-  "questions": [
-    { "id": "Q1", "type": "single", "topic": "...", "cj": "Analyze cues", "need": "Physiological Adaptation", "diff": 5,
-      "stem": "...", "ask": "...",
-      "options": [ { "t": "...", "ok": true, "why": "..." }, { "t": "...", "why": "..." } ],
-      "rationale": "...", "takeaway": "...", "terms": ["orthopnea"], "src": "Ch 26 slide 22; transcript lines 796-798" }
-  ]
-}
-```
+- its contract, under `x-question-format` (`descriptor`, the format as data, and `markdown`, the same as a page), pinned here in [`apps/web/contract/openapi.json`](../apps/web/contract/openapi.json);
+- `docs/question-format.md` in D-E-A-G/qbank-server.
 
-- A question may carry its own `wk` (week label); otherwise it takes the week of its set. This is how a mixed set such as "Weeks 1-3" still counts each question toward its own week.
-- `cj` is the NCLEX clinical judgment step, `need` the NCLEX client need, `diff` a difficulty of 3 to 5, `src` the citation to the week's slides or transcript.
+What a file holds changes what the app does with it:
+
 - **Exam sets:** a file with `"kind": "exam"` next to its `title` is an exam set, its folder's exam bank: questions she has not seen in practice, on the same topics in a different format and wording. They are asked only on exams; they are never listed for practice, never enter Review, and do not count toward the course's progress. Each exam question may name the practice question it is the exam twin of in `"twinOf": "Q3"`: the `id` of a practice question in the same folder. A name that matches no practice question of that folder, or more than one, links to no twin. Without `kind`, a file is a practice set, as before.
 
 #### Tables and images
 
-Any question may also carry a table of readings under its stem and up to 4 images, for vital signs, labs, a rhythm strip, or a diagram. Both are optional. Every screen that shows the question draws them: practice, exam, Review, the set and exam results, and the owner's frozen view.
+Any question may also carry a table of readings under its stem, and images, for vital signs, labs, a rhythm strip, or a diagram. Both are optional. Every screen that shows the question draws them: practice, exam, Review, the set and exam results, and the owner's frozen view.
 
-```json
-{ "id": "Q7", "type": "priority", "stem": "...", "ask": "...",
-  "table": {
-    "caption": "PACU readings",
-    "head": ["Time", "SpO₂", "RR", "HR"],
-    "rows": [["0900", "97%", "16", "82"], ["0915", "93%", "22", "94"], ["0930", "89%", "26", "108"]]
-  },
-  "images": [
-    { "src": "data:image/png;base64,iVBORw0KGgo...", "alt": "Chest tube drainage system with three chambers", "caption": "Water seal chamber" },
-    { "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 80\">...</svg>", "alt": "Oxygen before reassessment", "at": "rationale" }
-  ],
-  "options": [ ... ], "rationale": "...", "takeaway": "..." }
-```
-
-- `table`: `rows` is a list of rows, each a list of cell texts (numbers are fine). `head` (the header row) and `caption` are optional. A short row is padded with empty cells. On a phone, a wide table scrolls sideways inside its box.
-- `images`: each image needs `alt`, a short description of what it shows, and exactly one of `src` or `svg`:
-  - `src` is the image itself as a base64 data URL: PNG, JPEG, WebP, or SVG (`data:image/png;base64,...`). Links to images elsewhere are not accepted; the image travels inside the file.
-  - `svg` is SVG markup as text, for a diagram an AI chat draws. It may not contain scripts, event handlers, `<foreignObject>`, or links to other files.
-  - Each image is at most 300 KB.
-  - `at` is where it shows: `"stem"` (the default, under the stem and any table) or `"rationale"` (with the rationale, after she checks her answer). `caption` is optional.
+- On a phone, a wide table scrolls sideways inside its box.
+- An image shows under the stem and any table, or with the rationale after she checks her answer, as the file says.
 - She can tap an image to see it full screen.
 
-### Import rules
-
-**Errors (block the import), same wording as the runner:**
-
-- Not valid JSON (a fenced code block around it is tolerated). A bare list of questions is accepted as a set titled "Imported questions".
-- No non-empty `questions` list.
-- A question that is not an object, or has an unknown `type`.
-- Missing `ask`. Only the ask is required: `stem`, `rationale`, and `takeaway` may be left out or blank, and are then stored as empty text, but one that is present must be text.
-- `single` and `priority`: at least 2 options, every option has text `t`, exactly one option with `"ok": true`. Two options make a true or false question.
-- `sata` (select all): at least 2 options with text, at least one option with `"ok": true`. Every option may be correct.
-- `order`: 3 or more items with text, listed in the correct order.
-- `match`: 2 or more pairs, each with `l` and `r`.
-- `matrix`: 2 or more columns with different names, at least one row, and every row's `ans` names a column. A warning, not a refusal, when a column is a catch-all such as "Both", "Either" or "All of the above": a row that fits more than one column is a `matrixmulti`.
-- `matrixmulti`: 2 or more columns with different names, at least one row, every row's `ans` a list of those column names (each once, and at least one), and not every box right. A warning, not a refusal, when the ask does not say a row can fit more than one column.
-- `highlight`: 3 or more segments, some `ok` and some not.
-- `cloze` (drop-down): one `{0}`, `{1}`, ... placeholder per blank, and every blank has 2 or more `opts` and a valid `ans` index.
-- `table`, when present: a `rows` list of rows, each a list of cell texts; `head`, when present, a list of cell texts; `caption`, when present, text.
-- `images`, when present: a list of at most 4, each with `alt` and one of `src` (a base64 PNG, JPEG, WebP, or SVG data URL of at most 300 KB whose bytes match its type) or `svg` (SVG markup of at most 300 KB with no scripts, event handlers, or links to other files), and an `at` of `"stem"` or `"rationale"` if set.
-- `kind`, when present: `"practice"` or `"exam"`. `twinOf`, when present: the id of a practice question.
-
-Each error names the question by position and id, for example `Question 4 (X04): missing ask` or `Question 7 (Q7): image 1 needs "alt": a short description of what it shows`.
-
-**Warnings (import anyway):** a term used by a question but not defined in `terms` (it is skipped); a question with no `cj`, `need`, `diff`, or `src` when another question in the same file carries that field (a file that uses none of them, as a set on any subject may, gets no such warning); a `twinOf` in a practice set (only exam sets read it).
-
-The whole question body is stored as JSON, so a format the runner gains later needs no schema change. Tables and images are stored in that body too, images included as their data URLs, so they are in every backup and come back with a restored set.
+The whole question body is stored as JSON, so a format the runner gains later needs no schema change. Tables and images are stored in that body too, images included as their data, so they are in every backup and come back with a restored set.
 
 ### The two existing banks
 
@@ -490,7 +437,7 @@ The design system's tokens come from the owner's Claude Design export and arrive
 | 0 | Accounts (owner) | A DigitalOcean account and API token; a Cloudflare account with a private R2 bucket and a token scoped to it; the SSH keys; the `age` key pair for backups; mise on his Mac (it installs the pinned OpenTofu from deag-infra's `mise.toml`); the deploy's secrets set in GitHub Actions. Before milestone 2: the root domain, with its DNS on Cloudflare. | A worker can deploy without holding any credential. |
 | 1 | Scaffold, server, CI, first deploy, backups | pnpm workspace with `apps/web`, `apps/api`, `packages/questions`; strict TypeScript, ESLint, Vitest, Playwright; GitHub Actions; a health endpoint serving the built shell; the OpenAPI description generated from the routes, checked in CI; the API's Docker image. The droplet and its firewall in OpenTofu, the first-boot setup, Caddy, the API, and Postgres in Docker Compose, the deploy on merge to `main`, and the nightly encrypted dump to R2. | Merging to `main` deploys, and the droplet's `/health` answers from the merged commit; the published OpenAPI description matches the routes; a nightly dump is restored into a fresh database; CI green. |
 | 2 | Login | The app's HTTPS address on its subdomain; password sign-in, sessions that last until sign-out, the user and admin accounts from a setup command, the admin's reset of her password with a temporary password, rate limits. | She signs in on two browsers over HTTPS; wrong passwords lock after N tries; the admin resets her password and she chooses her own at the next sign-in; the admin cannot record an answer as her. |
-| 3 | Questions in | Schema and migrations; the Import screen with the runner's rules and messages; courses and semesters made from Import and Settings; replace with a warning, Cancel, and one-tap restore; the Terms list, with the newest set's definition winning; the admin's Import, Restore, Semesters and courses, and Weeks; the one-time import of the two existing banks. | Both banks import with 146 questions (NURS 402) and 86 questions (NURS 406); every malformed shape the runner rejects is rejected with the same message; she imports from a phone browser; a matching name asks first, Cancel changes nothing, and Restore brings the old set back; the admin imports a file, renames a week, and moves a set to another week. |
+| 3 | Questions in | Schema and migrations; the Import screen with the API check's errors and warnings; courses and semesters made from Import and Settings; replace with a warning, Cancel, and one-tap restore; the Terms list, with the newest set's definition winning; the admin's Import, Restore, Semesters and courses, and Weeks; the one-time import of the two existing banks. | Both banks import with 146 questions (NURS 402) and 86 questions (NURS 406); a file the API's check finds an error in is refused with the check's message; she imports from a phone browser; a matching name asks first, Cancel changes nothing, and Restore brings the old set back; the admin imports a file, renames a week, and moves a set to another week. |
 | 4 | Runner and scoring | The shared scoring package for all eight formats with tests; practice screens with shuffle, "I'm guessing", per-option reasons, rationale, takeaway, and term definitions. | Vitest reproduces every scoring rule above; Playwright answers all 232 questions correctly through the real screens. |
 | 5 | Progress sync and Review | Attempts with idempotent ids, server re-scoring, `question_progress`, course completion and scores, Review with its filters, leave rule, and Clear the review list; landing on the last course; the admin's view of her progress and the Repair that rebuilds it from her answers. | Answer on browser A, see the same Review on browser B; drop the network mid-answer and reconnect, exactly one attempt is recorded; Clear asks first and Cancel changes nothing; the admin sees her Review but cannot change it outside a repair. |
 | 6 | Exam, installable app, look, backups, launch | Exam over ticked weeks (40 in 60 minutes, or all at 1.5 minutes each) drawn in proportion, leave-ends-exam, unanswered questions kept out of Review, results with by-week breakdown and history; manifest and icons; light/dark mode; progress JSON through GET /api/me/export for an agent key with read; a restore drill with her real data; iPhone layout and iPad/Mac sidebar layout; her three devices set up. | An exam over Weeks 1-3 draws only from those weeks, in proportion, times out, and sends only the misses and guesses among what she answered to Review; it installs on an iPhone and a Mac and opens full-screen; a restore from last night's dump brings back a fresh attempt. |
