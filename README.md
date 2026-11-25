@@ -122,8 +122,9 @@ Open <http://localhost:5173>. Vite sends `/api`, `/health`, and
 `/openapi.json` to the API on port 8080 and reloads the screens on every
 change. Sign in with a sample account: `student@example.com` /
 `student-pass-1`, or the admin, `owner@example.com` / `admin-pass-1`. Import a
-question file from Import; the format is under
-[The import file](docs/product-spec.md#the-import-file) in the spec.
+question file from Import. The API describes the format in its contract, under
+`x-question-format` (see [The import file](docs/product-spec.md#the-import-file)
+in the spec).
 
 To run the site the way the server does, `e2e/stack.sh up` builds the web
 image and starts it with the pinned API image, Postgres, and Caddy in front, at

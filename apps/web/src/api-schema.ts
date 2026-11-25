@@ -2096,7 +2096,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Check a question file without importing it */
+        /**
+         * Check a question file without importing it
+         * @description The server's answer to whether a question file is valid, so a tool asks here rather than keep its own copy of the rules. It reads only the file it is sent and stores nothing, so every signed-in account may call it: an invited account, the admin, and a store account with or without Cloud. `issues` says what is wrong and where: each error or warning with its stable `code`, the question (`index` and `id`), and `path`, a JSON pointer into the file. It takes the files POST /api/imports takes: a body over 25 MB is refused by both with 413 `too_large`.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -2110,7 +2113,7 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description The file's counts, or the errors that block import. */
+                /** @description The file's counts, or the errors that block import, with every error and warning as an issue. */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -2130,6 +2133,15 @@ export interface paths {
                 };
                 /** @description `agent_key_not_allowed`: the key's scopes do not cover this, it asked for what its scopes do not cover, or the admin approved it (the admin account has no content of its own). `must_change_password`: the account has a temporary password. */
                 403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContentError"];
+                    };
+                };
+                /** @description `too_large`: the body is over 25 MB. The rest is not read. Nothing was changed. */
+                413: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2168,6 +2180,7 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
+                        /** @description The question file as text: JSON in the question file format (`x-question-format`), on its own or in a Markdown code fence. */
                         source: string;
                         title?: string;
                         /**
@@ -2256,6 +2269,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ImportConflict"];
+                    };
+                };
+                /** @description `too_large`: the body is over 25 MB. The rest is not read. Nothing was changed. */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContentError"];
                     };
                 };
                 /** @description The database is not configured. */
@@ -9330,8 +9352,32 @@ export interface components {
             }[];
             errors: string[];
             warnings: string[];
+            /** @description Every error and warning, in the order the check found them, each with its code, its question and its place in the file. Its errors' messages are `errors`, and its warnings' are `warnings`, in the same order. */
+            issues: components["schemas"]["ImportCheckIssue"][];
+        };
+        ImportCheckIssue: {
+            /**
+             * @description `error` blocks the import; `warning` does not.
+             * @enum {string}
+             */
+            severity: "error" | "warning";
+            /** @description The rule it breaks. Stable: a code names its rule for as long as the rule exists, whatever the message's words become, and a new rule gets a new code. More may be added, so show the message of a code you do not know. The codes now, from the format table in packages/questions/src/format.ts: error: `not_json`, `no_questions`, `bad_kind`, `not_an_object`, `unknown_type`, `missing_field`, `not_text`, `twin_of_not_an_id`, `options_min`, `option_needs_text`, `exactly_one_correct`, `sata_needs_correct`, `items_shape`, `pairs_shape`, `matrix_shape`, `matrix_row`, `segments_shape`, `cloze_holes`, `cloze_blank`, `duplicate_column`, `matrixmulti_shape`, `matrixmulti_row`, `matrixmulti_no_right`, `matrixmulti_ans_name`, `matrixmulti_ans_twice`, `matrixmulti_all_right`, `table_shape`, `table_caption`, `table_head`, `images_not_list`, `images_over`, `image_not_object`, `image_needs_alt`, `image_caption`, `image_at`, `image_source`, `image_svg_text`, `image_src_text`, `src_not_data_url`, `image_type_not_accepted`, `src_not_base64`, `src_bad_base64`, `image_too_big`, `image_not_real`, `svg_no_element`, `svg_unsafe`; warning: `missing_field_used_elsewhere`, `twin_of_ignored`, `term_undefined`, `matrix_catch_all`, `matrixmulti_ask`. */
+            code: string;
+            /** @description The question it is about, or null for the file as a whole, such as `not_json`. */
+            question: components["schemas"]["ImportCheckIssueQuestion"] | null;
+            /** @description A JSON pointer (RFC 6901) to the place in the file's JSON, inside its code fence when it has one. `""` is the whole file, `/questions/2/options/1/t` is the text of the third question's second option, and `/2/options/1/t` is the same in a file that is a bare list of questions. A field that is missing is pointed to where it belongs. */
+            path: string;
+            /** @description The same sentence as in `errors` or `warnings`. */
+            message: string;
+        };
+        ImportCheckIssueQuestion: {
+            /** @description Its place in the file's list of questions, from 0: `Question 1` in the message is index 0. */
+            index: number;
+            /** @description Its `id` as the file writes it, a number as text. Absent when it has no text or number id. */
+            id?: string;
         };
         ImportSource: {
+            /** @description The question file as text: JSON in the question file format (`x-question-format`), on its own or in a Markdown code fence. */
             source: string;
         };
         ImportedSet: {
