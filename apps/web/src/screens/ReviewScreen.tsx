@@ -14,6 +14,7 @@ import { navigate } from "../router";
 import { Screen } from "../shell/Screen";
 import { ShellLink } from "../shell/ShellLink";
 import { when } from "../when";
+import { practiceLabel } from "./review-list";
 
 type ReviewFilter = ReviewList["filter"];
 
@@ -108,7 +109,7 @@ export function ReviewScreen({ courseId }: { courseId: string }) {
           }}
         >
           <Icon name="shuffle" size={18} />
-          Practice these {selectedCount} (shuffled)
+          {practiceLabel(selectedCount)}
         </Button>
       ) : null}
       {review === null && error === null ? <p className="note">Loading Review.</p> : null}
