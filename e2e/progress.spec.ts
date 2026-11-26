@@ -119,7 +119,7 @@ test.describe("progress and review", () => {
     await page.goto(`/course/${courseId}/review`);
     await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
     await expect(page.getByRole("button", { name: /Fluids/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Practice these 1 (shuffled)" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Practice this question (shuffled)" })).toBeVisible();
 
     await page.getByRole("button", { name: "Clear the review list" }).click();
     const dialog = page.getByRole("dialog");
@@ -160,7 +160,7 @@ test.describe("progress and review", () => {
       await adminPage.getByRole("button", { name: "Clear the review list" }).click();
       await expect(adminPage.getByText("This is a frozen view of", { exact: false })).toBeVisible();
       await expect(adminPage.getByRole("dialog")).toHaveCount(0);
-      await adminPage.getByRole("button", { name: /Practice these/ }).click();
+      await adminPage.getByRole("button", { name: "Practice this question (shuffled)" }).click();
       await adminPage.getByRole("radio", { name: WRONG, exact: true }).click();
       await adminPage.getByRole("button", { name: "Check answer" }).click();
       await expect(adminPage.getByText("This is a frozen view of", { exact: false })).toBeVisible();

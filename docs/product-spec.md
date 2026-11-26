@@ -222,7 +222,7 @@ Courses, study topics, exam and study pages, sets, folders, and past exams can b
 
 - Per course only (no cross-course Review).
 - Filter chips with counts: **All / Missed / Partly right / Guessed**.
-- "Practice these N (shuffled)" runs the filtered list in the runner.
+- "Practice these N (shuffled)", or "Practice this question (shuffled)" for a list of one, runs the filtered list in the runner.
 - One row per question: topic, folder, format, status, and where it happened (which set or which exam, with the date). Tapping a row practices that one question.
 - A question enters Review when her latest answer is not fully right, or is flagged "I'm guessing".
 - A question leaves Review the next time she answers it fully right without "I'm guessing", or when she clears the list.
