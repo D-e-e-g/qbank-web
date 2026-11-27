@@ -5019,7 +5019,7 @@ export interface paths {
         };
         /**
          * The account's whole bank, as bank archive v1
-         * @description Every row the signed-in account has in the twelve tables of a bank, deleted rows and every version of a set included, read in one snapshot that writes nothing. Rows are listed by their key; rows are as stored, so an exam whose time ran out keeps a null finishedAt until something ends it. A row that names a row outside the account (an answer from before content was private to each account) is left out, then any row that named it, and `complete` is false. A store account keeps this without Cloud, so its bank comes back to the phone after Cloud ends. The admin has no bank of its own and is refused with `not_student`.
+         * @description Every row the signed-in account has in the twelve tables of a bank, deleted rows and every version of a set included, read in one snapshot that writes nothing. Rows are listed by their key; rows are as stored, so an exam whose time ran out keeps a null finishedAt until something ends it. A row of the six tables a person edits carries `updatedAt`, the time it last changed, once it has one, and the archive carries the bank's `stamp`, read in the same snapshot. A row that names a row outside the account (an answer from before content was private to each account) is left out, then any row that named it, and `complete` is false. A store account keeps this without Cloud, so its bank comes back to the phone after Cloud ends. The admin has no bank of its own and is refused with `not_student`.
          */
         get: {
             parameters: {
@@ -5070,7 +5070,7 @@ export interface paths {
         };
         /**
          * Store a bank archive as the account's bank
-         * @description Stores a whole bank into the signed-in account, which must have no bank: no row in any of the twelve tables, deleted rows included. It writes in one transaction, so it stores all of it or nothing, and answers the counts it then reads back from the account in that transaction. Needs Cloud. Every set, of every version and deleted ones too, is rebuilt as a question file and run through the import check POST /api/imports runs; a set it refuses refuses the whole archive. What the check returns is stored for each set, question and term, with the content hash and set counts the server works out itself, so a set made by the same rules is stored as sent; ids, lineages, positions, times, order, folders and version and delete marks are taken from the rows. Every row is the account's: an owner named in a row is ignored. A body over 64 MB is refused with 413: by its stated length before any of it is read, or, when sent in pieces, as soon as it passes the limit. The rest is not read and nothing is written.
+         * @description Stores a whole bank into the signed-in account, which must have no bank: no row in any of the twelve tables, deleted rows included. It writes in one transaction, so it stores all of it or nothing, and answers the counts it then reads back from the account in that transaction. Needs Cloud. Every set, of every version and deleted ones too, is rebuilt as a question file and run through the import check POST /api/imports runs; a set it refuses refuses the whole archive. What the check returns is stored for each set, question and term, with the content hash and set counts the server works out itself, so a set made by the same rules is stored as sent; ids, lineages, positions, times (each row's `updatedAt` too, and none where a row has none), order, folders and version and delete marks are taken from the rows. The archive's `stamp` is not read. Every row is the account's: an owner named in a row is ignored. A body over 64 MB is refused with 413: by its stated length before any of it is read, or, when sent in pieces, as soon as it passes the limit. The rest is not read and nothing is written.
          */
         put: {
             parameters: {
@@ -5151,6 +5151,103 @@ export interface paths {
             };
         };
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/bank/combine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Store a bank the phone combined with the account's bank
+         * @description How the phone's bank and the account's bank in Cloud become one. The phone downloads the account's bank (GET /api/me/bank), combines its own bank into it item by item, and sends the result with the download's `stamp`; it holds every row of both. For a store account with Cloud only: an invited account is refused with `not_store_account` before the body is read. It writes in one transaction that holds the account and its answers, so it stores all of it or nothing. It is refused, writing nothing, when the server's bank no longer has the `stamp` (`bank_changed`: another device changed it, so download it and combine again), when the archive lacks a row the server holds (`bank_rows_missing`), when a row new to the account is on the server in another account (`bank_ids_taken`), or when a row both hold arrives with other values and an earlier time of last change (`bank_rows_older`). Otherwise the rows new to the account are inserted, each set new to the server, of every version and deleted ones too, after the import check POST /api/imports runs, stored as PUT /api/me/bank stores one; a set the server holds is not checked again, and its questions and terms are taken as the server holds them, so a new question or term in such a set is refused. A row both hold is written only when the sent row changed later (its `updatedAt`, or for a row without one the time it was made, as the server holds it; a question has its set's time, a Review clear its `clearedAt`, the course last used its `updatedAt`), and then only the fields a person changes, each row's `updatedAt` with them: a semester's name, dates and archive time; a course's semester, code, title, order, archive time and delete marks; a page's name, order, link, badge and delete marks; a folder's name, page, order and delete marks; a set's folder, week label, version marks and delete marks; a sitting's end, score, how it ended, the folders an exam was over and its delete marks; a question's week label; a Review clear's answer and time; and the course last used. Equal times, or none (terms and answers never change), leave the server's row as it is. Progress is not taken as sent: it is worked out again from the answers for every question whose answers, Review clear or sitting's delete mark changed, by the rule every answer follows, and every question with answers must have a progress row in the archive. Nothing is removed. Before it commits, the server checks that every key it held is still there and that each table holds what it held plus what was inserted, and rolls back otherwise (`bank_changed`). The same format checks and the same 64 MB limit as PUT /api/me/bank apply. Needs Cloud.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CombinedBankArchive"];
+                };
+            };
+            responses: {
+                /** @description Stored. The counts are read back from the account inside the transaction, so they match the archive's, and the stamp is of the bank the account now holds. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankCombined"];
+                    };
+                };
+                /** @description `invalid_archive`: the archive breaks a rule of the format, a set new to the server fails the import check, a question or term is new to a set the server holds, or a question with answers has no progress row; `problems` says what. Nothing was changed. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankError"];
+                    };
+                };
+                /** @description Sign in. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankError"];
+                    };
+                };
+                /** @description `not_store_account` for an invited account, `cloud_required` for a store account without Cloud, `admin_read_only` for the admin, `must_change_password`, or `agent_key_not_allowed` for an agent key. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankError"];
+                    };
+                };
+                /** @description `bank_changed` when the server's bank no longer has the archive's stamp, or changed while it was stored; `bank_rows_missing` when the archive lacks a row the server holds; `bank_ids_taken` when a row new to the account is on the server in another account; `bank_rows_older` when a row both hold arrives with other values and an earlier time of last change. `problems` names the rows for `bank_rows_missing` and `bank_rows_older`. Nothing was changed. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankError"];
+                    };
+                };
+                /** @description `archive_too_large`: the body is over 64 MB, by its length or as it arrives. Nothing was changed. */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankError"];
+                    };
+                };
+                /** @description Sign-in is not configured. */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankError"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -8613,6 +8710,8 @@ export interface paths {
          * @description Whether the signed-in account has Cloud now, as the server decides it, with the token a store account buys with. A store account without Cloud may read it: it is how the app learns what to offer, and that Cloud has ended.
          *
          *     The first read by a store account issues its token; every later read answers the same one. An invited account has Cloud without buying it, gets no token, and nothing of it is written.
+         *
+         *     Even after Cloud ends, the app can check the bank stamp and whether combining is paused without downloading its bank.
          */
         get: {
             parameters: {
@@ -8623,13 +8722,13 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description How the account stands. */
+                /** @description How the account and its bank stand. */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["CloudStatus"];
+                        "application/json": components["schemas"]["CloudBankStatus"];
                     };
                 };
                 /** @description Sign in. */
@@ -9954,7 +10053,7 @@ export interface components {
         ApplyRepair: {
             confirmed: boolean;
         };
-        /** @description Bank archive v1: one account's whole bank, as a row copy of the twelve tables it lives in, defined by the iPhone app's design record (docs/on-phone-bank.md in the qbank repository). Every row has every field, with null where a field may be null. Ids are kept on both sides of a move. Deleted rows are in it with their marks, so Undo still works after a move, and so is every version of a set. The owner of a row is not in it: the server fills it with the signed-in account. A field a reader does not know is ignored. */
+        /** @description Bank archive v1: one account's whole bank, as a row copy of the twelve tables it lives in, defined by the iPhone app's design record (docs/on-phone-bank.md in the qbank repository). Every row has every field, with null where a field may be null, but `updatedAt`: a row of the six tables a person edits (semesters, courses, pages, folders, sets, sittings) has it once the row has changed, and is without it until then. Ids are kept on both sides of a move. Deleted rows are in it with their marks, so Undo still works after a move, and so is every version of a set. The owner of a row is not in it: the server fills it with the signed-in account. A field a reader does not know is ignored. */
         BankArchive: {
             /** @enum {string} */
             format: "qbank-bank-archive";
@@ -9970,6 +10069,8 @@ export interface components {
             /** @description False when the writer had to leave a row out to keep every reference inside the document. A move takes only a complete archive. */
             complete: boolean;
             counts: components["schemas"]["BankCounts"];
+            /** @description The server's fingerprint of the bank it holds, written on every download. It changes whenever the bank does: a row added or removed, or a row changed in place. Compare it for equality and read nothing else from it. Another writer may leave it out, and an upload does not read it. A combined bank carries the stamp of the download it was combined with (`CombinedBankArchive`). */
+            stamp?: string;
             semesters: components["schemas"]["BankSemester"][];
             courses: components["schemas"]["BankCourse"][];
             courseExams: components["schemas"]["BankCourseExam"][];
@@ -10017,6 +10118,11 @@ export interface components {
              * @description UTC with milliseconds: YYYY-MM-DDTHH:MM:SS.sssZ.
              */
             createdAt: string;
+            /**
+             * Format: date-time
+             * @description When the row last changed: the server's database sets it on every update that changes the row. Absent, never null, on a row with no time: one not changed since it was made, or not since before the server kept the time. An upload stores it as sent.
+             */
+            updatedAt?: string;
         };
         BankCourse: {
             /** @description A lowercase UUID. */
@@ -10046,6 +10152,11 @@ export interface components {
             deletedAt: string | null;
             /** @description The delete that hid it: every row one delete hid carries its id. Null exactly when deletedAt is. */
             deletionId: string | null;
+            /**
+             * Format: date-time
+             * @description When the row last changed: the server's database sets it on every update that changes the row. Absent, never null, on a row with no time: one not changed since it was made, or not since before the server kept the time. An upload stores it as sent.
+             */
+            updatedAt?: string;
         };
         /** @description A page of a course or topic. */
         BankCourseExam: {
@@ -10070,6 +10181,11 @@ export interface components {
             deletedAt: string | null;
             /** @description The delete that hid it: every row one delete hid carries its id. Null exactly when deletedAt is. */
             deletionId: string | null;
+            /**
+             * Format: date-time
+             * @description When the row last changed: the server's database sets it on every update that changes the row. Absent, never null, on a row with no time: one not changed since it was made, or not since before the server kept the time. An upload stores it as sent.
+             */
+            updatedAt?: string;
         };
         BankFolder: {
             /** @description A lowercase UUID. */
@@ -10092,6 +10208,11 @@ export interface components {
             deletedAt: string | null;
             /** @description The delete that hid it: every row one delete hid carries its id. Null exactly when deletedAt is. */
             deletionId: string | null;
+            /**
+             * Format: date-time
+             * @description When the row last changed: the server's database sets it on every update that changes the row. Absent, never null, on a row with no time: one not changed since it was made, or not since before the server kept the time. An upload stores it as sent.
+             */
+            updatedAt?: string;
         };
         /** @description A set, of any version: every version of a set is in the archive. */
         BankPracticeSet: {
@@ -10132,6 +10253,11 @@ export interface components {
             deletedAt: string | null;
             /** @description The delete that hid it: every row one delete hid carries its id. Null exactly when deletedAt is. */
             deletionId: string | null;
+            /**
+             * Format: date-time
+             * @description When the row last changed: the server's database sets it on every update that changes the row. Absent, never null, on a row with no time: one not changed since it was made, or not since before the server kept the time. An upload stores it as sent.
+             */
+            updatedAt?: string;
         };
         BankQuestion: {
             /** @description A lowercase UUID. */
@@ -10214,6 +10340,11 @@ export interface components {
             deletedAt: string | null;
             /** @description The delete that hid it: every row one delete hid carries its id. Null exactly when deletedAt is. */
             deletionId: string | null;
+            /**
+             * Format: date-time
+             * @description When the row last changed: the server's database sets it on every update that changes the row. Absent, never null, on a row with no time: one not changed since it was made, or not since before the server kept the time. An upload stores it as sent.
+             */
+            updatedAt?: string;
         };
         BankAttempt: {
             /** @description A lowercase UUID. */
@@ -10286,11 +10417,21 @@ export interface components {
             error: string;
             /** @description A sentence to show as it is. */
             message: string;
-            /** @description With `invalid_archive`: each thing wrong with the archive, as a sentence, at most 50; a last one says how many more there are. */
+            /** @description With `invalid_archive`, `bank_rows_missing` and `bank_rows_older`: each thing wrong with the archive, as a sentence, at most 50; a last one says how many more there are. */
             problems?: string[];
         };
         BankStored: {
             counts: components["schemas"]["BankCounts"];
+        };
+        BankCombined: {
+            counts: components["schemas"]["BankCounts"];
+            /** @description The stamp of the account's bank as stored, the one its next download carries. */
+            stamp: string;
+        };
+        /** @description Bank archive v1 holding a bank combined on the phone: every row of the server's bank as it was downloaded, under its ids, and every row of the phone's own bank, with a row both hold kept once, as it changed last. It carries the stamp of the download it was built from. */
+        CombinedBankArchive: components["schemas"]["BankArchive"] & {
+            /** @description The stamp of the server's bank this bank was combined with: the `stamp` of the download it was built from. The server stores the bank only while its own bank still has this stamp. */
+            stamp: string;
         };
         ExamSetup: {
             /** Format: uuid */
@@ -11395,7 +11536,14 @@ export interface components {
         AgentKeyList: {
             keys: components["schemas"]["AgentKey"][];
         };
-        /** @description Whether the account has Cloud now, which the server decides, and the token it buys with. The same shape answers a purchase, so a purchase that was recorded reads as the state it left the account in. */
+        /** @description The account's Cloud status, the stamp of its bank, and whether phones should pause combining. */
+        CloudBankStatus: components["schemas"]["CloudStatus"] & {
+            /** @description The stamp from GET /api/me/bank for this account. Null when all twelve bank tables are empty for the account. */
+            bankStamp: string | null;
+            /** @description When true, the phone must pause combining its bank with the server's bank. Defaults to false. */
+            combinePaused: boolean;
+        };
+        /** @description Whether the account has Cloud now, as the server decides, and the token it buys with. */
         CloudStatus: components["schemas"]["Cloud"] & {
             /**
              * Format: uuid
