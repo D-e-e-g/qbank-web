@@ -350,20 +350,26 @@ test.describe("highlighting a question", () => {
       const stem = page.locator(".runner-stem");
       const scroller = page.locator(".runner-scroll");
       const scrolled = () => scroller.evaluate((element) => element.scrollTop);
-      // Back to the top once the page has come to rest.
-      const rest = async () => {
-        let last = -1;
-        await expect
-          .poll(async () => {
-            const before = last;
-            last = await scrolled();
-            return last === before;
-          })
-          .toBe(true);
-        await scroller.evaluate((element) => {
-          element.scrollTo(0, 0);
-        });
-      };
+      // Back to the top, held there until it stays for 30 frames. A swipe's fling can still be
+      // running while the page reads as still, clamped at the bottom, and it then drags the page
+      // down again from the top.
+      const rest = () =>
+        scroller.evaluate(
+          (element) =>
+            new Promise<void>((resolve) => {
+              let held = 0;
+              const frame = () => {
+                if (element.scrollTop === 0) held += 1;
+                else {
+                  held = 0;
+                  element.scrollTo(0, 0);
+                }
+                if (held < 30) requestAnimationFrame(frame);
+                else resolve();
+              };
+              frame();
+            }),
+        );
       // The question is taller than the screen, so there is something to scroll.
       expect(await scroller.evaluate((element) => element.scrollHeight - element.clientHeight)).toBeGreaterThan(150);
       const swipe = await realFinger(page);
